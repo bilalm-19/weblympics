@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import type { Locator, Page } from "@playwright/test";
+import { skipCheck, useKeyboard } from "./flow.ts";
 
 // Runs with Chrome's fake webcam (playwright.config.ts): a test pattern, no
 // person in it, so the camera starts and the model loads but nothing is tracked.
@@ -9,6 +10,7 @@ const ALLOWED_MESSAGES = new Set(["hello", "create", "join", "ready", "format", 
 async function practice(page: Page): Promise<void> {
   await page.goto("/");
   await page.getByRole("button", { name: /practice vs bot/i }).click();
+  await useKeyboard(page);
   await expect(page.locator("canvas")).toBeVisible();
 }
 
@@ -67,10 +69,11 @@ test("camera path: starts the fake webcam, loads the model, skips the visibility
   await expect(panel.getByRole("button", { name: "Looks good" })).toBeDisabled();
   await expect(panel.getByRole("heading", { name: /stand neutral|swing light/i })).toHaveCount(0);
   await expect(panel.locator("details.advanced")).not.toHaveAttribute("open", "");
-  await panel.getByRole("button", { name: "Skip check" }).click();
-  await expect(panel).toBeHidden();
+  await skipCheck(page);
   await expect(page.locator(".hud .status")).not.toHaveText(/paused/i);
-  expect(sent.filter((m) => JSON.parse(m).t === "pause").map((m) => JSON.parse(m).paused)).toEqual([true, false]);
+  // paused while each setup was open: the one that opens with the game (closed
+  // with "Use keyboard instead"), then this one
+  expect(sent.filter((m) => JSON.parse(m).t === "pause").map((m) => JSON.parse(m).paused)).toEqual([true, false, true, false]);
 
   // the keyboard still plays alongside the camera
   await page.keyboard.press("Digit3");
@@ -183,7 +186,7 @@ test("safety notice: 'don't show again' skips it next time", async ({ page }) =>
   await panel.getByLabel(/don't show this again/i).check();
   await panel.getByRole("button", { name: "Got it" }).click();
   await expect(panel.getByRole("heading", { name: /play with your camera/i })).toBeVisible();
-  await panel.getByRole("button", { name: "Cancel" }).click();
+  await panel.getByRole("button", { name: /use keyboard instead/i }).click();
   await page.getByRole("button", { name: "Camera", exact: true }).click();
   await expect(panel.getByRole("heading", { name: /play with your camera/i })).toBeVisible();
   expect(await noHorizontalScroll(page)).toBe(true);

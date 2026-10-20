@@ -34,7 +34,12 @@ lazily and only when a player enters a game. Video never leaves the browser.
   schema, migrations, match rows, who is rated), `log.ts` (JSON log lines).
   Rooms get their sim from the registry, so networking is game-agnostic.
 - `client/` Vite app: `games/<name>/view.ts` (scene, HUD, input wiring),
-  `games/tennis/score-bar.ts` (top score bar and the umpire's call),
+  `games/tennis/score-bar.ts` (top score bar), task 16's point call:
+  `point-call.ts` (pure: the call in tennis words, who won, how big, who
+  reacts; task 19's crowd and sound should reuse it), `call-banner.ts` + `.css`
+  (the big call across the top, the live region) and `reaction-fx.ts`
+  (scribble and sparkles over the players; the fist pump and slump are
+  `Player.react` in `character.ts`),
   `games/tennis/ready-panel.ts` + `.css` (the room's ready panel, task 4),
   training (task 5): `training.ts` + `.css` (coach panel, landing mark),
   `lessons.ts` (pure: steps, feedback words, "Why?" notes),
@@ -98,7 +103,10 @@ lazily and only when a player enters a game. Video never leaves the browser.
   hits from swing timestamps against its own sim.
 - Scoring is real tennis for everyone (`spec/sim-scoring.test.ts`): one set by
   default, best of three or unlimited, tiebreak at 6-6, two serves per point, no lets.
-  The score bar only renders the server's `ScoreState`. Practice never ends
+  The score bar only renders the server's `ScoreState`. The call after a point
+  (task 16, `spec/point-call.test.ts`, `e2e/call-banner.e2e.ts`) is worked out
+  on each screen from two snapshots: no network message, spectators see it
+  too, and it never covers the court or the HUD. Practice never ends
   (a won match starts a new one) and practice-vs-bot is never rated
   (`spec/db.test.ts`).
 - Rooms (task 4; `spec/lobby.test.ts`, `spec/room-rules.test.ts`,
@@ -156,6 +164,12 @@ lazily and only when a player enters a game. Video never leaves the browser.
   shrinks with distance.
 - Camera is used for gameplay only. Every camera action has a keyboard/mouse
   equivalent, and the lobby and room work with no camera at all.
+- Webcam is the default (task 15, `e2e/webcam-default.e2e.ts`): a seated
+  player's game (practice, room, training) opens the camera setup first, with
+  "Use keyboard instead" on each step; that, Escape or a refused permission
+  leaves a playable game on keys. After the setup, practice offers training
+  once per device ("Train first" / "Skip training"); Train stays on the home
+  screen. Spectators get no camera setup.
 - Auto-move (`spec/auto-move.test.ts`) walks slower than manual movement
   (`AUTO_SPEED` share of `PLAYER.speed`) so a wide hard shot can beat it;
   strength must keep mattering. The movement mode is an input to the sim,

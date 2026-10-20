@@ -28,6 +28,13 @@ export interface CameraCallbacks {
   swing(level: Level, kind: SwingKind, aim: number, hand: Hand, lift?: number, timingAim?: boolean): void;
   /** The setup panel opened (true) or closed (false). */
   pause(paused: boolean): void;
+  /** The player closed the setup without a camera ("Use keyboard instead", Escape, or after a failure). */
+  declined?(): void;
+  /**
+   * Offer training once the camera is set up (task 15: training is the step
+   * after the camera setup). Asked once per device; called on "Train first".
+   */
+  train?(): void;
 }
 
 export interface CameraInput {
@@ -55,12 +62,17 @@ export interface CameraInput {
    * remembered for next time, so a drill never leaves a saved lean behind.
    */
   setMoveMode(mode: MoveMode): void;
+  /** Open the setup (safety notice unless acknowledged, then start camera): the default when a game starts. */
+  openSetup(): void;
+  /** Start the camera straight away with the saved choices, then the visibility check (coming from "Train first"). */
+  resume(): void;
   dispose(): void;
 }
 
 const STORAGE_KEY = "camera-calibration";
 const SAFETY_KEY = "camera-safety-ack";
 const MOVE_MODE_KEY = "move-mode";
+const TRAIN_OFFER_KEY = "training-offered";
 const SWINGS_PER_LEVEL = 2;
 const LEVEL_WORDS = ["light", "medium", "hard"] as const;
 
@@ -105,6 +117,23 @@ function saveMoveMode(mode: MoveMode): void {
     localStorage.setItem(MOVE_MODE_KEY, mode);
   } catch {
     // storage unavailable: auto next time
+  }
+}
+
+// Asked once per device; with storage unavailable it is asked each time.
+function trainingOffered(): boolean {
+  try {
+    return localStorage.getItem(TRAIN_OFFER_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+function rememberTrainingOffered(): void {
+  try {
+    localStorage.setItem(TRAIN_OFFER_KEY, "1");
+  } catch {
+    // storage unavailable: offered again next time
   }
 }
 
@@ -230,13 +259,21 @@ export function createCameraInput(
     }
   };
 
-  const close = () => {
+  // `focusButton` false when the player chose the keyboard: a focused Camera
+  // button would take Space (the medium swing) and reopen this panel.
+  const close = (focusButton = true) => {
     capture = null;
     onVisibility = null;
     panel.hidden = true;
     view.classList.remove("calibrating");
     cb.pause(false);
-    button.focus();
+    if (focusButton) button.focus();
+    else (document.activeElement as HTMLElement | null)?.blur?.();
+  };
+  // closed without a camera: the keyboard and buttons play (camera is never required)
+  const useKeyboard = () => {
+    close(false);
+    cb.declined?.();
   };
 
   const stop = () => {
@@ -272,7 +309,7 @@ export function createCameraInput(
       `<h2>Camera unavailable</h2>
        <p role="alert"></p>
        <div class="row"><button class="primary" data-step="close">Keep playing</button></div>`,
-      { close },
+      { close: useKeyboard },
     );
     (panel.querySelector("[role=alert]") as HTMLElement).textContent = message;
   };
@@ -290,14 +327,14 @@ export function createCameraInput(
        <label class="check"><input type="checkbox" data-remember /> Don't show this again</label>
        <div class="row">
          <button class="primary" data-step="ack">Got it</button>
-         <button data-step="close">Cancel</button>
+         <button data-step="keyboard">Use keyboard instead</button>
        </div>`,
       {
         ack: () => {
           if ((panel.querySelector("[data-remember]") as HTMLInputElement).checked) rememberSafety();
           intro();
         },
-        close,
+        keyboard: useKeyboard,
       },
     );
   };
@@ -323,9 +360,9 @@ export function createCameraInput(
        </div>
        <div class="row">
          <button class="primary" data-step="start">Start camera</button>
-         <button data-step="close">Cancel</button>
+         <button data-step="keyboard">Use keyboard instead</button>
        </div>`,
-      { start: () => start(hand, mode, aimMode), close },
+      { start: () => start(hand, mode, aimMode), keyboard: useKeyboard },
     );
     const aimButtons = panel.querySelectorAll<HTMLButtonElement>("[data-aim]");
     const markAim = () => aimButtons.forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.aim === aimMode)));
@@ -367,7 +404,31 @@ export function createCameraInput(
   const finish = () => {
     saveCalibration(calib);
     controller.setCalibration(calib);
-    close();
+    if (cb.train && !trainingOffered()) offerTraining(cb.train);
+    else close();
+  };
+
+  // Training is the step after the camera setup (task 15), offered once per
+  // device; it stays on the home screen as Train either way.
+  const offerTraining = (train: () => void) => {
+    show(
+      `<h2>Camera ready</h2>
+       <p>New here? A short lesson against a ball machine teaches the swings, and nothing is sent anywhere. Train is also on the home screen.</p>
+       <div class="row">
+         <button class="primary" data-step="train">Train first</button>
+         <button data-step="skip-training">Skip training</button>
+       </div>`,
+      {
+        train: () => {
+          rememberTrainingOffered();
+          train();
+        },
+        "skip-training": () => {
+          rememberTrainingOffered();
+          close(false);
+        },
+      },
+    );
   };
 
   const check = () => {
@@ -475,7 +536,9 @@ export function createCameraInput(
     else safety();
   };
   const onKey = (e: KeyboardEvent) => {
-    if (e.key === "Escape" && !panel.hidden && !starting) close();
+    if (e.key !== "Escape" || panel.hidden || starting) return;
+    if (session) close();
+    else useKeyboard();
   };
   button.addEventListener("click", onButton);
   window.addEventListener("keydown", onKey);
@@ -498,6 +561,15 @@ export function createCameraInput(
       moves.reset();
       renderMode();
       cb.moveMode(moveMode);
+    },
+    openSetup() {
+      if (session || starting || !panel.hidden) return;
+      if (safetyAcknowledged()) intro();
+      else safety();
+    },
+    resume() {
+      if (session || starting) return;
+      void start(calib.hand, calib.mode, calib.aim);
     },
     dispose() {
       button.removeEventListener("click", onButton);

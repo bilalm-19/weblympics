@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import type { Locator, Page } from "@playwright/test";
+import { skipCheck, useKeyboard } from "./flow.ts";
 
 // Task 6: forehand and backhand look different, and a FOREHAND / BACKHAND
 // label shows on each shot without covering the court or the camera dock.
@@ -33,6 +34,7 @@ async function labelClear(page: Page, label: Locator, also: Locator[] = []): Pro
 async function practice(page: Page): Promise<void> {
   await page.goto("/");
   await page.getByRole("button", { name: /practice vs bot/i }).click();
+  await useKeyboard(page);
   await expect(page.locator("canvas")).toBeVisible();
   await expect.poll(async () => Number(await page.locator("canvas").getAttribute("data-frames"))).toBeGreaterThan(5);
 }
@@ -77,10 +79,12 @@ test("the joining player (seat 1) gets the label on their side of the arena", as
   await page.goto("/");
   await page.getByRole("button", { name: /create/i }).first().click();
   await expect(page).toHaveURL(/#\/room\/[A-Z]{4}$/);
+  await useKeyboard(page);
   const mobile = testInfo.project.name === "mobile";
   const guestContext = await browser.newContext({ viewport: page.viewportSize()!, isMobile: mobile, hasTouch: mobile });
   const guest = await guestContext.newPage();
   await guest.goto(page.url());
+  await useKeyboard(guest);
   // a two-player match starts once both are ready (task 4); before that the
   // ready panel is up and the label steps aside
   await guest.getByRole("button", { name: "I'm ready" }).click();
@@ -105,8 +109,7 @@ test("the label stays clear of the camera dock", async ({ page }) => {
   await panel.getByRole("button", { name: "Got it" }).click();
   await panel.getByRole("button", { name: /start camera/i }).click();
   await expect(panel.getByRole("heading", { name: /can we see you/i })).toBeVisible({ timeout: 40_000 });
-  await panel.getByRole("button", { name: "Skip check" }).click();
-  await expect(panel).toBeHidden();
+  await skipCheck(page);
   await expect(page.locator("video.selfview")).toBeVisible();
   await page.keyboard.press("Space");
   await labelClear(page, page.locator(".shot-label"), [page.locator(".cam-dock")]);

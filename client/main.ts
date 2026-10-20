@@ -50,8 +50,9 @@ function leave(): void {
 }
 
 // Training runs in the page against a ball machine: it sends nothing to the
-// server, so leaving it needs no "leave" either.
-function train(): void {
+// server, so leaving it needs no "leave" either. `resumeCamera`: coming from
+// the camera setup's "Train first", so the camera starts again at once.
+function train(resumeCamera = false): void {
   disposeGame?.();
   training = true;
   error = null;
@@ -59,7 +60,7 @@ function train(): void {
   disposeGame = startTraining(root, () => {
     history.replaceState(null, "", location.pathname);
     showMenu();
-  });
+  }, resumeCamera);
 }
 
 // Archery practice (task 22): in the page too, nothing sent to the server.
@@ -82,7 +83,20 @@ function enterRoom(info: RoomInfo): void {
   error = null;
   history.replaceState(null, "", `#/room/${info.room}`);
   sport = info.game;
-  disposeGame = info.game === "archery" ? startArchery(root, conn, info, leave) : startTennis(root, conn, info, leave);
+  if (info.game === "archery") {
+    disposeGame = startArchery(root, conn, info, leave);
+  } else {
+    // practice offers training once the camera is set up (a room may have
+    // someone waiting, so it doesn't): leave the bot and train with the camera on
+    const onTrain = info.practice
+      ? () => {
+          conn.send({ t: "leave" });
+          currentRoom = null;
+          train(true);
+        }
+      : undefined;
+    disposeGame = startTennis(root, conn, info, leave, { onTrain });
+  }
 }
 
 conn.on((msg) => {

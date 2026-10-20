@@ -1103,13 +1103,12 @@ a:focus-visible {
   font-weight: 700;
 }
 
-/* format on the first row, the call on the second, right of the numbers */
+/* the format on the first row, right of the numbers (the call is the banner, call-banner.css) */
 .score .sb-foot {
   display: contents;
 }
 
-.score .sb-format,
-.score .sb-call {
+.score .sb-format {
   grid-column: 6;
   padding-left: 0.2rem;
   overflow: hidden;
@@ -1121,13 +1120,6 @@ a:focus-visible {
   grid-row: 1;
   font-size: 0.75rem;
   color: var(--muted);
-}
-
-.score .sb-call {
-  grid-row: 2;
-  color: var(--accent);
-  font-weight: 700;
-  font-size: 0.85rem;
 }
 
 .score .sb-pulse {
