@@ -50,8 +50,11 @@ lazily and only when a player enters a game. Video never leaves the browser.
   with `aid.ts`/`aid-fx.ts`/`aid.css` drawing it (task 3), `input/`
   (`keyboard.ts` for keys, pointer and buttons; `camera/` with `pose.ts` pure
   landmark maths, `camera.ts` webcam + lazy MediaPipe, `index.ts` setup
-  panel), `net/socket.ts` (`Connection`), `net/link.ts` (`GameLink`), `ui/menu.ts` (home screen: title, framed sport preview,
-  sport buttons from the `SPORTS` list; inline SVG/CSS only, no Three.js). Camera swings have two modes,
+  panel), `net/socket.ts` (`Connection`), `net/link.ts` (`GameLink`), `ui/menu.ts` (home screen: animated logo, framed sport preview
+  with a looping SVG snippet per sport, sport buttons from the `SPORTS` list,
+  the arrow as the mouse cursor; inline SVG/CSS only, no Three.js:
+  `spec/home-screen.test.ts`), `ui/brand.ts` (the five ring colours and every
+  text/background pair, held to WCAG AA by `spec/brand.test.ts`; task 14). Camera swings have two modes,
   "classic" (default) and "follow" (character copies the arm, hit at the
   hitting line), and two aim modes, "timing" (default) and "point"; see
   the camera setup notes in `tasks/done/`. Movement has two modes per seat,
