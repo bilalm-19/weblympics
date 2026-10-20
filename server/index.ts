@@ -13,14 +13,25 @@ import type { Player } from "./accounts.ts";
 import { GUEST_COOKIE, createAuth, identify } from "./auth.ts";
 import { db, matchCountFor } from "./db.ts";
 import { allowedOrigin, cookie } from "./guard.ts";
-import { log } from "./log.ts";
-import { PING_MS, createRoom, getRoom, leaveRoom, onPong, roomCount, send, sendPing } from "./rooms.ts";
+import { log, who } from "./log.ts";
+import { PING_MS, createRoom, getRoom, leaveRoom, onPong, roomCount, roomStats, send, sendPing } from "./rooms.ts";
 import type { Client } from "./rooms.ts";
 
 const PORT = Number(process.env.PORT ?? 8080);
 const CLIENT_DIR = resolve("dist/client");
 const DOCS_DIR = resolve("docs");
 const HEARTBEAT_MS = 25_000;
+// fly.toml gives the machine 256 MB
+const MEMORY_LIMIT_MB = 256;
+const STARTED = Date.now();
+
+// Task 8: anything that would otherwise crash the server silently is logged
+// first (message only: a stack can carry request data).
+process.on("uncaughtException", (e) => {
+  log("error", { where: "uncaught", message: e.message });
+  process.exit(1);
+});
+process.on("unhandledRejection", (e) => log("error", { where: "unhandledRejection", message: e instanceof Error ? e.message : String(e) }));
 
 // The game page may only talk to this server and fetch the pose model and its
 // runtime. That keeps the promise that video never leaves the browser, and
@@ -108,6 +119,23 @@ const http = createServer(async (req, res) => {
     res.end(JSON.stringify({ ok: true, rooms: roomCount() }));
     return;
   }
+  if (path === "/stats") {
+    // task 8: what the app is doing, for a quick look in production; counts
+    // only, nothing about who
+    const mem = process.memoryUsage();
+    const mb = (n: number) => Math.round((n / 1024 / 1024) * 10) / 10;
+    res.writeHead(200, { "content-type": "application/json", "cache-control": "no-store" });
+    res.end(
+      JSON.stringify({
+        uptimeSeconds: Math.round((Date.now() - STARTED) / 1000),
+        connections: wss.clients.size,
+        playersOnline: sockets.size,
+        ...roomStats(),
+        memory: { rssMb: mb(mem.rss), heapUsedMb: mb(mem.heapUsed), limitMb: MEMORY_LIMIT_MB, usedPercent: Math.round((mem.rss / (MEMORY_LIMIT_MB * 1024 * 1024)) * 100) },
+      }),
+    );
+    return;
+  }
   if (path.startsWith("/api/")) {
     try {
       await auth(req, res, path);
@@ -177,11 +205,24 @@ http.on("upgrade", (req, socket, head) => {
 
 const alive = new WeakSet<WebSocket>();
 
+/** A short word for a WebSocket close code, for the disconnect log. */
+function closeReason(code: number): string {
+  if (code === 1000) return "closed";
+  if (code === 1001) return "page left";
+  if (code === 1005) return "no status";
+  if (code === 1006) return "connection lost";
+  return `code ${code}`;
+}
+
 wss.on("connection", (ws: WebSocket, req: IncomingMessage) => {
   alive.add(ws);
   ws.on("pong", () => alive.add(ws));
 
   const player = upgrading.get(req)!.player;
+  const opened = Date.now();
+  const id = who(player.token);
+  // a second socket for someone already connected is them coming back (a reload, a dropped network)
+  log("connect", { who: id, account: player.account, again: sockets.has(player.token) });
   const mine = sockets.get(player.token) ?? new Set<WebSocket>();
   mine.add(ws);
   sockets.set(player.token, mine);
@@ -203,6 +244,7 @@ wss.on("connection", (ws: WebSocket, req: IncomingMessage) => {
   ws.on("message", (data) => {
     const msg = parseClientMsg(data.toString());
     if (!msg) {
+      log("bad_message", { who: id, bytes: data.toString().length });
       send(client, { t: "error", message: "bad message" });
       return;
     }
@@ -211,7 +253,7 @@ wss.on("connection", (ws: WebSocket, req: IncomingMessage) => {
       // client never says who it is (task 17)
       hello = true;
       send(client, { t: "welcome", name: player.name, account: player.account, demo: player.demo, matches: matchCountFor(player.token) });
-      log("hello", { name: player.name, account: player.account });
+      log("hello", { who: id, account: player.account });
       sendPing(client);
       return;
     }
@@ -275,19 +317,24 @@ wss.on("connection", (ws: WebSocket, req: IncomingMessage) => {
     }
   });
 
-  ws.on("close", () => {
+  ws.on("close", (code, reason) => {
     clearInterval(pinger);
+    log("disconnect", { who: id, code, reason: reason.toString().slice(0, 60) || closeReason(code), seconds: Math.round((Date.now() - opened) / 1000), room: client.room?.id ?? null });
     mine.delete(ws);
     if (mine.size === 0) sockets.delete(player.token);
     // a dropped connection mid-match holds the seat for 30 s (task 4)
     leaveRoom(client, true);
   });
-  ws.on("error", () => ws.terminate());
+  ws.on("error", (e) => {
+    log("error", { where: "ws", who: id, message: e.message });
+    ws.terminate();
+  });
 });
 
 setInterval(() => {
   for (const ws of wss.clients) {
     if (!alive.has(ws)) {
+      log("heartbeat_timeout", {});
       ws.terminate();
       continue;
     }

@@ -29,7 +29,9 @@ lazily and only when a player enters a game. Video never leaves the browser.
   the real clock and db), `room.ts` (one room: 60 Hz tick loop, seats,
   spectators, game), `lobby.ts` (pure room rules: phases, ready, format,
   countdown, the 30 s hold; clock injected), `db.ts` (SQLite on `/data`), `schema.ts` (versioned
-  schema, migrations, match rows, who is rated), `log.ts` (JSON log lines),
+  schema, migrations, match rows, who is rated), `log.ts` (JSON log lines;
+  players appear only as `who`, a per-run keyed hash; `/stats` in
+  `index.ts` gives counts, loop timing and memory, task 8),
   task 17: `accounts.ts` (guests, accounts, passkeys, sessions, delete; pure
   over a db handle), `ratings.ts` (task 7: Elo, leaderboards, history), `auth.ts` (the `/api/*` account routes and passkey
   ceremonies), `guard.ts` (cookies, Origin check, challenges, rate limits),
@@ -171,6 +173,9 @@ lazily and only when a player enters a game. Video never leaves the browser.
   (`AUTO_SPEED` share of `PLAYER.speed`) so a wide hard shot can beat it;
   strength must keep mattering. The movement mode is an input to the sim,
   never a client claim of position.
+- Logs never carry a token, cookie, passkey value or name, chosen or
+  pseudonym (`spec/stats-logging.test.ts` runs a private server and reads its
+  output); use `who(token)` from `server/log.ts`.
 - Every bug fix adds a test that fails without it. When I correct you, put the
   rule here or in `spec/`, not only in the chat.
 - Keep `README.md`, this file and `spec/` consistent; a claim in one needs to

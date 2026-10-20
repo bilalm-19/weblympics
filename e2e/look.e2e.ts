@@ -80,6 +80,10 @@ test("customise: live preview, keyboard, saved, and seen on that seat by both pl
     await expect(p.locator("canvas")).toHaveAttribute("data-look0", /^[a-z]+\/[a-z]+\/s\d\/[a-z]+\/[a-z]+$/);
   }
 
+  // close the other two browsers: 3D pages left open starve the next test
+  await host.context().close();
+  await watcher.context().close();
+
   // put Demo Two back to the default so other runs start clean
   await page.goto("about:blank");
   await page.goto("/");

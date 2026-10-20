@@ -39,6 +39,7 @@ import type { Player } from "./accounts.ts";
 import type { Look } from "../shared/look.ts";
 import { games } from "../shared/games/registry.ts";
 import { Challenges, RateLimit, allowedOrigin, cookie, parseCookies, rpIdFor } from "./guard.ts";
+import { who } from "./log.ts";
 import { history, leaderboard, longestRally, ratingOf } from "./ratings.ts";
 
 export const GUEST_COOKIE = "wl_guest";
@@ -163,7 +164,7 @@ export function createAuth(deps: AuthDeps) {
       if (!guest) {
         const token = newGuestToken();
         guest = guestFor(db, token, clock())!;
-        log("guest_new", { name: guest.name });
+        log("guest_new", { who: who(guest.token) });
       }
       // refreshed on every visit, so a guest who keeps playing keeps their profile
       set.push(cookie(GUEST_COOKIE, guest.token, GUEST_DAYS * DAY_S, host));
@@ -238,8 +239,8 @@ export function createAuth(deps: AuthDeps) {
           // claimed: from now on a session cookie says who this is, and the
           // guest cookie can't open the account
           set.push(sessionCookie(player.token, host), clear(GUEST_COOKIE, host));
-          log("account_claim", { name: player.name });
-        } else log("passkey_add", { name: player.name });
+          log("account_claim", { who: who(player.token) });
+        } else log("passkey_add", { who: who(player.token) });
         return json(res, 200, me(getPlayer(db, player.token)!), set), true;
       }
 
@@ -273,7 +274,7 @@ export function createAuth(deps: AuthDeps) {
         const signedIn = getPlayer(db, found.player);
         if (!signedIn?.account) return json(res, 401, { error: "That passkey isn't one we know here." }), true;
         if (jar.has(SESSION_COOKIE)) endSession(db, jar.get(SESSION_COOKIE)!);
-        log("sign_in", { name: signedIn.name });
+        log("sign_in", { who: who(signedIn.token) });
         return json(res, 200, me(signedIn), [sessionCookie(signedIn.token, host)]), true;
       }
 
@@ -283,14 +284,14 @@ export function createAuth(deps: AuthDeps) {
         if (!n) return json(res, 400, { error: "Bad request." }), true;
         const demo = getDemo(db, n);
         if (jar.has(SESSION_COOKIE)) endSession(db, jar.get(SESSION_COOKIE)!);
-        log("sign_in", { name: demo.name, demo: true });
+        log("sign_in", { who: who(demo.token), demo: true });
         return json(res, 200, me(demo), [sessionCookie(demo.token, host)]), true;
       }
 
       case "/api/logout": {
         const cookieValue = jar.get(SESSION_COOKIE);
         if (cookieValue) endSession(db, cookieValue);
-        if (player?.account) log("sign_out", { name: player.name });
+        if (player?.account) log("sign_out", { who: who(player.token) });
         return json(res, 200, { ok: true }, [clear(SESSION_COOKIE, host)]), true;
       }
 
@@ -298,7 +299,7 @@ export function createAuth(deps: AuthDeps) {
         if (!player) return json(res, 401, { error: "Load the page first." }), true;
         const r = rename(db, player.token, body.name);
         if (!r.ok) return json(res, r.status, { error: r.reason }), true;
-        log("rename", { from: player.name, to: r.name });
+        log("rename", { who: who(player.token) });
         return json(res, 200, me({ ...player, name: r.name })), true;
       }
 
@@ -306,7 +307,7 @@ export function createAuth(deps: AuthDeps) {
         if (!player) return json(res, 401, { error: "Load the page first." }), true;
         const r = setLook(db, player.token, body.look);
         if (!r.ok) return json(res, r.status, { error: r.reason }), true;
-        log("look", { name: player.name });
+        log("look", { who: who(player.token) });
         return json(res, 200, me(player)), true;
       }
 
@@ -315,7 +316,7 @@ export function createAuth(deps: AuthDeps) {
         if (typeof body.id !== "string") return json(res, 400, { error: "Bad request." }), true;
         const r = removePasskey(db, player.token, body.id, body.confirm === true);
         if (!r.ok) return json(res, r.status, { error: r.reason, last: r.status === 409 }), true;
-        log("passkey_remove", { name: player.name, remaining: r.remaining });
+        log("passkey_remove", { who: who(player.token), remaining: r.remaining });
         return json(res, 200, me(player)), true;
       }
 

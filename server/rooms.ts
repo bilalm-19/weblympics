@@ -70,6 +70,26 @@ export function roomCount(): number {
   return rooms.size;
 }
 
+/** Task 8: what the rooms are doing, for /stats. */
+export function roomStats(): { rooms: number; playing: number; seated: number; spectators: number; loop: { avgMs: number; maxMs: number } } {
+  let playing = 0;
+  let seated = 0;
+  let spectators = 0;
+  let runs = 0;
+  let total = 0;
+  let max = 0;
+  for (const r of rooms.values()) {
+    if (r.lobby.inMatch || (r.practice && r.seats[0])) playing++;
+    seated += r.seats.filter((c) => c !== null).length;
+    spectators += r.spectators.size;
+    runs += r.loop.runs;
+    total += r.loop.totalMs;
+    max = Math.max(max, r.loop.maxMs);
+  }
+  const round = (n: number) => Math.round(n * 100) / 100;
+  return { rooms: rooms.size, playing, seated, spectators, loop: { avgMs: runs ? round(total / runs) : 0, maxMs: round(max) } };
+}
+
 setInterval(() => {
   const now = performance.now();
   for (const room of rooms.values()) if (room.isStale(now)) room.destroy();
