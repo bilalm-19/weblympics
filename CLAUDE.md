@@ -38,7 +38,10 @@ lazily and only when a player enters a game. Video never leaves the browser.
   `training-sim.ts` (sim + ball machine in the page) and `local-link.ts`
   (a `GameLink` like `Connection`, so `view.ts` renders training unchanged;
   no network),
-  `games/tennis/stadium.ts` (arena from primitives, instanced crowd/trees),
+  `games/tennis/stadium.ts` (arena from primitives: static parts merged into
+  two vertex-coloured meshes, instanced crowd/trees; returns the crowd handle),
+  `games/tennis/crowd-layout.ts` (pure: stands and seats in four sections,
+  left, right, frontLeft, frontRight, for task 19 to drive),
   `games/tennis/character.ts` (Mii-style player and racket),
   `games/tennis/stroke.ts` (forehand/backhand keyframes, shot label text),
   `games/tennis/shot-fx.ts` (ball trail, bounce marks, shot arc),
@@ -118,8 +121,7 @@ lazily and only when a player enters a game. Video never leaves the browser.
   sent to the server (`spec/training.test.ts`, `e2e/training.e2e.ts`).
   Required steps: swing, forehand, backhand, timing (early, on time and late
   each landing in), strength; auto-move stays on. Moving yourself is offered
-  after them and optional. Figures in its notes come from `docs/reaction-time.md`.
-- Camera is used for gameplay only. Every camera action has a keyboard/mouse
+  after them and optional. Figures in its notes come from `docs/reaction-time.md`.- Camera is used for gameplay only. Every camera action has a keyboard/mouse
   equivalent, and the lobby and room work with no camera at all.
 - Auto-move (`spec/auto-move.test.ts`) walks slower than manual movement
   (`AUTO_SPEED` share of `PLAYER.speed`) so a wide hard shot can beat it;
