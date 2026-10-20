@@ -13,6 +13,9 @@ export interface Me {
   passkeys: { id: string; createdAt: number; lastUsedAt: number | null }[];
   /** Saved look (task 18); null for the default. */
   look: Look | null;
+  /** Task 7: rating per sport (accounts only). */
+  ratings: Record<string, { rating: number; wins: number; losses: number }>;
+  longestRally: number;
 }
 
 export class ApiError extends Error {

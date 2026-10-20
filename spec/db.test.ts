@@ -57,6 +57,9 @@ const match = (over: Partial<MatchRecord> = {}): MatchRecord => ({
   format: "oneSet",
   sets: [[7, 6]],
   practice: false,
+  // task 7: the host asked for a rated match and both seats are accounts
+  ratedRequested: true,
+  accounts: [true, true],
   ...over,
 });
 
@@ -131,9 +134,11 @@ describe("schema v3 (task 4: unlimited)", () => {
     migrate(db);
     expect(schemaVersion(db)).toBe(SCHEMA_VERSION);
     const rows = db.prepare("SELECT room, winner, format, rated, best_rally FROM matches ORDER BY id").all();
+    // every row survives; v6 (task 7) then marks the old guest-vs-guest
+    // "rated" row unrated, since only accounts are rated now
     expect(rows).toEqual([
       { room: "ABCD", winner: 0, format: "points5", rated: 0, best_rally: null },
-      { room: "V2RM", winner: 0, format: "oneSet", rated: 1, best_rally: null },
+      { room: "V2RM", winner: 0, format: "oneSet", rated: 0, best_rally: null },
     ]);
     insertMatch(db, match({ room: "UNLM", format: "unlimited", winner: null, score: [14, 9], sets: [], bestRally: 11 }));
     expect(db.prepare("SELECT winner, score0, score1, rated, best_rally FROM matches WHERE room = 'UNLM'").get()).toEqual({

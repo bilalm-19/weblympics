@@ -1,4 +1,4 @@
-# Accounts, names and passkeys
+# Accounts, names, passkeys and ratings
 
 Linked from the README, which is near its word limit. The rules here are
 enforced by `spec/accounts.test.ts`, `spec/auth-api.test.ts` and
@@ -37,6 +37,28 @@ An account (and either demo account) can pick its player's shirt, shorts,
 skin and hair colours and a hat or hairstyle from fixed lists, in Profile.
 The server refuses anything not on the lists. Everyone in the room, players
 and spectators, sees it. Guests wear their seat's default (blue or red top).
+
+## Rated matches and the leaderboard
+
+- **Rated is an option on the invite.** The host (whoever made the room)
+  switches "Rated match" on in the ready panel before play; changing it
+  clears both ready flags, like the format. The server decides whether it
+  counts: both seats must be signed-in accounts on different accounts, in a
+  real room (not practice against the bot, not training), in a format with a
+  winner (not unlimited), and the match must finish (leaving mid-match ends
+  it with no result). A guest in the room shows the option as unavailable,
+  with the reason.
+- **Elo, one rating per sport.** Everyone starts at 1000. When a rated match
+  ends, the winner's expected score is E = 1 / (1 + 10^((Rloser - Rwinner) /
+  400)); the winner gains round(32 x (1 - E)) and the loser loses the same,
+  never dropping below 100. A match only moves the rating of its own sport.
+  The rating update is in the same database transaction as the match row,
+  and ratings can be rebuilt from the rated match rows alone.
+- **The leaderboard** (home screen, Leaderboard) has a tab per sport and lists
+  accounts only: never guests, and not the demo accounts. Your row is
+  highlighted and your rank is shown even outside the top list. It refreshes
+  every second while open. Your profile shows your rating per sport and your
+  longest rally; the leaderboard dialog lists your recent matches.
 
 ## Deleting an account
 

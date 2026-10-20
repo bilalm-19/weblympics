@@ -247,7 +247,13 @@ wss.on("connection", (ws: WebSocket, req: IncomingMessage) => {
         client.room?.ready(client, msg.ready);
         break;
       case "format": {
-        const refused = client.room?.format(client, msg.format) ?? "not in a room";
+        // null means accepted; only a missing room is "not in a room" (null ?? x would turn success into an error)
+        const refused = client.room ? client.room.format(client, msg.format) : "not in a room";
+        if (refused) send(client, { t: "error", message: refused });
+        break;
+      }
+      case "rated": {
+        const refused = client.room ? client.room.setRated(client, msg.rated) : "not in a room";
         if (refused) send(client, { t: "error", message: refused });
         break;
       }

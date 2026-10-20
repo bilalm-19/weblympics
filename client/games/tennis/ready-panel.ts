@@ -13,8 +13,8 @@ export const FORMAT_LABELS: Record<RoomFormat, string> = {
 };
 
 const FORMAT_NOTES: Record<RoomFormat, string> = {
-  oneSet: "First to six games, tiebreak at 6-6. Rated.",
-  bestOfThree: "First to two sets. Rated.",
+  oneSet: "First to six games, tiebreak at 6-6.",
+  bestOfThree: "First to two sets.",
   unlimited: "Play as long as you like; points and best rally are counted. No winner, not rated.",
 };
 
@@ -28,6 +28,8 @@ export interface ReadyPanel {
 export interface ReadyCallbacks {
   ready(ready: boolean): void;
   format(format: RoomFormat): void;
+  /** Task 7: the host's "rated" option. */
+  rated(rated: boolean): void;
   /** Opens the camera setup (the same as the HUD's Camera button). */
   openCamera(): void;
 }
@@ -47,6 +49,11 @@ export function createReadyPanel(parent: HTMLElement, seat: 0 | 1 | null, room: 
         ${(Object.keys(FORMAT_LABELS) as RoomFormat[]).map((f) => `<button type="button" role="radio" data-format="${f}">${FORMAT_LABELS[f]}</button>`).join("")}
       </div>
       <p class="rp-note"></p>
+      <label class="rp-rated">
+        <input type="checkbox" role="switch" class="rp-rated-input" />
+        <span>Rated match</span>
+      </label>
+      <p class="rp-rated-note"></p>
     </fieldset>
     <div class="rp-camera" data-seated>
       <span class="rp-cam-state" role="status"></span>
@@ -95,6 +102,9 @@ export function createReadyPanel(parent: HTMLElement, seat: 0 | 1 | null, room: 
   const hint = el.querySelector(".rp-hint") as HTMLElement;
   const camState = el.querySelector(".rp-cam-state") as HTMLElement;
   const formatButtons = [...el.querySelectorAll<HTMLButtonElement>("[data-format]")];
+  const ratedInput = el.querySelector(".rp-rated-input") as HTMLInputElement;
+  const ratedNote = el.querySelector(".rp-rated-note") as HTMLElement;
+  ratedInput.addEventListener("change", () => cb.rated(ratedInput.checked));
   for (const node of el.querySelectorAll<HTMLElement>("[data-seated]")) node.hidden = seat === null;
   let view: LobbyView | null = null;
 
@@ -127,6 +137,14 @@ export function createReadyPanel(parent: HTMLElement, seat: 0 | 1 | null, room: 
         const who = document.createElement("span");
         who.className = "rp-name";
         who.textContent = s ? label(n) : "Open seat";
+        const rating = v.ratings?.[n];
+        if (s && rating !== null && rating !== undefined) {
+          const r = document.createElement("span");
+          r.className = "rp-rating";
+          r.textContent = ` ${rating}`;
+          r.title = "Rating";
+          who.append(r);
+        }
         const state = document.createElement("span");
         state.className = "rp-state";
         state.textContent = !s ? `share code ${room}` : s.ready ? "Ready" : "Not ready";
@@ -141,6 +159,17 @@ export function createReadyPanel(parent: HTMLElement, seat: 0 | 1 | null, room: 
         b.disabled = !host;
       }
       note.textContent = `${FORMAT_NOTES[v.format]}${host ? "" : " The host picks the format."}`;
+      // task 7: the host's rated option; the server says when it can't count
+      ratedInput.checked = v.rated && v.ratedBlocked === null;
+      ratedInput.disabled = !host || v.ratedBlocked !== null;
+      ratedNote.textContent =
+        v.ratedBlocked !== null
+          ? `Not rated: ${v.ratedBlocked}`
+          : v.rated
+            ? "Rated: the result changes both players' ratings."
+            : host
+              ? "Unrated. Turn on to play for rating."
+              : "Unrated. The host decides.";
       if (seat !== null) {
         const mine = v.seats[seat]?.ready ?? false;
         readyBtn.textContent = mine ? "Not ready" : "I'm ready";

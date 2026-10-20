@@ -43,6 +43,8 @@ const other = (s: Seat): Seat => (s === 0 ? 1 : 0);
 export class Lobby {
   readonly practice: boolean;
   format: RoomFormat;
+  /** Task 7: the host's "rated" option (off by default). */
+  rated = false;
   seats: [SeatInfo | null, SeatInfo | null] = [null, null];
   host: Seat | null = null;
   /** A match has started and not ended (it may be paused or counting down to resume). */
@@ -124,6 +126,32 @@ export class Lobby {
     return "ok";
   }
 
+  /** The host turns "rated" on or off before play; like the format, it clears both ready flags. */
+  setRated(seat: Seat, rated: boolean, now: number): "ok" | "same" | "not host" | "started" {
+    if (this.practice || this.host !== seat) return "not host";
+    if (this.inMatch) return "started";
+    if (rated === this.rated) return "same";
+    this.rated = rated;
+    for (const s of this.seats) if (s && !s.bot) s.ready = false;
+    this.recount(now);
+    return "ok";
+  }
+
+  /**
+   * Why a match here can't be rated right now, or null if it would be (when
+   * the host has it on and the match is finished). The server's own rule,
+   * the same one isRated() applies to the stored result.
+   */
+  ratedBlocked(): string | null {
+    if (this.practice) return "Practice against the bot is never rated.";
+    if (this.format === "unlimited") return "Unlimited has no winner, so it isn't rated.";
+    const [a, b] = this.seats;
+    if (!a || !b) return "Rated needs two signed-in players.";
+    if (!a.account || !b.account) return "A guest is playing: rated needs both players signed in.";
+    if (a.token === b.token) return "One account on both seats can't play rated.";
+    return null;
+  }
+
   /**
    * The person in `seat` went. Mid-match a dropped connection holds the seat
    * and pauses the match; choosing to leave ends the match ("ended"). Before
@@ -185,7 +213,7 @@ export class Lobby {
     return seat === 1 && !s.bot && this.seats[0]?.name === s.name ? `${s.name} (2)` : s.name;
   }
 
-  view(now: number): Omit<LobbyView, "tally"> {
+  view(now: number): Omit<LobbyView, "tally" | "ratings"> {
     const seat = (n: Seat) => {
       const s = this.seats[n];
       return s ? { name: this.name(n)!, ready: s.ready, connected: s.connected, bot: s.bot, look: s.look ?? DEFAULT_LOOKS[n] } : null;
@@ -200,6 +228,8 @@ export class Lobby {
       seats: [seat(0), seat(1)],
       countdown: this.countdownUntil === null ? null : secs(this.countdownUntil),
       hold: heldSeat === null ? null : { seat: heldSeat, name: this.name(heldSeat)!, seconds: secs(this.held[heldSeat]!) },
+      rated: this.rated,
+      ratedBlocked: this.ratedBlocked(),
     };
   }
 

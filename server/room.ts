@@ -38,6 +38,8 @@ export function send(c: Client, msg: ServerMsg): void {
 
 export interface RoomDeps {
   record(m: MatchRecord): void;
+  /** Task 7: a seat's rating in this sport (accounts only), for the ready panel. Optional so tests can leave it out. */
+  ratingOf?(token: string, sport: string): number | null;
   /** ms, monotonic */
   clock(): number;
   log(event: string, fields?: Record<string, unknown>): void;
@@ -134,7 +136,11 @@ export class Room {
 
   lobbyView(): LobbyView {
     const tally = this.lobby.format === "unlimited" && !this.practice ? { points: [...this.tally.points] as [number, number], bestRally: this.tally.bestRally } : null;
-    return { ...this.lobby.view(this.deps.clock()), tally };
+    const rating = (s: Seat) => {
+      const seat = this.lobby.seats[s];
+      return seat && seat.account && !seat.bot ? (this.deps.ratingOf?.(seat.token, this.gameId) ?? null) : null;
+    };
+    return { ...this.lobby.view(this.deps.clock()), tally, ratings: [rating(0), rating(1)] };
   }
 
   /** Sends the room's state to everyone if it changed (seconds count down, too). */
@@ -215,6 +221,19 @@ export class Room {
       this.instance = this.newGame();
       this.deps.log("format", { room: this.id, format });
       this.broadcast({ t: "state", state: this.instance.snapshot() });
+      this.syncLobby();
+    }
+    return null;
+  }
+
+  /** Task 7: the host's "rated" option; returns why it was refused, or null. */
+  setRated(c: Client, rated: boolean): string | null {
+    if (c.seat === null || this.seats[c.seat] !== c) return "only the host can change rated";
+    const r = this.lobby.setRated(c.seat, rated, this.deps.clock());
+    if (r === "not host") return "only the host can change rated";
+    if (r === "started") return "the match has started";
+    if (r === "ok") {
+      this.deps.log("rated_option", { room: this.id, rated });
       this.syncLobby();
     }
     return null;
@@ -311,6 +330,12 @@ export class Room {
     }
   }
 
+  /** Who the seats are, for the match row: accounts or guests, and the host's rated option. */
+  private seatsForRecord(): Pick<MatchRecord, "accounts" | "ratedRequested"> {
+    const acct = (s: Seat) => Boolean(this.lobby.seats[s]?.account && !this.lobby.seats[s]?.bot);
+    return { accounts: [acct(0), acct(1)], ratedRequested: this.lobby.rated };
+  }
+
   private seatTokens(): [string | null, string | null] {
     const t = (s: Seat) => (this.lobby.seats[s] && !this.lobby.seats[s]!.bot ? this.lobby.seats[s]!.token : null);
     return [t(0), t(1)];
@@ -392,6 +417,8 @@ export class Room {
         format: result.format ?? "default",
         sets: result.sets ?? [],
         practice: this.practice,
+        bestRally: this.tally.bestRally,
+        ...this.seatsForRecord(),
       });
       this.deps.log("match_end", { room: this.id, score: result.score, sets: result.sets, format: result.format, winner: result.winner });
       // back to the ready check for a rematch; the finished game stays on

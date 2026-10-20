@@ -31,7 +31,7 @@ lazily and only when a player enters a game. Video never leaves the browser.
   countdown, the 30 s hold; clock injected), `db.ts` (SQLite on `/data`), `schema.ts` (versioned
   schema, migrations, match rows, who is rated), `log.ts` (JSON log lines),
   task 17: `accounts.ts` (guests, accounts, passkeys, sessions, delete; pure
-  over a db handle), `auth.ts` (the `/api/*` account routes and passkey
+  over a db handle), `ratings.ts` (task 7: Elo, leaderboards, history), `auth.ts` (the `/api/*` account routes and passkey
   ceremonies), `guard.ts` (cookies, Origin check, challenges, rate limits),
   `names.ts` (pseudonyms and the chosen-name rules; shape shared in
   `shared/names.ts`).
@@ -59,7 +59,8 @@ lazily and only when a player enters a game. Video never leaves the browser.
   `ui/profile.ts` + `.css` (task 17's profile dialog, with task 18's
   customise section; `ui/look-preview.ts` draws the look as SVG, since the
   menu never loads Three.js), `net/account.ts`
-  (`/api/*` calls; the passkey prompt is loaded only when needed). Camera swings have two modes,
+  (`/api/*` calls; the passkey prompt is loaded only when needed),
+  `ui/leaderboard.ts` + `.css` (task 7: a tab per sport, polled each second). Camera swings have two modes,
   "classic" (default) and "follow" (character copies the arm, hit at the
   hitting line), and two aim modes, "timing" (default) and "point"; see
   the camera setup notes in `tasks/done/`. Movement has two modes per seat,
@@ -113,6 +114,18 @@ lazily and only when a player enters a game. Video never leaves the browser.
   unrated. Practice vs bot starts at once. One token may hold both seats (two
   tabs, for testing); its second seat is shown "<name> (2)" and its matches
   are unrated. Ratings read only `rated = 1` rows.
+- Ratings (task 7; `spec/ratings.test.ts`, `spec/rated-match.test.ts`,
+  `e2e/leaderboard.e2e.ts`): "rated" is the host's option on the room, set
+  before play; a change clears both ready flags. A match is stored
+  `rated = 1` only if the host had it on, both seats are accounts on
+  different tokens, it isn't practice, the format has a winner and it
+  finished (`isRated` in `server/schema.ts`; the lobby's `ratedBlocked` says
+  why not, using the same rule). Elo per account per sport: start 1000,
+  K = 32, floor 100, updated in the match row's transaction
+  (`server/ratings.ts`). A match only moves its own sport's rating; sports are
+  the registry's ids (`matches.game`, `ratings.sport`). The leaderboard lists
+  accounts only, hides the demo accounts, and shows your rank outside the
+  top list; it polls once a second.
 - Accounts (task 17; `spec/accounts.test.ts`, `spec/auth-api.test.ts`,
   `e2e/accounts.e2e.ts`): who you are comes only from HttpOnly cookies the
   server sets (`wl_guest`, a random guest id; `wl_session`, 256 random bits

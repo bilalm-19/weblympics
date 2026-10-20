@@ -101,7 +101,8 @@ describe("schema v4 (task 17: accounts)", () => {
     const guest = guestFor(db, "11111111-2222-4333-8444-555555555555")!;
     expect(guest).toMatchObject({ name: "Lucky Otter 12", account: false });
     expect(matchCountFor(db, guest.token)).toBe(1);
-    expect(db.prepare("SELECT rated FROM matches").get()).toEqual({ rated: 1 });
+    // kept, but unrated from v6 on: only matches between accounts are rated (task 7)
+    expect(db.prepare("SELECT rated FROM matches").get()).toEqual({ rated: 0 });
     // and the guest can claim it
     expect(addPasskey(db, guest.token, key("k1")).ok).toBe(true);
     expect(getPlayer(db, guest.token)).toMatchObject({ account: true, name: "Lucky Otter 12" });

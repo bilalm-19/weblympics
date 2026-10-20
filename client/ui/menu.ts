@@ -6,6 +6,8 @@ export interface MenuActions {
   onJoin(code: string): void;
   /** Task 17: the profile panel (name, passkeys, sign in and out, delete). */
   onProfile(): void;
+  /** Task 7: the leaderboard, one tab per sport. */
+  onLeaderboard(): void;
   /** Dev tools: sign in as one of the two locked demo accounts. */
   onSignInDemo(n: 1 | 2): void;
   /** Dev tools: leave the demo account, back to this browser's guest. */
@@ -266,6 +268,7 @@ export function renderMenu(
           name
             ? `<div class="identity-row">
                  <button class="pill pill--small" data-action="profile">${account ? "Profile" : "Profile and sign in"}</button>
+                 <button class="pill pill--small" data-action="leaderboard">Leaderboard</button>
                </div>
                <details class="devtools">
                  <summary>Dev tools</summary>
@@ -356,6 +359,7 @@ export function renderMenu(
   menu.querySelector("[data-action=train]")?.addEventListener("click", actions.onTrain);
   menu.querySelector("[data-action=create]")?.addEventListener("click", actions.onCreate);
   menu.querySelector("[data-action=profile]")?.addEventListener("click", actions.onProfile);
+  menu.querySelector("[data-action=leaderboard]")?.addEventListener("click", actions.onLeaderboard);
   menu.querySelector("[data-action=undemo]")?.addEventListener("click", actions.onSignOutDemo);
   menu.querySelectorAll<HTMLButtonElement>("[data-demo]").forEach((b) => {
     b.addEventListener("click", () => actions.onSignInDemo(Number(b.dataset.demo) as 1 | 2));

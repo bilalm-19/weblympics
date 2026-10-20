@@ -3,7 +3,7 @@
 import { games } from "../shared/games/registry.ts";
 import { ROOM_FORMATS } from "../shared/protocol.ts";
 import type { RoomFormat } from "../shared/protocol.ts";
-import { recordMatch } from "./db.ts";
+import { currentRating, recordMatch } from "./db.ts";
 import { log } from "./log.ts";
 import { Room, send } from "./room.ts";
 import type { Client } from "./room.ts";
@@ -45,6 +45,7 @@ export function createRoom(gameId: string, practice: boolean, format?: string): 
   } while (rooms.has(id));
   const room = new Room(id, gameId, practice, asRoomFormat(format), {
     record: recordMatch,
+    ratingOf: currentRating,
     clock: () => performance.now(),
     log,
     timer: true,

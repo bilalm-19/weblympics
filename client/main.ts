@@ -5,6 +5,7 @@ import { startTennis } from "./games/tennis/view.ts";
 import { Connection } from "./net/socket.ts";
 import { signInDemo, signOut } from "./net/account.ts";
 import { renderMenu } from "./ui/menu.ts";
+import { openLeaderboard } from "./ui/leaderboard.ts";
 import { openProfile } from "./ui/profile.ts";
 
 const root = document.getElementById("app") as HTMLElement;
@@ -27,6 +28,7 @@ function showMenu(): void {
     onCreate: () => conn.send({ t: "create", game: "tennis", practice: false }),
     onJoin: (code) => conn.send({ t: "join", room: code }),
     onProfile: () => openProfile({ onIdentityChange: () => conn.reconnect() }),
+    onLeaderboard: openLeaderboard,
     onSignInDemo: (n) => void signInDemo(n).then(() => conn.reconnect(), showError),
     onSignOutDemo: () => void signOut().then(() => conn.reconnect(), showError),
   });
