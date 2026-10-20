@@ -20,7 +20,7 @@ function showMenu(): void {
   training = false;
   conn.roomCode = null;
   renderMenu(root, conn.name, conn.matches, conn.demo, error, {
-    onTrain: train,
+    onTrain: () => train(),
     onPractice: () => conn.send({ t: "create", game: "tennis", practice: true }),
     onCreate: () => conn.send({ t: "create", game: "tennis", practice: false }),
     onJoin: (code) => conn.send({ t: "join", room: code }),
@@ -37,8 +37,9 @@ function leave(): void {
 }
 
 // Training runs in the page against a ball machine: it sends nothing to the
-// server, so leaving it needs no "leave" either.
-function train(): void {
+// server, so leaving it needs no "leave" either. `resumeCamera`: coming from
+// the camera setup's "Train first", so the camera starts again at once.
+function train(resumeCamera = false): void {
   disposeGame?.();
   training = true;
   error = null;
@@ -46,7 +47,7 @@ function train(): void {
   disposeGame = startTraining(root, () => {
     history.replaceState(null, "", location.pathname);
     showMenu();
-  });
+  }, resumeCamera);
 }
 
 function enterRoom(info: RoomInfo): void {
@@ -55,7 +56,16 @@ function enterRoom(info: RoomInfo): void {
   training = false;
   error = null;
   history.replaceState(null, "", `#/room/${info.room}`);
-  disposeGame = startTennis(root, conn, info, leave);
+  // practice offers training once the camera is set up (a room may have
+  // someone waiting, so it doesn't): leave the bot and train with the camera on
+  const onTrain = info.practice
+    ? () => {
+        conn.send({ t: "leave" });
+        currentRoom = null;
+        train(true);
+      }
+    : undefined;
+  disposeGame = startTennis(root, conn, info, leave, { onTrain });
 }
 
 conn.on((msg) => {

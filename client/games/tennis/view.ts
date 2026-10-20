@@ -71,6 +71,17 @@ export interface ViewOptions {
   startMoveMode?: "auto" | "tilt";
   /** While this returns true, un-pausing is ignored (training's setup holds the machine until Start). */
   holdPause?(): boolean;
+  /**
+   * How the camera starts (task 15: webcam by default). "setup" (default for a
+   * seated player): the setup panel opens first, with "Use keyboard instead".
+   * "resume": start the camera straight away with the saved choices (coming
+   * from the setup's "Train first"). Spectators never get either.
+   */
+  cameraStart?: "setup" | "resume";
+  /** The player chose the keyboard, or the camera failed: training counts that as Keys only. */
+  onKeyboard?(): void;
+  /** Offered after the camera setup: go to training now (practice only). */
+  onTrain?(): void;
 }
 
 export function startTennis(root: HTMLElement, conn: GameLink, info: RoomInfo, onLeave: () => void, opts: ViewOptions = {}): () => void {
@@ -324,6 +335,8 @@ export function startTennis(root: HTMLElement, conn: GameLink, info: RoomInfo, o
       conn.send({ t: "pause", paused: p });
       updateHud();
     },
+    declined: () => opts.onKeyboard?.(),
+    train: opts.onTrain,
   }, opts.startMoveMode);
   opts.onCamera?.(cameraInput);
   // The server applies the movement mode to this seat; it starts each new
@@ -435,6 +448,15 @@ export function startTennis(root: HTMLElement, conn: GameLink, info: RoomInfo, o
       .then(() => (button.textContent = "Copied"))
       .catch(() => (button.textContent = "Copy failed"));
   });
+
+  // Webcam by default (task 15): a seated player gets the camera setup first
+  // (opened last, once the HUD it pauses is built);
+  // "Use keyboard instead", Escape or a refused permission all leave a
+  // playable game on keys and buttons.
+  if (info.seat !== null) {
+    if (opts.cameraStart === "resume") cameraInput.resume();
+    else cameraInput.openSetup();
+  }
 
   let frames = 0;
   let raf = 0;

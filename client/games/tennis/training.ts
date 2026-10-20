@@ -16,7 +16,7 @@ import { startTennis } from "./view.ts";
 // a finished step stays up this long before the next one starts
 const NEXT_MS = 1400;
 
-export function startTraining(root: HTMLElement, onExit: () => void): () => void {
+export function startTraining(root: HTMLElement, onExit: () => void, resumeCamera = false): () => void {
   // The machine waits (startPaused) until Start, so no ball flies while the
   // player sets up their camera, and training always starts in auto-move,
   // whatever lean was saved from an earlier session (user's playtest).
@@ -35,6 +35,10 @@ export function startTraining(root: HTMLElement, onExit: () => void): () => void
     startMoveMode: "auto",
     onCamera: (c) => (camera = c),
     holdPause: () => held,
+    // webcam by default (task 15): the camera setup opens over the coach first;
+    // "Use keyboard instead" is the same as Keys only
+    cameraStart: resumeCamera ? "resume" : "setup",
+    onKeyboard: () => chooseKeys(),
   });
   const view = root.querySelector(".game") as HTMLElement;
   view.classList.add("training");
@@ -279,6 +283,11 @@ export function startTraining(root: HTMLElement, onExit: () => void): () => void
   // Start is held until the camera is set up, or the player chooses keys only
   // (the camera is never required: every camera action has a key equivalent)
   let setupDone = false;
+  const chooseKeys = () => {
+    if (setupDone) return;
+    setupDone = true;
+    showSetup();
+  };
   const ready = () => {
     if (!setupDone) return;
     // on to step 1, which opens centred with the machine still held
@@ -289,10 +298,7 @@ export function startTraining(root: HTMLElement, onExit: () => void): () => void
   const showSetup = () => {
     buttons([
       ["Set up camera", "camera", () => cameraButton.click(), !setupDone],
-      ["Keys only", "keys", () => {
-        setupDone = true;
-        showSetup();
-      }],
+      ["Keys only", "keys", chooseKeys],
       ["Start", "start", ready, setupDone],
       ["Skip training", "skip", onExit],
     ]);

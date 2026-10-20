@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import type { Page } from "@playwright/test";
+import { skipCheck, useKeyboard } from "./flow.ts";
 
 // Task 1: the score bar at the top of the game screen, driven by the server's
 // score. In practice the player never swings here, so points are won and lost
@@ -8,6 +9,7 @@ import type { Page } from "@playwright/test";
 async function practice(page: Page): Promise<void> {
   await page.goto("/");
   await page.getByRole("button", { name: /practice vs bot/i }).click();
+  await useKeyboard(page);
   await expect(page.locator(".hud .score")).toBeVisible();
 }
 

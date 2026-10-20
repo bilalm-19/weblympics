@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import type { Page } from "@playwright/test";
+import { skipCheck, useKeyboard } from "./flow.ts";
 
 const noHorizontalScroll = (page: Page) =>
   page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth);
@@ -18,6 +19,7 @@ test("menu fits the viewport and is keyboard reachable", async ({ page }) => {
 test("practice game renders inside the viewport", async ({ page }) => {
   await page.goto("/");
   await page.getByRole("button", { name: /practice vs bot/i }).click();
+  await useKeyboard(page);
 
   const canvas = page.locator("canvas");
   await expect(canvas).toBeVisible();
@@ -54,6 +56,7 @@ test("keyboard moves, aims and swings at each level", async ({ page }) => {
   const sent = sentMessages(page);
   await page.goto("/");
   await page.getByRole("button", { name: /practice vs bot/i }).click();
+  await useKeyboard(page);
   await expect(page.locator("canvas")).toBeVisible();
 
   await page.keyboard.down("KeyD");
@@ -85,6 +88,7 @@ test("on-screen buttons move and swing", async ({ page }) => {
   const sent = sentMessages(page);
   await page.goto("/");
   await page.getByRole("button", { name: /practice vs bot/i }).click();
+  await useKeyboard(page);
   await expect(page.locator("canvas")).toBeVisible();
 
   const right = page.getByRole("button", { name: /move right/i });
@@ -105,6 +109,7 @@ test("a swing carries the tick on screen, and the server allows rewind for it (A
   page.on("websocket", (ws) => ws.on("framereceived", (f) => received.push(JSON.parse(String(f.payload)))));
   await page.goto("/");
   await page.getByRole("button", { name: /practice vs bot/i }).click();
+  await useKeyboard(page);
   await expect(page.locator("canvas")).toBeVisible();
   // the page answers pings, so the server has measured this player's lag
   await expect.poll(() => sent.some((m) => m.t === "pong")).toBe(true);
@@ -176,6 +181,7 @@ test("the player who joins by invite link sees the whole court, not a wall", asy
   const guest = await guestContext.newPage();
   await guest.goto(page.url());
   await expect(guest.locator("canvas")).toBeVisible();
+  await useKeyboard(guest);
   // the joiner takes seat 1, the end the arena was first built facing away from
   await expect(guest.locator(".score")).toContainText("You");
   await expect.poll(async () => Number(await guest.locator("canvas").getAttribute("data-frames"))).toBeGreaterThan(30);

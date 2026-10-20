@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import type { Browser, Locator, Page, TestInfo } from "@playwright/test";
+import { skipCheck, useKeyboard } from "./flow.ts";
 
 // Task 4: the room's ready panel. Two players join by invite link, the host
 // picks the format, both ready with no camera, the 3 s countdown runs and the
@@ -15,6 +16,8 @@ async function guestPage(browser: Browser, page: Page, testInfo: TestInfo): Prom
   const ctx = await browser.newContext({ viewport: page.viewportSize()!, isMobile: mobile, hasTouch: mobile });
   const guest = await ctx.newPage();
   await guest.goto(page.url());
+  // seated, so the camera setup opens first (task 15): play on keys
+  await useKeyboard(guest);
   return guest;
 }
 
@@ -42,6 +45,7 @@ test("ready panel: host picks the format, both ready without a camera, countdown
   await page.goto("/");
   await page.getByRole("button", { name: /create a room/i }).click();
   await expect(page).toHaveURL(/#\/room\/[A-Z]{4}$/);
+  await useKeyboard(page);
   const panel = page.getByRole("region", { name: /match setup/i });
   await expect(panel.getByRole("heading")).toHaveText(/waiting for an opponent/i);
   await expect(panel.getByRole("button", { name: "I'm ready" })).toBeDisabled();
@@ -86,14 +90,12 @@ test("the ready panel stays clear of the camera preview", async ({ page }) => {
   await page.goto("/");
   await page.getByRole("button", { name: /create a room/i }).click();
   const panel = page.getByRole("region", { name: /match setup/i });
-  await expect(panel).toBeVisible();
-  await panel.getByRole("button", { name: /set up camera/i }).click();
+  // the camera setup opens by itself when you take a seat (task 15)
   const setup = page.getByRole("dialog", { name: /camera setup/i });
   await setup.getByRole("button", { name: "Got it" }).click();
   await setup.getByRole("button", { name: /start camera/i }).click();
   await expect(setup.getByRole("heading", { name: /can we see you/i })).toBeVisible({ timeout: 40_000 });
-  await setup.getByRole("button", { name: "Skip check" }).click();
-  await expect(setup).toBeHidden();
+  await skipCheck(page);
   await expect(page.locator("video.selfview")).toBeVisible();
   // the fake webcam has nobody in it
   await expect(panel.getByText(/camera on, can't see you yet/i)).toBeVisible();
@@ -103,6 +105,7 @@ test("the ready panel stays clear of the camera preview", async ({ page }) => {
 test("practice vs bot has no ready panel: it starts at once", async ({ page }) => {
   await page.goto("/");
   await page.getByRole("button", { name: /practice vs bot/i }).click();
+  await useKeyboard(page);
   await expect(page.locator("canvas")).toBeVisible();
   await expect.poll(async () => Number(await page.locator("canvas").getAttribute("data-tick")), { timeout: 10_000 }).toBeGreaterThan(30);
   await expect(page.getByRole("region", { name: /match setup/i })).toBeHidden();

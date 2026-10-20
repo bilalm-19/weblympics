@@ -123,6 +123,12 @@ lazily and only when a player enters a game. Video never leaves the browser.
   after them and optional. Figures in its notes come from `docs/reaction-time.md`.
 - Camera is used for gameplay only. Every camera action has a keyboard/mouse
   equivalent, and the lobby and room work with no camera at all.
+- Webcam is the default (task 15, `e2e/webcam-default.e2e.ts`): a seated
+  player's game (practice, room, training) opens the camera setup first, with
+  "Use keyboard instead" on each step; that, Escape or a refused permission
+  leaves a playable game on keys. After the setup, practice offers training
+  once per device ("Train first" / "Skip training"); Train stays on the home
+  screen. Spectators get no camera setup.
 - Auto-move (`spec/auto-move.test.ts`) walks slower than manual movement
   (`AUTO_SPEED` share of `PLAYER.speed`) so a wide hard shot can beat it;
   strength must keep mattering. The movement mode is an input to the sim,
