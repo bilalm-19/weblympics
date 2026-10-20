@@ -1,10 +1,11 @@
 import { expect, test } from "@playwright/test";
 import type { Page } from "@playwright/test";
-import { skipCheck, useKeyboard } from "./flow.ts";
+import { useKeyboard } from "./flow.ts";
 
 // Task 1: the score bar at the top of the game screen, driven by the server's
 // score. In practice the player never swings here, so points are won and lost
 // on their own within a few seconds (unreturned serves, the bot's returns).
+// The call itself is the banner across the top (task 16, call-banner.e2e.ts).
 
 async function practice(page: Page): Promise<void> {
   await page.goto("/");
@@ -15,8 +16,8 @@ async function practice(page: Page): Promise<void> {
 
 /** Waits for the first point (not a fault) to be called. */
 async function firstPoint(page: Page): Promise<string> {
-  const call = page.locator(".hud .score .sb-call");
-  await expect(call).toHaveText(/^(15-0|0-15|Double fault)$/, { timeout: 40_000 });
+  const call = page.locator(".call-banner .cb-call");
+  await expect(call).toHaveText(/^(15-Love|Love-15|Double fault)$/, { timeout: 40_000 });
   return (await call.textContent()) ?? "";
 }
 
@@ -24,8 +25,10 @@ test("score bar shows names, points, games, sets, server and format, and announc
   test.setTimeout(90_000);
   await practice(page);
   const bar = page.locator(".hud .score");
-  const call = bar.locator(".sb-call");
-  await expect(call).toHaveAttribute("aria-live", "polite");
+  const call = page.locator(".call-banner .cb-call");
+  await expect(page.locator(".call-banner")).toHaveAttribute("aria-live", "polite");
+  // the bar no longer has a call of its own: one call, in the banner
+  await expect(bar.locator(".sb-call")).toHaveCount(0);
 
   const rows = bar.locator(".sb-row");
   await expect(rows.nth(0).locator(".sb-name")).toHaveText("You");
@@ -72,7 +75,8 @@ test("score bar shows names, points, games, sets, server and format, and announc
     expect(await pulsing.evaluate((el) => getComputedStyle(el).animationName)).toBe("sb-pulse");
   }
   // the call clears after about two seconds
-  await expect(call).toHaveText("", { timeout: 4000 });
+  await expect(page.locator(".call-banner")).toBeHidden({ timeout: 5000 });
+  await expect(call).toHaveText("");
 });
 
 test("with reduced motion the changed number doesn't pulse", async ({ browser }, testInfo) => {

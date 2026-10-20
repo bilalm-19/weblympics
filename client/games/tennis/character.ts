@@ -132,6 +132,12 @@ export interface Player {
    * their right, y up, z toward the net (metres from their feet).
    */
   racketHead(): { x: number; y: number; z: number };
+  /**
+   * A reaction to the point (task 16), laid over whatever pose was set this
+   * frame: `pump` 0..1 raises the free arm in a fist pump, `slump` 0..1 drops
+   * the head and shoulders. Call after pose() or follow().
+   */
+  react(pump: number, slump: number): void;
 }
 
 const DOWN = new Vector3(0, -1, 0);
@@ -181,6 +187,8 @@ export function makePlayer(shirt: number, hair: number, racketColor: number): Pl
   back.position.y = 1.78;
   back.scale.copy(head.scale);
   body.add(head, cap, back);
+  // the head and hair tip forward together when the player slumps
+  const headGroup = [head, cap, back];
 
   // the off arm hangs relaxed
   const offArm = new Group();
@@ -272,6 +280,14 @@ export function makePlayer(shirt: number, hair: number, racketColor: number): Pl
       roll.rotation.y = p.roll;
       body.rotation.y = p.bodyY * side;
       offArm.rotation.set(p.offX, p.offY, -0.12);
+    },
+    react(pump, slump) {
+      // the free arm comes up past the head, bent a little at the top
+      if (pump > 0) offArm.rotation.set(-0.4 * pump, 0, -0.12 - 2.6 * pump);
+      // chin down and the shoulders forward
+      // (forward is -z, so a negative x turn tips them toward the net)
+      for (const m of headGroup) m.rotation.x = -0.45 * slump;
+      body.rotation.x = -0.12 * slump;
     },
     racketHead() {
       group.updateMatrixWorld(true);

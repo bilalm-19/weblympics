@@ -20,6 +20,9 @@ import type { GameLink } from "../../net/link.ts";
 import { makePlayer } from "./character.ts";
 import { createReadyPanel } from "./ready-panel.ts";
 import { createScoreBar } from "./score-bar.ts";
+import { createCallBanner } from "./call-banner.ts";
+import { pointCall, reactions } from "./point-call.ts";
+import { createReactionFx } from "./reaction-fx.ts";
 import { createTrajectoryAid } from "./aid.ts";
 import { createShotFx } from "./shot-fx.ts";
 import { buildStadium } from "./stadium.ts";
@@ -146,6 +149,9 @@ export function startTennis(root: HTMLElement, conn: GameLink, info: RoomInfo, o
   reticle.visible = false;
   scene.add(reticle);
   const fx = createShotFx(scene);
+  // task 16: the reactions to a point, over each player, from the snapshot alone
+  const motion = matchMedia("(prefers-reduced-motion: reduce)");
+  const reactFx = createReactionFx(players, () => motion.matches);
   const aid = createTrajectoryAid(view, scene, canvas);
   opts.onScene?.(scene);
   let bounceMarks = 0;
@@ -366,9 +372,23 @@ export function startTennis(root: HTMLElement, conn: GameLink, info: RoomInfo, o
   // "camera OK" in the panel: on and tracking you (aim is only set while tracking)
   const camTimer = window.setInterval(() => readyPanel.camera(!cameraInput.on() ? "off" : cameraInput.aim() !== null ? "ok" : "on"), 500);
 
+  // the umpire's call across the top (task 16); training keeps no score, so none
+  const banner = opts.local ? null : createCallBanner(view);
+  // the call from the last snapshot to this one: the banner and the reactions, on every screen
+  const callPoint = (prev: TennisSnapshot | null, next: TennisSnapshot): boolean => {
+    if (opts.local) return false;
+    const c = pointCall(prev, next, label);
+    if (!c) return false;
+    banner?.show(c);
+    const now = performance.now();
+    for (const r of reactions(c)) reactFx.react(r.seat, r.reaction, r.weight, now);
+    return true;
+  };
+  let called = false;
   const updateHud = () => {
     if (!snap) return;
-    scoreBar.update(snap, label);
+    scoreBar.update(snap, label, called);
+    called = false;
     const l = lobby;
     view.dataset.phase = l?.phase ?? "";
     if (l?.phase === "paused" && l.hold) {
@@ -403,6 +423,7 @@ export function startTennis(root: HTMLElement, conn: GameLink, info: RoomInfo, o
         fx.bounce(performance.now(), lb.x, lb.z, lb.in);
         canvas.dataset.bounces = String(++bounceMarks);
       }
+      called = callPoint(snap, next);
       snap = next;
       snapAt = performance.now();
       shown = null;
@@ -486,6 +507,11 @@ export function startTennis(root: HTMLElement, conn: GameLink, info: RoomInfo, o
           p.pose(null, grip === "backhand", grip ? (cameraInput.hand() === "right" ? 1 : -1) : side, aim);
         }
       }
+      const react = reactFx.update(now);
+      for (const seat of [0, 1] as const) {
+        players[seat].react(react[seat].pump, react[seat].slump);
+        canvas.dataset[`react${seat}`] = reactFx.state(seat);
+      }
       // camera aiming by timing: the aid's three arcs stand in for the reticle and arc
       const threeArcs = aid.update(
         info.seat === null || snap.phase === "over"
@@ -552,6 +578,8 @@ export function startTennis(root: HTMLElement, conn: GameLink, info: RoomInfo, o
     cancelAnimationFrame(raf);
     clearTimeout(strokeTimer);
     scoreBar.dispose();
+    banner?.dispose();
+    reactFx.dispose();
     readyPanel.dispose();
     clearInterval(camTimer);
     clearTimeout(shotTimer);
