@@ -491,6 +491,8 @@ test("hit the spot (task 21): endless from the training screen, a result after e
   // what the page itself sent while loading (hello); the mode adds nothing
   const framesBefore = net.frames.length;
   await page.getByRole("button", { name: "Train" }).click();
+  // the webcam is the default (task 15): take the keyboard way past its setup
+  await useKeyboard(page);
   const coach = page.locator(".coach");
   const canvas = page.locator("canvas");
   // offered on the training screen, beside the lessons; no camera needed
