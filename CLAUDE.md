@@ -23,7 +23,8 @@ lazily and only when a player enters a game. Video never leaves the browser.
   adapter) and registers in `shared/games/registry.ts`. Tennis scoring
   (points, games, sets, tiebreak, faults) is `shared/games/tennis/scoring.ts`;
   the sim keeps its `ScoreState` in the snapshot. `machine.ts` is training's
-  seeded ball machine (feeds with the sim's own `launch()`).
+  seeded ball machine (feeds with the sim's own `launch()`). `shared/look.ts`
+  is the fixed palette and hat/hair list for a player's look (task 18).
 - `server/` `index.ts` (http + ws + `/readme/`), `rooms.ts` (live rooms with
   the real clock and db), `room.ts` (one room: 60 Hz tick loop, seats,
   spectators, game), `lobby.ts` (pure room rules: phases, ready, format,
@@ -44,7 +45,8 @@ lazily and only when a player enters a game. Video never leaves the browser.
   (a `GameLink` like `Connection`, so `view.ts` renders training unchanged;
   no network),
   `games/tennis/stadium.ts` (arena from primitives, instanced crowd/trees),
-  `games/tennis/character.ts` (Mii-style player and racket),
+  `games/tennis/character.ts` (Mii-style player and racket, coloured and
+  hatted from the seat's look, task 18),
   `games/tennis/stroke.ts` (forehand/backhand keyframes, shot label text),
   `games/tennis/shot-fx.ts` (ball trail, bounce marks, shot arc),
   `games/tennis/trajectory-aid.ts` (pure: timing arcs, meter, strength ticks)
@@ -54,7 +56,9 @@ lazily and only when a player enters a game. Video never leaves the browser.
   panel), `net/socket.ts` (`Connection`), `net/link.ts` (`GameLink`), `ui/menu.ts` (home screen: title, framed sport preview,
   sport buttons from the `SPORTS` list; inline SVG/CSS only, no Three.js;
   the Profile button and the closed "Dev tools" with the demo accounts),
-  `ui/profile.ts` + `.css` (task 17's profile dialog), `net/account.ts`
+  `ui/profile.ts` + `.css` (task 17's profile dialog, with task 18's
+  customise section; `ui/look-preview.ts` draws the look as SVG, since the
+  menu never loads Three.js), `net/account.ts`
   (`/api/*` calls; the passkey prompt is loaded only when needed). Camera swings have two modes,
   "classic" (default) and "follow" (character copies the arm, hit at the
   hitting line), and two aim modes, "timing" (default) and "point"; see
@@ -125,6 +129,12 @@ lazily and only when a player enters a game. Video never leaves the browser.
   match rows stay with a random tombstone shown as "Deleted player". The two
   demo accounts are locked (no rename, delete or passkey), hidden from the
   board, and reached only from the home screen's closed "Dev tools".
+- Looks (task 18; `spec/look.test.ts`, `e2e/look.e2e.ts`): an account's look
+  is five enum values from `shared/look.ts`, checked on the server (anything
+  outside the lists, or any extra field, is refused and nothing is stored).
+  Guests always wear their seat's default. The server puts each seat's look
+  in the room state, so both players and spectators see it. The demo
+  accounts may change their look (it is how two seats get tested).
 - A schema change is a new step in `server/schema.ts` plus a test that opens
   a database made by the previous version; never edit an old step.
 - A ball in the air is live for everyone, even one going out: a person may

@@ -3,12 +3,16 @@
 // /api/me says. Passkey prompts are @simplewebauthn/browser's, loaded only
 // when one is needed.
 
+import type { Look } from "../../shared/look.ts";
+
 export interface Me {
   name: string;
   account: boolean;
   demo: boolean;
   matches: number;
   passkeys: { id: string; createdAt: number; lastUsedAt: number | null }[];
+  /** Saved look (task 18); null for the default. */
+  look: Look | null;
 }
 
 export class ApiError extends Error {
@@ -81,6 +85,7 @@ export async function signIn(): Promise<Me> {
 export const signOut = (): Promise<unknown> => post("/api/logout");
 export const signInDemo = (n: 1 | 2): Promise<Me> => post<Me>("/api/demo", { n });
 export const setName = (name: string): Promise<Me> => post<Me>("/api/name", { name });
+export const saveLook = (look: Look): Promise<Me> => post<Me>("/api/look", { look });
 export const removePasskey = (id: string, confirm = false): Promise<Me> => post<Me>("/api/passkey/remove", { id, confirm });
 
 /** Deletes the account after a fresh passkey check. */

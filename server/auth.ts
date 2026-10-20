@@ -23,6 +23,7 @@ import {
   findPasskey,
   getDemo,
   getPlayer,
+  lookOf,
   guestFor,
   matchCountFor,
   newGuestToken,
@@ -30,10 +31,12 @@ import {
   removePasskey,
   rename,
   sessionPlayer,
+  setLook,
   touchPasskey,
   webauthnId,
 } from "./accounts.ts";
 import type { Player } from "./accounts.ts";
+import type { Look } from "../shared/look.ts";
 import { Challenges, RateLimit, allowedOrigin, cookie, parseCookies, rpIdFor } from "./guard.ts";
 
 export const GUEST_COOKIE = "wl_guest";
@@ -50,6 +53,8 @@ export interface Me {
   demo: boolean;
   matches: number;
   passkeys: { id: string; createdAt: number; lastUsedAt: number | null }[];
+  /** The saved look (task 18); null for the default (always, for a guest). */
+  look: Look | null;
 }
 
 export interface AuthDeps {
@@ -123,6 +128,7 @@ export function createAuth(deps: AuthDeps) {
     demo: p.demo,
     matches: matchCountFor(db, p.token),
     passkeys: passkeysOf(db, p.token).map((k) => ({ id: k.id, createdAt: k.createdAt, lastUsedAt: k.lastUsedAt })),
+    look: lookOf(db, p.token),
   });
 
   const sessionCookie = (token: string, host: string | undefined): string => {
@@ -274,6 +280,14 @@ export function createAuth(deps: AuthDeps) {
         if (!r.ok) return json(res, r.status, { error: r.reason }), true;
         log("rename", { from: player.name, to: r.name });
         return json(res, 200, me({ ...player, name: r.name })), true;
+      }
+
+      case "/api/look": {
+        if (!player) return json(res, 401, { error: "Load the page first." }), true;
+        const r = setLook(db, player.token, body.look);
+        if (!r.ok) return json(res, r.status, { error: r.reason }), true;
+        log("look", { name: player.name });
+        return json(res, 200, me(player)), true;
       }
 
       case "/api/passkey/remove": {

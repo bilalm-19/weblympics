@@ -162,6 +162,111 @@ dialog.profile::backdrop {
   background: #e8f3fc;
 }
 
+/* Task 18: customise your player */
+.look-layout {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: flex-start;
+}
+
+.look-preview {
+  flex: 0 0 6.5rem;
+  display: flex;
+  justify-content: center;
+  padding: 0.25rem;
+  border-radius: 14px;
+  background: linear-gradient(180deg, #cfe8fa, #eaf5fd);
+}
+
+.look-svg {
+  width: 6rem;
+  height: auto;
+}
+
+.look-form {
+  flex: 1 1 14rem;
+  min-width: 0;
+}
+
+.look-field {
+  margin: 0 0 0.5rem;
+  padding: 0;
+  border: 0;
+}
+
+.look-field legend {
+  padding: 0;
+  font-weight: 600;
+  font-size: 0.92rem;
+}
+
+.look-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+}
+
+.look-option {
+  position: relative;
+  display: inline-flex;
+  min-width: 44px;
+  min-height: 44px;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.look-option input {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.look-swatch {
+  width: 32px;
+  height: 32px;
+  border: 2px solid #8fb3d1;
+  border-radius: 999px;
+}
+
+.look-chip {
+  padding: 0.35rem 0.6rem;
+  border: 2px solid #8fb3d1;
+  border-radius: 999px;
+  background: #fff;
+  font-size: 0.85rem;
+  white-space: nowrap;
+}
+
+.look-option input:checked + .look-swatch,
+.look-option input:checked + .look-chip {
+  border-color: #0b63c4;
+  box-shadow: 0 0 0 3px #0b63c455;
+}
+
+.look-option input:checked + .look-chip {
+  background: #dcebf7;
+  font-weight: 600;
+}
+
+.look-option input:focus-visible + .look-swatch,
+.look-option input:focus-visible + .look-chip {
+  outline: 3px solid #0b63c4;
+  outline-offset: 2px;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
 .profile button:focus-visible,
 .profile input:focus-visible {
   outline: 3px solid #0b63c4;

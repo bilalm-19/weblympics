@@ -50,11 +50,11 @@ test("passkey: create an account, rename, sign out, sign in again, then delete",
 
   const name = `Ace ${Math.floor(Math.random() * 1e6)}`;
   await dialog.getByLabel("Display name").fill(name);
-  await dialog.getByRole("button", { name: "Save" }).click();
+  await dialog.getByRole("button", { name: "Save name" }).click();
   await expect(dialog.getByRole("status")).toHaveText(/name saved/i);
   // a name the server refuses says why
   await dialog.getByLabel("Display name").fill("Bot");
-  await dialog.getByRole("button", { name: "Save" }).click();
+  await dialog.getByRole("button", { name: "Save name" }).click();
   await expect(dialog.getByRole("status")).toHaveText(/reserved/i);
 
   await dialog.getByRole("button", { name: "Close profile" }).click();

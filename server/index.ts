@@ -8,7 +8,7 @@ import { WebSocketServer } from "ws";
 import type { WebSocket } from "ws";
 import { parseClientMsg } from "../shared/protocol.ts";
 import type { IncomingMessage } from "node:http";
-import { guestFor, newGuestToken } from "./accounts.ts";
+import { guestFor, lookOf, newGuestToken } from "./accounts.ts";
 import type { Player } from "./accounts.ts";
 import { GUEST_COOKIE, createAuth, identify } from "./auth.ts";
 import { db, matchCountFor } from "./db.ts";
@@ -185,7 +185,18 @@ wss.on("connection", (ws: WebSocket, req: IncomingMessage) => {
   const mine = sockets.get(player.token) ?? new Set<WebSocket>();
   mine.add(ws);
   sockets.set(player.token, mine);
-  const client: Client = { ws, token: player.token, name: player.name, room: null, seat: null, rtt: null, pings: 0, outstanding: null };
+  const client: Client = {
+    ws,
+    token: player.token,
+    name: player.name,
+    account: player.account,
+    look: lookOf(db, player.token),
+    room: null,
+    seat: null,
+    rtt: null,
+    pings: 0,
+    outstanding: null,
+  };
   let hello = false;
   const pinger = setInterval(() => sendPing(client), PING_MS);
 

@@ -5,6 +5,7 @@
 import type { WebSocket } from "ws";
 import { games } from "../shared/games/registry.ts";
 import type { GameEvent, GameInstance } from "../shared/games/registry.ts";
+import type { Look } from "../shared/look.ts";
 import type { ClientMsg, LobbyView, RoomFormat, ServerMsg } from "../shared/protocol.ts";
 import { Lobby } from "./lobby.ts";
 import type { Timing } from "./lobby.ts";
@@ -18,6 +19,10 @@ export interface Client {
   ws: Pick<WebSocket, "readyState" | "send">;
   token: string;
   name: string;
+  /** Signed in (task 17); guests are false. Optional so a test's fake client can leave it out. */
+  account?: boolean;
+  /** The account's saved look (task 18), or null for the default. */
+  look?: Look | null;
   room: Room | null;
   seat: Seat | null;
   // smoothed round trip in ms, from app-level pings; null until the first pong
@@ -148,7 +153,7 @@ export class Room {
     c.seat = seat;
     if (seat === null) this.spectators.add(c);
     else {
-      const reclaimed = this.lobby.sit(seat, c.token, c.name, now);
+      const reclaimed = this.lobby.sit(seat, c.token, c.name, now, { account: c.account, look: c.look });
       this.seats[seat] = c;
       // a new occupant starts in the default; their own mode message follows
       this.pendingMode[seat] = "auto";

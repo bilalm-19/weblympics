@@ -17,6 +17,7 @@ import { createCameraInput } from "../../input/camera/index.ts";
 import { shownAim } from "../../input/camera/pose.ts";
 import { createPlayInput } from "../../input/keyboard.ts";
 import type { GameLink } from "../../net/link.ts";
+import { DEFAULT_LOOKS } from "../../../shared/look.ts";
 import { makePlayer } from "./character.ts";
 import { createReadyPanel } from "./ready-panel.ts";
 import { createScoreBar } from "./score-bar.ts";
@@ -119,8 +120,9 @@ export function startTennis(root: HTMLElement, conn: GameLink, info: RoomInfo, o
   const ball = new Mesh(new SphereGeometry(0.2, 14, 10), new MeshLambertMaterial({ color: 0xffd426, emissive: 0x4a3a00 }));
   const shadow = new Mesh(new CircleGeometry(0.22, 12), new MeshBasicMaterial({ color: 0x000000, opacity: 0.35, transparent: true }));
   shadow.rotation.x = -Math.PI / 2;
-  // a clearly different top for each seat
-  const players = [makePlayer(0x2f7fe0, 0x4a2c1a, 0x2a6fd6), makePlayer(0xe0453a, 0x1d1b1a, 0xe08a1a)] as const;
+  // each seat starts in its default look (a different top per seat); a
+  // signed-in player's own look arrives with the room state (task 18)
+  const players = [makePlayer(DEFAULT_LOOKS[0], 0x2a6fd6), makePlayer(DEFAULT_LOOKS[1], 0xe08a1a)] as const;
   players[0].group.position.z = seatZ(0) + 0.8;
   players[1].group.position.z = seatZ(1) - 0.8;
   players[1].group.rotation.y = Math.PI;
@@ -402,6 +404,11 @@ export function startTennis(root: HTMLElement, conn: GameLink, info: RoomInfo, o
     } else if (msg.t === "lobby") {
       const { t: _t, ...v } = msg;
       lobby = v;
+      v.seats.forEach((s, i) => {
+        players[i].setLook(s?.look ?? DEFAULT_LOOKS[i]);
+        // what each character is wearing, for the e2e
+        canvas.dataset[`look${i}`] = String(players[i].group.userData.look);
+      });
       readyPanel.update(v);
       updateHud();
     } else if (msg.t === "swing" && DEAD_OR_WRONG.has(msg.outcome) && ownShot && performance.now() - ownShot.at < LABEL_MS && info.seat !== null) {

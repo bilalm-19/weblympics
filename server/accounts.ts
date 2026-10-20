@@ -9,6 +9,8 @@
 // cookie never opens an account, so claiming a guest ends that cookie's use.
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 import type { DatabaseSync } from "node:sqlite";
+import { parseLook } from "../shared/look.ts";
+import type { Look } from "../shared/look.ts";
 import { checkChosenName, pseudonym } from "./names.ts";
 
 export interface Player {
@@ -237,6 +239,27 @@ export function deleteAccount(db: DatabaseSync, player: string): Result {
 
 // Per-player tables from later schema steps that go with the account.
 const ACCOUNT_TABLES = ["ratings"];
+
+/** An account's saved look, or null (the seat's default). Guests never have one. */
+export function lookOf(db: DatabaseSync, player: string): Look | null {
+  const r = db.prepare("SELECT look, account FROM players WHERE token = ?").get(player) as { look: string | null; account: number } | undefined;
+  if (!r?.look || r.account !== 1) return null;
+  try {
+    return parseLook(JSON.parse(r.look));
+  } catch {
+    return null;
+  }
+}
+
+/** Saves an account's look (task 18): every field from its fixed list, or nothing is written. */
+export function setLook(db: DatabaseSync, player: string, raw: unknown): Result<{ look: Look }> {
+  const p = getPlayer(db, player);
+  if (!p?.account) return refuse(403, "Guests get the default look. Add a passkey to save one.");
+  const look = parseLook(raw);
+  if (!look) return refuse(400, "That look isn't one of the choices.");
+  db.prepare("UPDATE players SET look = ? WHERE token = ?").run(JSON.stringify(look), player);
+  return { ok: true, look };
+}
 
 export function matchCountFor(db: DatabaseSync, token: string): number {
   return (db.prepare("SELECT COUNT(*) AS n FROM matches WHERE p0 = ? OR p1 = ?").get(token, token) as { n: number }).n;

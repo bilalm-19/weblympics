@@ -1,4 +1,5 @@
 import type { Hand, Level, MoveMode, SwingKind } from "./games/tennis/sim.ts";
+import type { Look } from "./look.ts";
 
 // A room's match format (task 4): the host picks it in the ready panel before
 // play. "unlimited" has no winner, counts points and the best rally, is never
@@ -15,6 +16,8 @@ export interface LobbySeat {
   ready: boolean;
   connected: boolean;
   bot: boolean;
+  /** How the seat's character looks (task 18): the account's saved look, else the seat's default. */
+  look: Look;
 }
 
 /** The room's state, owned by the server. */

@@ -14,8 +14,10 @@ import type { DatabaseSync } from "node:sqlite";
  * a passkey) or a locked demo account; accounts' names are unique ignoring
  * case. Passkeys (public keys only) and sessions (only a hash of the cookie)
  * get their own tables. The two demo players become locked demo accounts.
+ * Version 5 (task 18): an account's look, as JSON of enum values from
+ * shared/look.ts (validated before it is written); NULL means the default.
  */
-export const SCHEMA_VERSION = 4;
+export const SCHEMA_VERSION = 5;
 
 const V1 = `
   CREATE TABLE IF NOT EXISTS players (
@@ -93,6 +95,10 @@ const V4 = `
   CREATE INDEX sessions_player ON sessions (player);
 `;
 
+const V5 = `
+  ALTER TABLE players ADD COLUMN look TEXT;
+`;
+
 export function schemaVersion(db: DatabaseSync): number {
   db.exec("CREATE TABLE IF NOT EXISTS schema_version (version INTEGER NOT NULL)");
   const row = db.prepare("SELECT version FROM schema_version").get() as { version: number } | undefined;
@@ -107,7 +113,7 @@ export function schemaVersion(db: DatabaseSync): number {
 
 /** Brings `db` up to SCHEMA_VERSION, one step at a time, each in a transaction. */
 export function migrate(db: DatabaseSync): void {
-  const steps: Record<number, string> = { 1: V1, 2: V2, 3: V3, 4: V4 };
+  const steps: Record<number, string> = { 1: V1, 2: V2, 3: V3, 4: V4, 5: V5 };
   let v = schemaVersion(db);
   if (v > SCHEMA_VERSION) throw new Error(`database schema ${v} is newer than this app (${SCHEMA_VERSION})`);
   while (v < SCHEMA_VERSION) {

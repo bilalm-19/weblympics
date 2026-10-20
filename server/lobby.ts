@@ -3,6 +3,8 @@
 // whose player dropped mid-match. Pure, with the clock passed in, so every
 // rule is tested without waiting (spec/lobby.test.ts). rooms.ts drives it.
 
+import { DEFAULT_LOOKS } from "../shared/look.ts";
+import type { Look } from "../shared/look.ts";
 import type { LobbyView, Phase, RoomFormat } from "../shared/protocol.ts";
 
 export type Seat = 0 | 1;
@@ -21,6 +23,16 @@ export interface SeatInfo {
   ready: boolean;
   connected: boolean;
   bot: boolean;
+  /** A signed-in account (task 17), not a guest. */
+  account: boolean;
+  /** The account's saved look (task 18); null shows the seat's default. */
+  look: Look | null;
+}
+
+/** Who is sitting down, beyond their token and name. */
+export interface Sitter {
+  account?: boolean;
+  look?: Look | null;
 }
 
 export type Tick = "start" | "resume" | "close" | null;
@@ -45,7 +57,7 @@ export class Lobby {
     this.format = practice ? "oneSet" : format;
     this.timing = { countdownMs: COUNTDOWN_MS, graceMs: GRACE_MS, ...timing };
     // the bot is always ready
-    if (practice) this.seats[BOT_SEAT] = { token: "", name: "Bot", ready: true, connected: true, bot: true };
+    if (practice) this.seats[BOT_SEAT] = { token: "", name: "Bot", ready: true, connected: true, bot: true, account: false, look: null };
   }
 
   phase(): Phase {
@@ -75,17 +87,18 @@ export class Lobby {
   }
 
   /** Puts a player in `seat` (from seatFor). Returns true if it reclaimed a held seat. */
-  sit(seat: Seat, token: string, name: string, now: number): boolean {
+  sit(seat: Seat, token: string, name: string, now: number, who: Sitter = {}): boolean {
     if (this.held[seat] !== null && this.seats[seat]?.token === token) {
       this.held[seat] = null;
       const s = this.seats[seat]!;
       s.connected = true;
+      s.look = who.look ?? s.look;
       s.ready = true;
       // the match resumes after a countdown, once nobody else is still away
       if (this.held[other(seat)] === null) this.countdownUntil = now + this.timing.countdownMs;
       return true;
     }
-    this.seats[seat] = { token, name, ready: this.practice, connected: true, bot: false };
+    this.seats[seat] = { token, name, ready: this.practice, connected: true, bot: false, account: who.account ?? false, look: who.look ?? null };
     this.host ??= seat;
     this.recount(now);
     return false;
@@ -175,7 +188,7 @@ export class Lobby {
   view(now: number): Omit<LobbyView, "tally"> {
     const seat = (n: Seat) => {
       const s = this.seats[n];
-      return s ? { name: this.name(n)!, ready: s.ready, connected: s.connected, bot: s.bot } : null;
+      return s ? { name: this.name(n)!, ready: s.ready, connected: s.connected, bot: s.bot, look: s.look ?? DEFAULT_LOOKS[n] } : null;
     };
     const secs = (until: number) => Math.max(0, Math.ceil((until - now) / 1000));
     const heldSeat = this.held[0] !== null ? 0 : this.held[1] !== null ? 1 : null;

@@ -2,13 +2,64 @@
 // A native <dialog>, so focus stays inside it and Escape closes it. Play never
 // needs any of this: a guest can ignore it entirely.
 import "./profile.css";
+import { DEFAULT_LOOKS, HAIRS, LOOK_LABELS, SHIRTS, SHORTS, SKINS, STYLES, STYLE_LABELS, sameLook } from "../../shared/look.ts";
+import type { Look } from "../../shared/look.ts";
 import { NAME_MAX, NAME_MIN, nameShapeProblem, normaliseName } from "../../shared/names.ts";
-import { ApiError, addPasskey, deleteAccount, fetchMe, passkeysSupported, removePasskey, setName, signIn, signOut } from "../net/account.ts";
+import { ApiError, addPasskey, deleteAccount, fetchMe, passkeysSupported, removePasskey, saveLook, setName, signIn, signOut } from "../net/account.ts";
 import type { Me } from "../net/account.ts";
+import { lookSvg } from "./look-preview.ts";
 
 export interface ProfileHooks {
   /** Who you are changed (signed in or out, claimed, renamed, deleted): reconnect and redraw. */
   onIdentityChange(): void;
+}
+
+const hex = (n: number) => `#${n.toString(16).padStart(6, "0")}`;
+const COLOUR_FIELDS = [
+  ["shirt", SHIRTS],
+  ["shorts", SHORTS],
+  ["skin", SKINS],
+  ["hair", HAIRS],
+] as const;
+const titleCase = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+/** A swatch's spoken name: "Blue shirt", "Black hair", or "Skin tone 3". */
+const swatchName = (field: string, value: string) => (field === "skin" ? `Skin tone ${value.slice(1)}` : `${titleCase(value)} ${field}`);
+
+/**
+ * The customise section (task 18): one radio group per field, from the fixed
+ * lists, and a live preview. Native radios, so arrow keys move within a group.
+ */
+function customise(look: Look): string {
+  const group = (field: keyof Look, options: string, legend: string) => `
+    <fieldset class="look-field" data-field="${field}">
+      <legend>${legend}</legend>
+      <div class="look-options">${options}</div>
+    </fieldset>`;
+  const radio = (field: keyof Look, value: string, label: string, swatch: string) => `
+    <label class="look-option" title="${label}">
+      <input type="radio" name="look-${field}" value="${value}" ${look[field] === value ? "checked" : ""} />
+      ${swatch}<span class="sr-only">${label}</span>
+    </label>`;
+  const colours = COLOUR_FIELDS.map(([field, palette]) =>
+    group(
+      field,
+      Object.entries(palette)
+        .map(([v, c]) => radio(field, v, swatchName(field, v), `<span class="look-swatch" style="background:${hex(c)}"></span>`))
+        .join(""),
+      LOOK_LABELS[field],
+    ),
+  ).join("");
+  const styles = group("style", STYLES.map((s) => radio("style", s, STYLE_LABELS[s], `<span class="look-chip">${STYLE_LABELS[s]}</span>`)).join(""), LOOK_LABELS.style);
+  return `
+    <section class="profile-look" aria-labelledby="pf-look-title">
+      <h3 id="pf-look-title">Your player</h3>
+      <div class="look-layout">
+        <div class="look-preview">${lookSvg(look, "Preview of your player")}</div>
+        <form class="look-form">${colours}${styles}
+          <div class="profile-actions"><button type="submit" class="profile-btn" id="pf-look-save">Save look</button></div>
+        </form>
+      </div>
+    </section>`;
 }
 
 const fmtDate = (ms: number) => new Date(ms).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" });
@@ -33,6 +84,8 @@ export function openProfile(hooks: ProfileHooks): void {
   let confirmDelete = false;
   let confirmLastKey: string | null = null;
   let busy = false;
+  // the look being tried on, before Save
+  let draftLook: Look | null = null;
 
   const changed = (next: Me | null) => {
     me = next;
@@ -87,6 +140,7 @@ export function openProfile(hooks: ProfileHooks): void {
       body.innerHTML = `
         <p class="profile-name">Signed in as <strong></strong></p>
         <p class="profile-note">A demo account, for trying rated play. It is locked: no renaming, no passkeys, no deleting.</p>
+        ${customise(draftLook ?? me.look ?? DEFAULT_LOOKS[0])}
         <div class="profile-actions">
           <button type="button" class="profile-btn" id="pf-signout" data-act="signout">Sign out</button>
         </div>
@@ -97,10 +151,11 @@ export function openProfile(hooks: ProfileHooks): void {
           <label for="pf-name">Display name</label>
           <div class="profile-row">
             <input id="pf-name" name="name" autocomplete="off" spellcheck="false" minlength="${NAME_MIN}" maxlength="${NAME_MAX}" aria-describedby="pf-name-hint" />
-            <button type="submit" class="profile-btn" id="pf-save">Save</button>
+            <button type="submit" class="profile-btn" id="pf-save">Save name</button>
           </div>
           <p class="profile-hint" id="pf-name-hint">${NAME_MIN} to ${NAME_MAX} letters, digits, spaces or _ . ' -</p>
         </form>
+        ${customise(draftLook ?? me.look ?? DEFAULT_LOOKS[0])}
         <h3>Passkeys</h3>
         <ul class="profile-keys"></ul>
         <div class="profile-actions">
@@ -129,7 +184,7 @@ export function openProfile(hooks: ProfileHooks): void {
         hint.textContent = p ?? `${NAME_MIN} to ${NAME_MAX} letters, digits, spaces or _ . ' -`;
         hint.classList.toggle("is-bad", p !== null);
       });
-      body.querySelector("form")!.addEventListener("submit", (event) => {
+      body.querySelector(".profile-rename")!.addEventListener("submit", (event) => {
         event.preventDefault();
         const name = input.value;
         void act(async () => {
@@ -168,6 +223,34 @@ export function openProfile(hooks: ProfileHooks): void {
         );
         li.append(remove);
         list.append(li);
+      });
+    }
+    const lookForm = body.querySelector<HTMLFormElement>(".look-form");
+    if (lookForm) {
+      const readLook = (): Look => {
+        const data = new FormData(lookForm);
+        return {
+          shirt: data.get("look-shirt"),
+          shorts: data.get("look-shorts"),
+          skin: data.get("look-skin"),
+          hair: data.get("look-hair"),
+          style: data.get("look-style"),
+        } as Look;
+      };
+      lookForm.addEventListener("change", () => {
+        // live preview only; nothing is sent until Save
+        draftLook = readLook();
+        body.querySelector(".look-preview")!.innerHTML = lookSvg(draftLook, "Preview of your player");
+      });
+      lookForm.addEventListener("submit", (event) => {
+        event.preventDefault();
+        const look = readLook();
+        void act(async () => {
+          me = await saveLook(look);
+          draftLook = null;
+          status = me.look && sameLook(me.look, look) ? "Look saved. Everyone in your next room sees it." : "Look saved.";
+          hooks.onIdentityChange();
+        });
       });
     }
     const strong = body.querySelector<HTMLElement>(".profile-name strong");

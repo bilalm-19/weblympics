@@ -31,6 +31,13 @@ brackets). A profanity filter (the `obscenity` package; its word list ships
 inside the package) runs on the server. It has gaps, so an admin can rename by
 hand.
 
+## Your player's look
+
+An account (and either demo account) can pick its player's shirt, shorts,
+skin and hair colours and a hat or hairstyle from fixed lists, in Profile.
+The server refuses anything not on the lists. Everyone in the room, players
+and spectators, sees it. Guests wear their seat's default (blue or red top).
+
 ## Deleting an account
 
 Profile, then **Delete account**, then confirm with one of your passkeys. It
