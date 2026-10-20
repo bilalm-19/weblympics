@@ -35,6 +35,7 @@ lazily and only when a player enters a game. Video never leaves the browser.
   `games/tennis/ready-panel.ts` + `.css` (the room's ready panel, task 4),
   training (task 5): `training.ts` + `.css` (coach panel, landing mark),
   `lessons.ts` (pure: steps, feedback words, "Why?" notes),
+  `spot.ts` (pure: hit-the-spot placement, closeness, streak; task 21),
   `training-sim.ts` (sim + ball machine in the page) and `local-link.ts`
   (a `GameLink` like `Connection`, so `view.ts` renders training unchanged;
   no network),
@@ -121,7 +122,12 @@ lazily and only when a player enters a game. Video never leaves the browser.
   sent to the server (`spec/training.test.ts`, `e2e/training.e2e.ts`).
   Required steps: swing, forehand, backhand, timing (early, on time and late
   each landing in), strength; auto-move stays on. Moving yourself is offered
-  after them and optional. Figures in its notes come from `docs/reaction-time.md`.- Camera is used for gameplay only. Every camera action has a keyboard/mouse
+  after them and optional. Figures in its notes come from `docs/reaction-time.md`.
+  "Hit the spot" (task 21, `spec/spot.test.ts`) is an endless extra offered on
+  the training screen, never required: seeded spot on the machine's half, a
+  closeness word and ring colour per return, a streak, the best streak kept
+  only in `localStorage`; Exit leaves. Same rules: nothing sent to the server.
+- Camera is used for gameplay only. Every camera action has a keyboard/mouse
   equivalent, and the lobby and room work with no camera at all.
 - Auto-move (`spec/auto-move.test.ts`) walks slower than manual movement
   (`AUTO_SPEED` share of `PLAYER.speed`) so a wide hard shot can beat it;
