@@ -38,10 +38,14 @@ lazily and only when a player enters a game. Video never leaves the browser.
   `games/tennis/ready-panel.ts` + `.css` (the room's ready panel, task 4),
   training (task 5): `training.ts` + `.css` (coach panel, landing mark),
   `lessons.ts` (pure: steps, feedback words, "Why?" notes),
+  `spot.ts` (pure: hit-the-spot placement, closeness, streak; task 21),
   `training-sim.ts` (sim + ball machine in the page) and `local-link.ts`
   (a `GameLink` like `Connection`, so `view.ts` renders training unchanged;
   no network),
-  `games/tennis/stadium.ts` (arena from primitives, instanced crowd/trees),
+  `games/tennis/stadium.ts` (arena from primitives: static parts merged into
+  two vertex-coloured meshes, instanced crowd/trees; returns the crowd handle),
+  `games/tennis/crowd-layout.ts` (pure: stands and seats in four sections,
+  left, right, frontLeft, frontRight, for task 19 to drive),
   `games/tennis/character.ts` (Mii-style player and racket),
   `games/tennis/stroke.ts` (forehand/backhand keyframes, shot label text),
   `games/tennis/shot-fx.ts` (ball trail, bounce marks, shot arc),
@@ -49,8 +53,11 @@ lazily and only when a player enters a game. Video never leaves the browser.
   with `aid.ts`/`aid-fx.ts`/`aid.css` drawing it (task 3), `input/`
   (`keyboard.ts` for keys, pointer and buttons; `camera/` with `pose.ts` pure
   landmark maths, `camera.ts` webcam + lazy MediaPipe, `index.ts` setup
-  panel), `net/socket.ts` (`Connection`), `net/link.ts` (`GameLink`), `ui/menu.ts` (home screen: title, framed sport preview,
-  sport buttons from the `SPORTS` list; inline SVG/CSS only, no Three.js). Camera swings have two modes,
+  panel), `net/socket.ts` (`Connection`), `net/link.ts` (`GameLink`), `ui/menu.ts` (home screen: animated logo, framed sport preview
+  with a looping SVG snippet per sport, sport buttons from the `SPORTS` list,
+  the arrow as the mouse cursor; inline SVG/CSS only, no Three.js:
+  `spec/home-screen.test.ts`), `ui/brand.ts` (the five ring colours and every
+  text/background pair, held to WCAG AA by `spec/brand.test.ts`; task 14). Camera swings have two modes,
   "classic" (default) and "follow" (character copies the arm, hit at the
   hitting line), and two aim modes, "timing" (default) and "point"; see
   the camera setup notes in `tasks/done/`. Movement has two modes per seat,
@@ -129,6 +136,10 @@ lazily and only when a player enters a game. Video never leaves the browser.
   Required steps: swing, forehand, backhand, timing (early, on time and late
   each landing in), strength; auto-move stays on. Moving yourself is offered
   after them and optional. Figures in its notes come from `docs/reaction-time.md`.
+  "Hit the spot" (task 21, `spec/spot.test.ts`) is an endless extra offered on
+  the training screen, never required: seeded spot on the machine's half, a
+  closeness word and ring colour per return, a streak, the best streak kept
+  only in `localStorage`; Exit leaves. Same rules: nothing sent to the server.
 - Archery (task 22; `spec/archery-*.test.ts`, `e2e/archery.e2e.ts`): eight
   stages (10 m to 50 m, wind rising from none), one arrow each per stage,
   turns alternate and the first shooter swaps; rings 10 to 1, bullseye 11;

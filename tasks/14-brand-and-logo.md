@@ -1,6 +1,6 @@
 # 14 Weblympics colours and logo
 
-Status: queued
+Status: done (2026-10-21, session C; see the devlog)
 Model: Opus (visual design judgment)
 Waits on: nothing; touches client/style.css and client/ui/menu.ts (the home
 screen from task 13), so run it before or after other home-screen work, not
@@ -26,6 +26,6 @@ red) and a fun logo, so it reads as a games and not a plain title.
   right after this one in the same session.
 
 ## Done when
-- [ ] Logo and palette on the home screen at 1920x1080 and 390x844, no clipping.
-- [ ] Contrast checked for text and controls; screenshots kept in docs/.
-- [ ] e2e still passes at both viewports.
+- [x] Logo and palette on the home screen at 1920x1080 and 390x844, no clipping.
+- [x] Contrast checked for text and controls; screenshots kept in docs/.
+- [x] e2e still passes at both viewports.

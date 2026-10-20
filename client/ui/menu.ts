@@ -1,3 +1,5 @@
+import { RINGS } from "./brand.ts";
+
 export interface MenuActions {
   /** Training (task 5, tennis) or practice (task 22, archery): runs in the page, no server. */
   onTrain(sport: string): void;
@@ -42,26 +44,30 @@ const ICONS = {
   ),
 };
 
-// Two decorative Mii-style figures that take turns crossing the tennis
-// preview: a runner, then (later in the same loop) a server who stops to
-// toss, swing and send the ball off before running on. Pure CSS/DOM, so the
-// menu never pulls in Three.js (that stays lazy, loaded only once a game
-// starts). Their keyframes use container units, so they cross the preview
-// frame, not the window.
-const sprite = (role: "runner" | "server"): string => `
-  <div class="sprite sprite--${role}" aria-hidden="true">
-    <div class="sprite-shadow"></div>
-    <div class="sprite-body">
-      <div class="sprite-leg sprite-leg--l"></div>
-      <div class="sprite-leg sprite-leg--r"></div>
-      <div class="sprite-torso"></div>
-      <div class="sprite-arm sprite-arm--off"></div>
-      <div class="sprite-arm sprite-arm--main"><div class="sprite-racket"></div></div>
-      <div class="sprite-head"><div class="sprite-hair"></div></div>
-    </div>
-    ${role === "server" ? '<div class="sprite-ball"></div>' : ""}
-  </div>
-`;
+// A decorative Mii-style figure for the tennis loop (task 23), drawn in the
+// preview's own SVG so it lines up with the court at any frame shape: round
+// head, tapered torso, bright top, dark trousers, an oval racket in the right
+// hand (as character.ts, but flat). Feet at (x, y), `s` its size (the far
+// player is smaller), the racket arm a group the loop swings about the
+// shoulder at (x + 7s, y - 34s). Pure SVG/CSS: the menu never loads Three.js.
+function figure(x: number, y: number, s: number, shirt: string, hair: string, part: "near" | "far"): string {
+  const p = (dx: number, dy: number) => `${x + dx * s},${y + dy * s}`;
+  return `
+    <g class="loop-${part}">
+      <ellipse cx="${x}" cy="${y + 1 * s}" rx="${11 * s}" ry="${3 * s}" fill="#000" opacity=".22"/>
+      <rect x="${x - 6 * s}" y="${y - 19 * s}" width="${4.5 * s}" height="${19 * s}" rx="${2 * s}" fill="#2b303b"/>
+      <rect x="${x + 1.5 * s}" y="${y - 19 * s}" width="${4.5 * s}" height="${19 * s}" rx="${2 * s}" fill="#2b303b"/>
+      <polygon points="${p(-6, -17)} ${p(6, -17)} ${p(8, -34)} ${p(-8, -34)}" fill="${shirt}"/>
+      <rect x="${x - 11 * s}" y="${y - 34 * s}" width="${4 * s}" height="${13 * s}" rx="${2 * s}" fill="${shirt}" transform="rotate(12 ${p(-9, -34)})"/>
+      <circle cx="${x}" cy="${y - 42 * s}" r="${8.5 * s}" fill="#f3cfae"/>
+      <path d="M${p(-8.5, -43)} a${8.5 * s},${8.5 * s} 0 0 1 ${17 * s},0 z" fill="${hair}"/>
+      <g class="loop-${part}-arm">
+        <line x1="${x + 7 * s}" y1="${y - 34 * s}" x2="${x + 13 * s}" y2="${y - 22 * s}" stroke="${shirt}" stroke-width="${4 * s}" stroke-linecap="round"/>
+        <line x1="${x + 13 * s}" y1="${y - 22 * s}" x2="${x + 15 * s}" y2="${y - 33 * s}" stroke="#2f3a46" stroke-width="${1.6 * s}"/>
+        <ellipse cx="${x + 16 * s}" cy="${y - 40 * s}" rx="${5 * s}" ry="${7 * s}" fill="#ffffff55" stroke="#e4e7eb" stroke-width="${1.6 * s}"/>
+      </g>
+    </g>`;
+}
 
 const svg = (body: string): string =>
   `<svg class="thumb-svg" viewBox="0 0 320 180" preserveAspectRatio="xMidYMid slice" aria-hidden="true" focusable="false">${body}</svg>`;
@@ -134,10 +140,13 @@ function tennisThumb(): string {
         <line x1="${net.l - 4}" y1="${net.y - 13}" x2="${net.r + 4}" y2="${net.y - 13}" stroke="#fff" stroke-width="2"/>
         <rect x="${net.l - 6}" y="${net.y - 15}" width="2.5" height="16" fill="#e9ecef"/>
         <rect x="${net.r + 3.5}" y="${net.y - 15}" width="2.5" height="16" fill="#e9ecef"/>
-        <ellipse cx="196" cy="146" rx="5" ry="1.8" fill="#000" opacity=".25"/>
-        <circle cx="203" cy="122" r="3.4" fill="#ffb21c" stroke="#e8890c" stroke-width=".8"/>
+        <g class="loop">
+          ${figure(150, 96, 0.6, "#ee334e", "#1d1b1a", "far")}
+          <ellipse class="loop-ball-shadow" rx="5" ry="1.8" fill="#000" opacity=".25"/>
+          <circle class="loop-ball" r="3.4" fill="#ffb21c" stroke="#e8890c" stroke-width=".8"/>
+          ${figure(208, 166, 1, "#0081c8", "#4a2c1a", "near")}
+        </g>
       `)}
-      <div class="thumb-sprites">${sprite("runner")}${sprite("server")}</div>
     </div>`;
 }
 
@@ -147,11 +156,17 @@ function archeryThumb(): string {
     <path d="M0 104 Q90 84 180 100 T320 96 V180 H0 Z" fill="#6fbf5a"/>
     <rect y="120" width="320" height="60" fill="#4f9e3d"/>
     <line x1="150" y1="118" x2="140" y2="156" stroke="#8d6e4f" stroke-width="3"/><line x1="190" y1="118" x2="200" y2="156" stroke="#8d6e4f" stroke-width="3"/>
-    <circle cx="170" cy="92" r="40" fill="#fff" stroke="#adb5bd" stroke-width="1.4"/>
-    <circle cx="170" cy="92" r="32" fill="#2b2f4a"/><circle cx="170" cy="92" r="24" fill="#4dabf7"/>
-    <circle cx="170" cy="92" r="16" fill="#e03131"/><circle cx="170" cy="92" r="7" fill="#ffd23f"/>
-    <g stroke="#6b4f33" stroke-width="2.4" stroke-linecap="round"><line x1="176" y1="86" x2="246" y2="36"/><line x1="160" y1="98" x2="100" y2="140"/></g>
-    <g fill="#e03131"><polygon points="246,36 236,38 242,46"/></g>
+    <g class="loop">
+      <g class="loop-target">
+        <circle cx="170" cy="92" r="40" fill="#fff" stroke="#adb5bd" stroke-width="1.4"/>
+        <circle cx="170" cy="92" r="32" fill="#2b2f4a"/><circle cx="170" cy="92" r="24" fill="#4dabf7"/>
+        <circle cx="170" cy="92" r="16" fill="#e03131"/><circle cx="170" cy="92" r="7" fill="#ffd23f"/>
+      </g>
+      <g class="loop-arrow">
+        <line x1="170" y1="92" x2="116" y2="108" stroke="#6b4f33" stroke-width="2.4" stroke-linecap="round"/>
+        <polygon points="116,108 108,103 113,109 109,114" fill="#ee334e"/><polygon points="123,106 115,101 120,107 116,112" fill="#ee334e"/>
+      </g>
+    </g>
   `)}</div>`;
 }
 
@@ -170,8 +185,10 @@ function bowlingThumb(): string {
     <polygon points="126,40 194,40 270,180 50,180" fill="#e9b872"/>
     <g stroke="#d49a52" stroke-width="1">${[0.2, 0.4, 0.6, 0.8].map((t) => `<line x1="${126 + 68 * t}" y1="40" x2="${50 + 220 * t}" y2="180"/>`).join("")}</g>
     <g fill="#c0392b">${[0.3, 0.42, 0.5, 0.58, 0.7].map((t) => `<polygon points="${50 + 220 * t},140 ${46 + 220 * t},150 ${54 + 220 * t},150"/>`).join("")}</g>
-    ${pins}
-    <circle cx="160" cy="160" r="13" fill="#3b5bdb"/><circle cx="156" cy="155" r="1.6" fill="#1c2b6b"/><circle cx="162" cy="154" r="1.6" fill="#1c2b6b"/>
+    <g class="loop">
+      <g class="loop-pins">${pins}</g>
+      <g class="loop-bowl" style="transform-origin: 160px 160px"><circle cx="160" cy="160" r="13" fill="#3b5bdb"/><circle cx="156" cy="155" r="1.6" fill="#1c2b6b"/><circle cx="162" cy="154" r="1.6" fill="#1c2b6b"/></g>
+    </g>
   `)}</div>`;
 }
 
@@ -179,7 +196,12 @@ function mysteryThumb(): string {
   return `<div class="thumb-art">${svg(`
     <rect width="320" height="180" fill="#c9dcf0"/>
     <rect width="320" height="180" fill="#ffffff" opacity=".25"/>
-    <text x="160" y="124" text-anchor="middle" font-size="110" font-weight="800" font-family="system-ui, sans-serif" fill="#7d93ab">??</text>
+    <g class="loop">
+      <text class="loop-mystery" x="160" y="124" text-anchor="middle" font-size="110" font-weight="800" font-family="system-ui, sans-serif" fill="#7d93ab">??</text>
+      <path class="loop-spark" d="M70 50 l4 10 l10 4 l-10 4 l-4 10 l-4 -10 l-10 -4 l10 -4 z" fill="#fcb131"/>
+      <path class="loop-spark" d="M250 40 l3 8 l8 3 l-8 3 l-3 8 l-3 -8 l-8 -3 l8 -3 z" fill="#0081c8"/>
+      <path class="loop-spark" d="M240 130 l3 7 l7 3 l-7 3 l-3 7 l-3 -7 l-7 -3 l7 -3 z" fill="#ee334e"/>
+    </g>
   `)}</div>`;
 }
 
@@ -197,6 +219,33 @@ export const SPORTS: Sport[] = [
   { id: "mystery-2", name: "??", playable: false, icon: ICONS.mystery, blurb: "A secret sport. Who knows?", thumbnail: mysteryThumb },
 ];
 
+/**
+ * The logo (task 14). The ring motif is our own: five loose, separate rings
+ * in a wave over the word, never interlinked in the official 3-over-2
+ * layout. Then the word, each letter in one
+ * of the five colours with a dark outline (so even yellow reads on the pale
+ * sky). Letters bounce in once on load; the rings float on a slow loop. Pure
+ * SVG and CSS, a still frame under reduced motion (style.css).
+ */
+// The menu is drawn again when the server's welcome arrives (and on every
+// return from a game); the bounce carries on from where it was instead of
+// starting over, so it plays once per page load.
+let bounceStart: number | null = null;
+
+export function logo(): string {
+  bounceStart ??= performance.now();
+  const since = Math.round(performance.now() - bounceStart);
+  const rings = RINGS.map(
+    (r, i) => `<circle class="logo-ring logo-ring--${r.name}" cx="${18 + i * 31}" cy="${i % 2 ? 26 : 18}" r="13" style="--i:${i}" stroke="${r.hex}"/>`,
+  ).join("");
+  const letters = [..."Weblympics"].map((ch, i) => `<span class="logo-letter" style="--i:${i}; --c:${RINGS[i % 5].hex}">${ch}</span>`).join("");
+  return `
+    <h1 class="logo" aria-label="Weblympics" style="--since:${since}ms">
+      <svg class="logo-rings" viewBox="0 0 160 42" aria-hidden="true" focusable="false">${rings}</svg>
+      <span class="logo-word">${letters}</span>
+    </h1>`;
+}
+
 // A chunky pointer arrow, drawn here (not a Nintendo asset), that marks the
 // focused or hovered sport button.
 const POINTER = `<svg class="pointer" viewBox="0 0 32 32" aria-hidden="true" focusable="false">
@@ -206,8 +255,8 @@ const POINTER = `<svg class="pointer" viewBox="0 0 32 32" aria-hidden="true" foc
 /** The selected sport's options: a room vs the bot, in-page training or practice, a room, or join one. */
 const sportOptions = (sport: string) => `
   <button class="pill pill--primary" data-action="practice">${sport === "archery" ? "Play vs bot" : "Practice vs bot"}</button>
-  <button class="pill" data-action="train">${sport === "archery" ? "Practice" : "Train"}</button>
-  <button class="pill" data-action="create">Create a room</button>
+  <button class="pill pill--green" data-action="train">${sport === "archery" ? "Practice" : "Train"}</button>
+  <button class="pill pill--red" data-action="create">Create a room</button>
   <form class="join">
     <label for="code" hidden>Room code</label>
     <input id="code" name="code" placeholder="CODE" maxlength="4" autocomplete="off" aria-label="Room code" />
@@ -232,7 +281,7 @@ export function renderMenu(
   menu.innerHTML = `
     <div class="menu-tab" aria-hidden="true">Main Menu</div>
     <div class="menu-column">
-      <h1>Weblympics</h1>
+      ${logo()}
       <figure class="thumb">
         <div class="thumb-frame" role="img" aria-label="${selected.name} preview"></div>
         <figcaption class="thumb-caption"><strong></strong> <span></span></figcaption>
@@ -300,6 +349,11 @@ export function renderMenu(
     show(active ? sportOf(active) : selected);
   };
   show(selected);
+  // the loops stop while the tab is hidden (task 23); the listener goes with the menu
+  const pause = () => frame.classList.toggle("is-paused", document.hidden);
+  pause();
+  const onVisibility = () => (menu.isConnected ? pause() : document.removeEventListener("visibilitychange", onVisibility));
+  document.addEventListener("visibilitychange", onVisibility);
   // when focus leaves the group, Tab comes back to the selected sport, never
   // to a placeholder (placeholders take focus only to preview them)
   menu.querySelector(".sports")!.addEventListener("focusout", (event) => {

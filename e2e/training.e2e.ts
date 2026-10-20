@@ -466,3 +466,40 @@ test("the timing step enforces what it asks for: an on-time hit when early is as
   await expect(coach).toHaveAttribute("data-done", "false");
 });
 
+test("hit the spot (task 21): endless from the training screen, a result after each return, a streak, Exit; nothing sent", async ({ page }) => {
+  test.setTimeout(120_000);
+  // listening from before the page opens its socket, or its frames would never be seen
+  const net = traffic(page);
+  await page.goto("/");
+  await expect(page.getByText(/playing as/i)).toBeVisible();
+  // what the page itself sent while loading (hello); the mode adds nothing
+  const framesBefore = net.frames.length;
+  await page.getByRole("button", { name: "Train" }).click();
+  const coach = page.locator(".coach");
+  const canvas = page.locator("canvas");
+  // offered on the training screen, beside the lessons; no camera needed
+  await coach.getByRole("button", { name: "Hit the spot" }).click();
+  await expect(coach).toHaveAttribute("data-lesson", "spot");
+  await expect(coach.getByRole("heading", { name: "Hit the spot" })).toBeVisible();
+  await expect(coach.locator(".coach-progress")).toHaveText(/Streak 0 · Best \d+/);
+  // a spot is drawn on the machine's half
+  await expect.poll(async () => (await canvas.getAttribute("data-spot")) ?? "").toMatch(/^-?\d+\.\d+,-\d+\.\d+$/);
+  await coach.getByRole("button", { name: "Start" }).click();
+  await expect(coach).toHaveAttribute("data-stage", "play");
+  await page.waitForTimeout(500);
+  await coachClear(page);
+
+  // swing on time at the next ball: a result in words comes back once it lands (or goes by)
+  await swingIn(page, "ontime");
+  await expect(coach).toHaveAttribute("data-result", /^(bullseye|on|near|wide|out|net|none)$/, { timeout: 15_000 });
+  await expect(coach.locator(".coach-feedback")).toHaveText(/Bullseye|On the spot|Close|Wide|Out|Into the net|No return/);
+  // unlimited: the balls keep coming after that
+  await canvas.evaluate((c) => (c.dataset.trainFeed = ""));
+  await expect.poll(async () => (await canvas.getAttribute("data-train-feed")) ?? "", { timeout: 15_000 }).not.toBe("");
+
+  // the mode sent nothing over the socket (pings excepted, which the link answers by itself)
+  expect(net.frames.slice(framesBefore).filter((f) => !f.includes('"pong"'))).toEqual([]);
+  await coach.getByRole("button", { name: "Exit" }).click();
+  await expect(page.getByRole("button", { name: /practice vs bot/i })).toBeVisible();
+});
+
