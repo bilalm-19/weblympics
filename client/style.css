@@ -457,6 +457,32 @@ a:focus-visible {
   gap: 0.5rem;
 }
 
+/* Task 17: the demo accounts sit behind a closed "Dev tools" control */
+.devtools {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.devtools summary {
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 0.75rem;
+  border-radius: 999px;
+  color: var(--ink-soft);
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.devtools summary:focus-visible {
+  outline: 3px solid var(--focus);
+}
+
+.devtools[open] .identity-row {
+  margin-top: 0.25rem;
+}
+
 /* Desktop: preview on top, sports in a two-column grid, options beside the
    sports' column so all of it fits one 1080p screen without scrolling. */
 @media (min-width: 900px) {

@@ -4,7 +4,8 @@ import { COURT, DT, PLAYER, hitWindowDistance, missReason } from "../shared/game
 import type { TennisSnapshot } from "../shared/games/tennis/sim.ts";
 import type { ClientMsg, ServerMsg } from "../shared/protocol.ts";
 
-const wsUrl = new URL("/ws", inject("baseUrl"));
+const baseUrl = inject("baseUrl");
+const wsUrl = new URL("/ws", baseUrl);
 wsUrl.protocol = wsUrl.protocol === "https:" ? "wss:" : "ws:";
 
 const open: WebSocket[] = [];
@@ -12,11 +13,21 @@ afterEach(() => {
   for (const ws of open.splice(0)) ws.close();
 });
 
+/** A fresh guest: the cookie a first visit to the page is given (task 17). */
+async function guestCookie(): Promise<string> {
+  const res = await fetch(new URL("/api/me", baseUrl));
+  const set = res.headers.getSetCookie().find((c) => c.startsWith("wl_guest="));
+  if (!set) throw new Error("no guest cookie from /api/me");
+  return set.split(";")[0];
+}
+
 class Peer {
-  ws = new WebSocket(wsUrl);
+  ws: WebSocket;
   seen: ServerMsg[] = [];
 
-  constructor() {
+  /** `cookie`: the page's cookies, which say who this is; none gives a new guest. */
+  constructor(cookie?: string) {
+    this.ws = new WebSocket(wsUrl, cookie ? { headers: { cookie } } : {});
     open.push(this.ws);
     this.ws.on("message", (data) => this.seen.push(JSON.parse(data.toString()) as ServerMsg));
   }
@@ -35,15 +46,17 @@ class Peer {
     }
   }
 
+  /** `token`: the cookie of a player from an earlier connect, to come back as them. */
   static async connect(token?: string): Promise<{ peer: Peer; token: string; name: string }> {
-    const peer = new Peer();
+    const cookie = token ?? (await guestCookie());
+    const peer = new Peer(cookie);
     await new Promise((resolve, reject) => {
       peer.ws.once("open", resolve);
       peer.ws.once("error", reject);
     });
-    peer.send({ t: "hello", token });
+    peer.send({ t: "hello" });
     const welcome = await peer.next("welcome");
-    return { peer, token: welcome.token, name: welcome.name };
+    return { peer, token: cookie, name: welcome.name };
   }
 }
 

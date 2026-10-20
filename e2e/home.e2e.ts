@@ -125,12 +125,35 @@ test("the sports are Tennis, Bowling, Archery and two ?? tiles, in that order", 
 test("every current action is still on the home screen", async ({ page }) => {
   await page.goto("/");
   await expect(page.getByText(/playing as/i)).toBeVisible();
-  for (const name of [/practice vs bot/i, /create a room/i, /^join$/i, /sign in as demo one/i, /sign in as demo two/i]) {
+  for (const name of [/practice vs bot/i, /create a room/i, /^join$/i, /profile and sign in/i]) {
     await expect(page.getByRole("button", { name })).toBeVisible();
   }
   await expect(page.getByRole("textbox", { name: /room code/i })).toBeVisible();
   await expect(page.getByRole("link", { name: /what makes this good/i })).toHaveAttribute("href", "/readme/");
-  await page.getByRole("button", { name: /sign in as demo one/i }).click();
-  await expect(page.getByRole("button", { name: /play as guest/i })).toBeVisible();
   expect(await noHorizontalScroll(page)).toBe(true);
+});
+
+test("demo accounts sit behind a closed Dev tools control, reachable by keyboard (task 17)", async ({ page }) => {
+  await page.goto("/");
+  await expect(page.getByText(/playing as/i)).toBeVisible();
+  const demoOne = page.getByRole("button", { name: /sign in as demo one/i });
+  const demoTwo = page.getByRole("button", { name: /sign in as demo two/i });
+  await expect(demoOne).toBeHidden();
+  await expect(demoTwo).toBeHidden();
+
+  const devtools = page.locator("summary", { hasText: "Dev tools" });
+  await devtools.focus();
+  await page.keyboard.press("Enter");
+  await expect(demoOne).toBeVisible();
+  await expect(demoTwo).toBeVisible();
+  const b = (await devtools.boundingBox())!;
+  expect(b.height).toBeGreaterThanOrEqual(44);
+  expect(b.x + b.width).toBeLessThanOrEqual(page.viewportSize()!.width);
+  expect(await noHorizontalScroll(page)).toBe(true);
+
+  await demoOne.click();
+  await expect(page.locator(".who strong")).toHaveText("Demo One");
+  await page.locator("summary", { hasText: "Dev tools" }).click();
+  await page.getByRole("button", { name: /leave demo account/i }).click();
+  await expect(page.locator(".who")).toContainText(/\(guest\)/);
 });

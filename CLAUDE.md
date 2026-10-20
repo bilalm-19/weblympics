@@ -28,7 +28,12 @@ lazily and only when a player enters a game. Video never leaves the browser.
   the real clock and db), `room.ts` (one room: 60 Hz tick loop, seats,
   spectators, game), `lobby.ts` (pure room rules: phases, ready, format,
   countdown, the 30 s hold; clock injected), `db.ts` (SQLite on `/data`), `schema.ts` (versioned
-  schema, migrations, match rows, who is rated), `log.ts` (JSON log lines).
+  schema, migrations, match rows, who is rated), `log.ts` (JSON log lines),
+  task 17: `accounts.ts` (guests, accounts, passkeys, sessions, delete; pure
+  over a db handle), `auth.ts` (the `/api/*` account routes and passkey
+  ceremonies), `guard.ts` (cookies, Origin check, challenges, rate limits),
+  `names.ts` (pseudonyms and the chosen-name rules; shape shared in
+  `shared/names.ts`).
   Rooms get their sim from the registry, so networking is game-agnostic.
 - `client/` Vite app: `games/<name>/view.ts` (scene, HUD, input wiring),
   `games/tennis/score-bar.ts` (top score bar and the umpire's call),
@@ -47,7 +52,10 @@ lazily and only when a player enters a game. Video never leaves the browser.
   (`keyboard.ts` for keys, pointer and buttons; `camera/` with `pose.ts` pure
   landmark maths, `camera.ts` webcam + lazy MediaPipe, `index.ts` setup
   panel), `net/socket.ts` (`Connection`), `net/link.ts` (`GameLink`), `ui/menu.ts` (home screen: title, framed sport preview,
-  sport buttons from the `SPORTS` list; inline SVG/CSS only, no Three.js). Camera swings have two modes,
+  sport buttons from the `SPORTS` list; inline SVG/CSS only, no Three.js;
+  the Profile button and the closed "Dev tools" with the demo accounts),
+  `ui/profile.ts` + `.css` (task 17's profile dialog), `net/account.ts`
+  (`/api/*` calls; the passkey prompt is loaded only when needed). Camera swings have two modes,
   "classic" (default) and "follow" (character copies the arm, hit at the
   hitting line), and two aim modes, "timing" (default) and "point"; see
   the camera setup notes in `tasks/done/`. Movement has two modes per seat,
@@ -100,8 +108,23 @@ lazily and only when a player enters a game. Video never leaves the browser.
   counts points and best rally, ends when someone leaves and is stored
   unrated. Practice vs bot starts at once. One token may hold both seats (two
   tabs, for testing); its second seat is shown "<name> (2)" and its matches
-  are unrated. Names are server-made pseudonyms, not renameable. Ratings read
-  only `rated = 1` rows.
+  are unrated. Ratings read only `rated = 1` rows.
+- Accounts (task 17; `spec/accounts.test.ts`, `spec/auth-api.test.ts`,
+  `e2e/accounts.e2e.ts`): who you are comes only from HttpOnly cookies the
+  server sets (`wl_guest`, a random guest id; `wl_session`, 256 random bits
+  with only its hash stored), never from a message. Play never needs an
+  account. A guest keeps a server-made pseudonym, can't rename and is never
+  rated or on a leaderboard. A passkey (`@simplewebauthn`, never hand-rolled)
+  claims the guest, keeping its history; an account may choose a name: 3 to
+  16 ASCII letters, digits, spaces or `_ . ' -`, unique ignoring case, not
+  reserved (Bot, Admin, the server's pseudonym shape) and passing `obscenity`,
+  all checked on the server. Every POST and the WebSocket check Origin;
+  challenges are single use and expire in 2 minutes; ceremonies are rate
+  limited; no cookie, challenge or credential is logged. Deleting needs a
+  fresh passkey check and removes passkeys, sessions, name, look and ratings;
+  match rows stay with a random tombstone shown as "Deleted player". The two
+  demo accounts are locked (no rename, delete or passkey), hidden from the
+  board, and reached only from the home screen's closed "Dev tools".
 - A schema change is a new step in `server/schema.ts` plus a test that opens
   a database made by the previous version; never edit an old step.
 - A ball in the air is live for everyone, even one going out: a person may

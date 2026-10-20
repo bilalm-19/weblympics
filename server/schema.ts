@@ -10,8 +10,12 @@ import type { DatabaseSync } from "node:sqlite";
  * Version 3: unlimited matches (task 4) have no winner, so `winner` may be
  * NULL, and `best_rally` keeps the longest rally (shots). SQLite can't relax a
  * NOT NULL in place, so the table is rebuilt with every row kept.
+ * Version 4 (task 17, accounts): a player row may be an account (claimed with
+ * a passkey) or a locked demo account; accounts' names are unique ignoring
+ * case. Passkeys (public keys only) and sessions (only a hash of the cookie)
+ * get their own tables. The two demo players become locked demo accounts.
  */
-export const SCHEMA_VERSION = 3;
+export const SCHEMA_VERSION = 4;
 
 const V1 = `
   CREATE TABLE IF NOT EXISTS players (
@@ -64,6 +68,31 @@ const V3 = `
   ALTER TABLE matches_v3 RENAME TO matches;
 `;
 
+const V4 = `
+  ALTER TABLE players ADD COLUMN account INTEGER NOT NULL DEFAULT 0;
+  ALTER TABLE players ADD COLUMN demo INTEGER NOT NULL DEFAULT 0;
+  ALTER TABLE players ADD COLUMN webauthn_id TEXT;
+  UPDATE players SET account = 1, demo = 1 WHERE token IN ('demo-1', 'demo-2');
+  CREATE UNIQUE INDEX players_account_name ON players (lower(name)) WHERE account = 1;
+  CREATE TABLE passkeys (
+    id TEXT PRIMARY KEY,
+    player TEXT NOT NULL,
+    public_key BLOB NOT NULL,
+    counter INTEGER NOT NULL,
+    transports TEXT NOT NULL DEFAULT '[]',
+    created_at INTEGER NOT NULL,
+    last_used_at INTEGER
+  );
+  CREATE INDEX passkeys_player ON passkeys (player);
+  CREATE TABLE sessions (
+    hash TEXT PRIMARY KEY,
+    player TEXT NOT NULL,
+    created_at INTEGER NOT NULL,
+    expires_at INTEGER NOT NULL
+  );
+  CREATE INDEX sessions_player ON sessions (player);
+`;
+
 export function schemaVersion(db: DatabaseSync): number {
   db.exec("CREATE TABLE IF NOT EXISTS schema_version (version INTEGER NOT NULL)");
   const row = db.prepare("SELECT version FROM schema_version").get() as { version: number } | undefined;
@@ -78,7 +107,7 @@ export function schemaVersion(db: DatabaseSync): number {
 
 /** Brings `db` up to SCHEMA_VERSION, one step at a time, each in a transaction. */
 export function migrate(db: DatabaseSync): void {
-  const steps: Record<number, string> = { 1: V1, 2: V2, 3: V3 };
+  const steps: Record<number, string> = { 1: V1, 2: V2, 3: V3, 4: V4 };
   let v = schemaVersion(db);
   if (v > SCHEMA_VERSION) throw new Error(`database schema ${v} is newer than this app (${SCHEMA_VERSION})`);
   while (v < SCHEMA_VERSION) {

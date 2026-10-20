@@ -3,7 +3,9 @@ import type { RoomInfo } from "../shared/protocol.ts";
 import { startTraining } from "./games/tennis/training.ts";
 import { startTennis } from "./games/tennis/view.ts";
 import { Connection } from "./net/socket.ts";
+import { signInDemo, signOut } from "./net/account.ts";
 import { renderMenu } from "./ui/menu.ts";
+import { openProfile } from "./ui/profile.ts";
 
 const root = document.getElementById("app") as HTMLElement;
 const conn = new Connection();
@@ -19,14 +21,20 @@ function showMenu(): void {
   currentRoom = null;
   training = false;
   conn.roomCode = null;
-  renderMenu(root, conn.name, conn.matches, conn.demo, error, {
+  renderMenu(root, { name: conn.name, matches: conn.matches, account: conn.account, demo: conn.demo }, error, {
     onTrain: train,
     onPractice: () => conn.send({ t: "create", game: "tennis", practice: true }),
     onCreate: () => conn.send({ t: "create", game: "tennis", practice: false }),
     onJoin: (code) => conn.send({ t: "join", room: code }),
-    onSignInDemo: (n) => conn.signInDemo(n),
-    onPlayAsGuest: () => conn.playAsGuest(),
+    onProfile: () => openProfile({ onIdentityChange: () => conn.reconnect() }),
+    onSignInDemo: (n) => void signInDemo(n).then(() => conn.reconnect(), showError),
+    onSignOutDemo: () => void signOut().then(() => conn.reconnect(), showError),
   });
+}
+
+function showError(e: unknown): void {
+  error = e instanceof Error ? e.message : "Something went wrong.";
+  if (currentRoom === null && !training) showMenu();
 }
 
 function leave(): void {

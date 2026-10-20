@@ -129,7 +129,7 @@ describe("schema v3 (task 4: unlimited)", () => {
     makeV2(path);
     const db = new DatabaseSync(path);
     migrate(db);
-    expect(schemaVersion(db)).toBe(3);
+    expect(schemaVersion(db)).toBe(SCHEMA_VERSION);
     const rows = db.prepare("SELECT room, winner, format, rated, best_rally FROM matches ORDER BY id").all();
     expect(rows).toEqual([
       { room: "ABCD", winner: 0, format: "points5", rated: 0, best_rally: null },

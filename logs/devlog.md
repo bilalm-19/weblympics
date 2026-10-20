@@ -970,3 +970,19 @@ the format of the entries below (see CLAUDE.md, Docs).
 - **Outcome:** new task files 17 to 22 and tasks/sessions.md; tasks 7, 15 and 16 rewritten or tagged; overview table updated. Nothing built, no code changed.
 - **Why:** Fly.io has no player sign-in, so accounts are built in; passkeys keep passwords and secrets out of a public repo.
 - **Open:** how archery plays (settled in its own session); the display-name profanity check has honest gaps, so an admin can rename by hand.
+
+## 2026-10-21 03:35 AEDT | milestone | Task 17 built: guest cookies, passkeys, display names, delete, locked demo accounts
+
+- **Decided by:** user (passkeys, `@simplewebauthn`, `obscenity`, the name limits, deletion, locked demo accounts behind Dev tools; all in the task file); agent (session A, Opus 5.5: everything listed under "Agent choices").
+- **What:** schema v4 (`account`, `demo`, `webauthn_id` on players; `passkeys` and `sessions` tables; a unique index on lower(name) among accounts; the two demo guests become locked demo accounts). New `server/accounts.ts`, `auth.ts`, `guard.ts`, `names.ts`, `shared/names.ts`; client `net/account.ts`, `ui/profile.ts` + `.css`; `/api/*` routes. The WebSocket no longer takes a token or demo number from `hello`: who you are is read from the cookies when the socket opens.
+- **Agent choices (need the user's OK):**
+  - Guest identity moved from a localStorage token sent in `hello` to an HttpOnly `wl_guest` cookie (400 days, refreshed on each visit). A browser from before keeps its guest: the page hands its old localStorage token over once (`x-legacy-guest`), and the server adopts it only if it is an existing guest, never an account.
+  - Claiming keeps the guest's pseudonym as the account's first name (renamed only if another account already has it).
+  - Name characters: ASCII only (no accented or other-script letters), so look-alike names can't copy someone; at least one letter. Reserved list adds "You", "Guest", "Deleted player", "Weblympics", "Moderator", and the server's own pseudonym shape. "<name> (2)" is impossible because brackets aren't allowed.
+  - Deletion rewrites the player's token in `matches` to a random `deleted:` tombstone, so match rows stay with nothing linking back.
+  - CSRF defence is an Origin check on every POST and the WebSocket upgrade (same host, https, or http on localhost). Rate limits per address: 40 passkey requests and 60 other writes a minute; `Fly-Client-IP` is trusted only on Fly.
+  - Sessions last 90 days. Sign-in uses discoverable passkeys (no user name field).
+  - The profile panel is a native `<dialog>` with its own module; `menu.ts` only gained a Profile button and the closed "Dev tools" `<details>`, to keep clear of session C's rewrite.
+  - Admin rename command and the details live in `docs/accounts.md`; the README got one sentence and a link, since it was at 588 of 600 words (597 now).
+- **Tests:** `spec/accounts.test.ts` (migration from v3, guests, claiming, passkeys, sessions, every name rule, delete, guards), `spec/auth-api.test.ts` (the real handler with a software ES256 authenticator: register, sign out, sign in on another device, replay refused, wrong origin refused, rate limit, no secrets in logs, hostile names, demo locks, delete) and `e2e/accounts.e2e.ts` (CDP virtual authenticator at both viewports). `spec/rooms.test.ts` reconnects by cookie now, so held-seat reclaim is still covered. `pnpm check` 409/409 exit 0.
+- **Not checked:** a real passkey on a real phone or laptop, and on the Fly URL (passkeys are per domain).

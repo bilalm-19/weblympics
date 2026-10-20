@@ -1,6 +1,6 @@
 # 17 Accounts: passkeys, profile, display name, deletion
 
-Status: queued
+Status: built on session A's branch (needs a real passkey on a real device, and the user's OK on the agent choices in the devlog entry "Task 17 built")
 Model: Opus (schema, security and the rules in CLAUDE.md change)
 Session: A (first). Tasks 18 and 7 wait on this one.
 
@@ -80,16 +80,21 @@ CLAUDE.md says "Names are server-made pseudonyms, not renameable". Update that
 rule, the layout section, and the spec that enforces it, together.
 
 ## Done when
-- [ ] Register a passkey, sign out, sign in again, on a virtual authenticator
-      (Playwright's CDP WebAuthn emulator) at both viewports.
-- [ ] Guest history survives claiming; held-seat reconnect still works.
-- [ ] Name rules tested: length, characters, uniqueness, reserved, profanity,
+- [x] Register a passkey, sign out, sign in again, on a virtual authenticator
+      (Playwright's CDP WebAuthn emulator) at both viewports
+      (`e2e/accounts.e2e.ts`).
+- [x] Guest history survives claiming; held-seat reconnect still works
+      (`spec/accounts.test.ts`, `spec/auth-api.test.ts`, `spec/rooms.test.ts`
+      now reconnects by cookie).
+- [x] Name rules tested: length, characters, uniqueness, reserved, profanity,
       and a hostile client sending a name directly.
-- [ ] Delete test: no identifying row remains; match rows stay.
-- [ ] Demo accounts: hidden behind Dev tools by default, seeded as locked
-      accounts, rejected by rename, delete and passkey attach, absent from the
-      public board; `e2e/home.e2e.ts` (which clicks the demo buttons) updated
-      to open Dev tools first.
-- [ ] Migration test from the previous schema version.
-- [ ] CSP unchanged; `spec/privacy.test.ts` passes; no new third-party host.
-- [ ] CLAUDE.md, README and `spec/` agree about names and accounts.
+- [x] Delete test: no identifying row remains; match rows stay.
+- [x] Demo accounts: hidden behind Dev tools by default, seeded as locked
+      accounts, rejected by rename, delete and passkey attach;
+      `e2e/home.e2e.ts` opens Dev tools first. Absent from the public board:
+      task 7 (no board existed yet).
+- [x] Migration test from the previous schema version (v3 to v4).
+- [x] CSP unchanged; `spec/privacy.test.ts` passes; no new third-party host
+      (the passkey library is bundled, not fetched).
+- [x] CLAUDE.md, README and `spec/` agree about names and accounts (details
+      in `docs/accounts.md`, linked from the README).

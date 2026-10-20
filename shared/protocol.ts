@@ -35,10 +35,9 @@ export interface LobbyView {
 }
 
 export type ClientMsg =
-  // demo: sign in as one of the two fixed demo accounts instead of the
-  // player identified by `token`; the server decides who that is, never
-  // the client
-  | { t: "hello"; token?: string; demo?: 1 | 2 }
+  // who you are comes from the page's cookies when the socket opens (a guest
+  // id or an account's session, task 17); the client never says who it is
+  | { t: "hello" }
   // format: the room's starting format ("oneSet" default, "bestOfThree",
   // "unlimited"); an unknown one gets the default. The host can change it in
   // the ready panel before play.
@@ -73,7 +72,9 @@ export interface RoomInfo {
 }
 
 export type ServerMsg =
-  | { t: "welcome"; token: string; name: string; matches: number }
+  // account: signed in with a passkey (or a demo account); demo: one of the
+  // two locked demo accounts
+  | { t: "welcome"; name: string; account: boolean; demo: boolean; matches: number }
   | ({ t: "room" } & RoomInfo)
   | { t: "presence"; names: [string | null, string | null]; spectators: number }
   | ({ t: "lobby" } & LobbyView)
@@ -97,11 +98,7 @@ export function parseClientMsg(raw: string): ClientMsg | null {
   const m = v as Record<string, unknown>;
   switch (m.t) {
     case "hello":
-      return {
-        t: "hello",
-        token: typeof m.token === "string" ? m.token : undefined,
-        demo: m.demo === 1 || m.demo === 2 ? m.demo : undefined,
-      };
+      return { t: "hello" };
     case "create":
       if (typeof m.game !== "string") return null;
       return { t: "create", game: m.game, practice: m.practice === true, format: typeof m.format === "string" ? m.format : undefined };
