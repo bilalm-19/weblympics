@@ -590,10 +590,10 @@ a:focus-visible {
     max-width: 44rem;
   }
 
-  /* a touch wider than tall so the logo, preview, sports, options and the
-     footer all fit one 1080p screen */
+  /* wider than tall so the logo, preview, sports (archery is playable, so its
+     button takes a full row), options and the footer all fit one 1080p screen */
   .thumb-frame {
-    aspect-ratio: 2 / 1;
+    aspect-ratio: 2.6 / 1;
   }
 
   .menu .sport[aria-disabled="true"] {
