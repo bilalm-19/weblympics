@@ -7,6 +7,7 @@ export default defineConfig({
     proxy: {
       "/ws": { target: "ws://localhost:8080", ws: true },
       "/readme": "http://localhost:8080",
+      "/api": "http://localhost:8080",
     },
   },
 });

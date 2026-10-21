@@ -7,10 +7,24 @@ export interface MenuActions {
   onPractice(sport: string): void;
   onCreate(sport: string): void;
   onJoin(code: string): void;
+  /** Task 17: the profile panel (name, passkeys, sign in and out, delete). */
+  onProfile(): void;
+  /** Task 7: the leaderboard, one tab per sport. */
+  onLeaderboard(): void;
+  /** Dev tools: sign in as one of the two locked demo accounts. */
   onSignInDemo(n: 1 | 2): void;
-  onPlayAsGuest(): void;
+  /** Dev tools: leave the demo account, back to this browser's guest. */
+  onSignOutDemo(): void;
   /** The player picked a playable sport. */
   onSelect?(sport: string): void;
+}
+
+/** Who the home screen says is playing. */
+export interface Identity {
+  name: string;
+  matches: number;
+  account: boolean;
+  demo: boolean;
 }
 
 /** One sport on the home screen. Adding a sport is one entry in SPORTS. */
@@ -266,14 +280,13 @@ const sportOptions = (sport: string) => `
 
 export function renderMenu(
   root: HTMLElement,
-  name: string,
-  matches: number,
-  demo: 1 | 2 | null,
+  who: Identity,
   error: string | null,
   actions: MenuActions,
   /** The sport selected last time the menu was shown, if it is playable. */
   sportId?: string,
 ): void {
+  const { name, matches, account, demo } = who;
   root.replaceChildren();
   let selected = SPORTS.find((s) => s.playable && s.id === sportId) ?? SPORTS.find((s) => s.playable) ?? SPORTS[0];
   const menu = document.createElement("main");
@@ -304,14 +317,21 @@ export function renderMenu(
         <div class="options-row">${sportOptions(selected.id)}</div>
       </section>
       <footer class="menu-footer">
-        <p class="who">${name ? `Playing as <strong></strong> · <span class="matches"></span>` : "Connecting…"}</p>
+        <p class="who">${name ? `Playing as <strong></strong>${account ? "" : " (guest)"} · <span class="matches"></span>` : "Connecting…"}</p>
         ${
           name
-            ? `<div class="identity-row" role="group" aria-label="Sign in">
-                 ${demo !== 1 ? `<button class="pill pill--small" data-demo="1">Sign in as Demo One</button>` : ""}
-                 ${demo !== 2 ? `<button class="pill pill--small" data-demo="2">Sign in as Demo Two</button>` : ""}
-                 ${demo ? `<button class="pill pill--small" data-action="guest">Play as guest</button>` : ""}
-               </div>`
+            ? `<div class="identity-row">
+                 <button class="pill pill--small" data-action="profile">${account ? "Profile" : "Profile and sign in"}</button>
+                 <button class="pill pill--small" data-action="leaderboard">Leaderboard</button>
+               </div>
+               <details class="devtools">
+                 <summary>Dev tools</summary>
+                 <div class="identity-row" role="group" aria-label="Demo accounts">
+                   ${demo && name === "Demo One" ? "" : `<button class="pill pill--small" data-demo="1">Sign in as Demo One</button>`}
+                   ${demo && name === "Demo Two" ? "" : `<button class="pill pill--small" data-demo="2">Sign in as Demo Two</button>`}
+                   ${demo ? `<button class="pill pill--small" data-action="undemo">Leave demo account</button>` : ""}
+                 </div>
+               </details>`
             : ""
         }
         <p class="readme"><a href="/readme/">What makes this good?</a></p>
@@ -402,7 +422,9 @@ export function renderMenu(
   menu.querySelector("[data-action=practice]")?.addEventListener("click", () => actions.onPractice(selected.id));
   menu.querySelector("[data-action=train]")?.addEventListener("click", () => actions.onTrain(selected.id));
   menu.querySelector("[data-action=create]")?.addEventListener("click", () => actions.onCreate(selected.id));
-  menu.querySelector("[data-action=guest]")?.addEventListener("click", actions.onPlayAsGuest);
+  menu.querySelector("[data-action=profile]")?.addEventListener("click", actions.onProfile);
+  menu.querySelector("[data-action=leaderboard]")?.addEventListener("click", actions.onLeaderboard);
+  menu.querySelector("[data-action=undemo]")?.addEventListener("click", actions.onSignOutDemo);
   menu.querySelectorAll<HTMLButtonElement>("[data-demo]").forEach((b) => {
     b.addEventListener("click", () => actions.onSignInDemo(Number(b.dataset.demo) as 1 | 2));
   });

@@ -361,6 +361,8 @@ export function startArchery(root: HTMLElement, conn: GameLink, info: RoomInfo, 
     {
       ready: (ready) => conn.send({ t: "ready", ready }),
       format: (format) => conn.send({ t: "format", format }),
+      // task 7: the host's rated option is the room's, not tennis's
+      rated: (rated) => conn.send({ t: "rated", rated }),
       openCamera: () => cameraButton.click(),
     },
     FORMATS,

@@ -7,15 +7,31 @@ import { marked } from "marked";
 import { WebSocketServer } from "ws";
 import type { WebSocket } from "ws";
 import { parseClientMsg } from "../shared/protocol.ts";
-import { getDemoPlayer, getOrCreatePlayer, matchCountFor } from "./db.ts";
-import { log } from "./log.ts";
-import { PING_MS, createRoom, getRoom, leaveRoom, onPong, roomCount, send, sendPing } from "./rooms.ts";
+import type { IncomingMessage } from "node:http";
+import { guestFor, lookOf, newGuestToken } from "./accounts.ts";
+import type { Player } from "./accounts.ts";
+import { GUEST_COOKIE, createAuth, identify } from "./auth.ts";
+import { db, matchCountFor } from "./db.ts";
+import { allowedOrigin, cookie } from "./guard.ts";
+import { log, who } from "./log.ts";
+import { PING_MS, createRoom, getRoom, leaveRoom, onPong, roomCount, roomStats, send, sendPing } from "./rooms.ts";
 import type { Client } from "./rooms.ts";
 
 const PORT = Number(process.env.PORT ?? 8080);
 const CLIENT_DIR = resolve("dist/client");
 const DOCS_DIR = resolve("docs");
 const HEARTBEAT_MS = 25_000;
+// fly.toml gives the machine 256 MB
+const MEMORY_LIMIT_MB = 256;
+const STARTED = Date.now();
+
+// Task 8: anything that would otherwise crash the server silently is logged
+// first (message only: a stack can carry request data).
+process.on("uncaughtException", (e) => {
+  log("error", { where: "uncaught", message: e.message });
+  process.exit(1);
+});
+process.on("unhandledRejection", (e) => log("error", { where: "unhandledRejection", message: e instanceof Error ? e.message : String(e) }));
 
 // The game page may only talk to this server and fetch the pose model and its
 // runtime. That keeps the promise that video never leaves the browser, and
@@ -78,6 +94,16 @@ async function serveFile(res: ServerResponse, root: string, relPath: string, imm
   }
 }
 
+// every live socket per player, so deleting an account can drop them
+const sockets = new Map<string, Set<WebSocket>>();
+const auth = createAuth({
+  db,
+  log,
+  onGone: (token) => {
+    for (const ws of sockets.get(token) ?? []) ws.close(4001, "account deleted");
+  },
+});
+
 const http = createServer(async (req, res) => {
   const url = new URL(req.url ?? "/", "http://localhost");
   let path: string;
@@ -91,6 +117,32 @@ const http = createServer(async (req, res) => {
   if (path === "/healthz") {
     res.writeHead(200, { "content-type": "application/json" });
     res.end(JSON.stringify({ ok: true, rooms: roomCount() }));
+    return;
+  }
+  if (path === "/stats") {
+    // task 8: what the app is doing, for a quick look in production; counts
+    // only, nothing about who
+    const mem = process.memoryUsage();
+    const mb = (n: number) => Math.round((n / 1024 / 1024) * 10) / 10;
+    res.writeHead(200, { "content-type": "application/json", "cache-control": "no-store" });
+    res.end(
+      JSON.stringify({
+        uptimeSeconds: Math.round((Date.now() - STARTED) / 1000),
+        connections: wss.clients.size,
+        playersOnline: sockets.size,
+        ...roomStats(),
+        memory: { rssMb: mb(mem.rss), heapUsedMb: mb(mem.heapUsed), limitMb: MEMORY_LIMIT_MB, usedPercent: Math.round((mem.rss / (MEMORY_LIMIT_MB * 1024 * 1024)) * 100) },
+      }),
+    );
+    return;
+  }
+  if (path.startsWith("/api/")) {
+    try {
+      await auth(req, res, path);
+    } catch (e) {
+      log("error", { where: "api", path, message: e instanceof Error ? e.message : String(e) });
+      if (!res.headersSent) res.writeHead(500, { "content-type": "application/json" }).end('{"error":"Something went wrong."}');
+    }
     return;
   }
   if (path === "/readme") {
@@ -121,39 +173,87 @@ const http = createServer(async (req, res) => {
 
 const wss = new WebSocketServer({ noServer: true, maxPayload: 4096 });
 
+// who each upgrade is, decided from its cookies before the socket opens; a
+// browser with no guest cookie yet gets one in the 101 response
+const upgrading = new WeakMap<IncomingMessage, { player: Player; setCookie?: string }>();
+wss.on("headers", (headers, req) => {
+  const set = upgrading.get(req)?.setCookie;
+  if (set) headers.push(`Set-Cookie: ${set}`);
+});
+
 http.on("upgrade", (req, socket, head) => {
   if (new URL(req.url ?? "/", "http://localhost").pathname !== "/ws") {
     socket.destroy();
     return;
   }
-  wss.handleUpgrade(req, socket, head, (ws) => wss.emit("connection", ws));
+  // a browser always sends its page's Origin: another site's page may not
+  // open a socket that would carry this site's cookies
+  if (req.headers.origin !== undefined && !allowedOrigin(req.headers.origin, req.headers.host)) {
+    socket.write("HTTP/1.1 403 Forbidden\r\n\r\n");
+    socket.destroy();
+    return;
+  }
+  let player = identify(db, req);
+  let setCookie: string | undefined;
+  if (!player) {
+    player = guestFor(db, newGuestToken())!;
+    setCookie = cookie(GUEST_COOKIE, player.token, 400 * 24 * 60 * 60, req.headers.host);
+  }
+  upgrading.set(req, { player, setCookie });
+  wss.handleUpgrade(req, socket, head, (ws) => wss.emit("connection", ws, req));
 });
 
 const alive = new WeakSet<WebSocket>();
 
-wss.on("connection", (ws: WebSocket) => {
+/** A short word for a WebSocket close code, for the disconnect log. */
+function closeReason(code: number): string {
+  if (code === 1000) return "closed";
+  if (code === 1001) return "page left";
+  if (code === 1005) return "no status";
+  if (code === 1006) return "connection lost";
+  return `code ${code}`;
+}
+
+wss.on("connection", (ws: WebSocket, req: IncomingMessage) => {
   alive.add(ws);
   ws.on("pong", () => alive.add(ws));
 
-  const client: Client = { ws, token: "", name: "", room: null, seat: null, rtt: null, pings: 0, outstanding: null };
+  const player = upgrading.get(req)!.player;
+  const opened = Date.now();
+  const id = who(player.token);
+  // a second socket for someone already connected is them coming back (a reload, a dropped network)
+  log("connect", { who: id, account: player.account, again: sockets.has(player.token) });
+  const mine = sockets.get(player.token) ?? new Set<WebSocket>();
+  mine.add(ws);
+  sockets.set(player.token, mine);
+  const client: Client = {
+    ws,
+    token: player.token,
+    name: player.name,
+    account: player.account,
+    look: lookOf(db, player.token),
+    room: null,
+    seat: null,
+    rtt: null,
+    pings: 0,
+    outstanding: null,
+  };
   let hello = false;
   const pinger = setInterval(() => sendPing(client), PING_MS);
 
   ws.on("message", (data) => {
     const msg = parseClientMsg(data.toString());
     if (!msg) {
+      log("bad_message", { who: id, bytes: data.toString().length });
       send(client, { t: "error", message: "bad message" });
       return;
     }
     if (msg.t === "hello") {
-      // the client only asks for a demo account; it never gets to say who it
-      // is beyond that, same as every other claim this server resolves itself
-      const player = msg.demo ? getDemoPlayer(msg.demo) : getOrCreatePlayer(msg.token);
-      client.token = player.token;
-      client.name = player.name;
+      // who this is was settled from the cookies when the socket opened; the
+      // client never says who it is (task 17)
       hello = true;
-      send(client, { t: "welcome", token: player.token, name: player.name, matches: matchCountFor(player.token) });
-      log("hello", { name: player.name });
+      send(client, { t: "welcome", name: player.name, account: player.account, demo: player.demo, matches: matchCountFor(player.token) });
+      log("hello", { who: id, account: player.account });
       sendPing(client);
       return;
     }
@@ -189,7 +289,13 @@ wss.on("connection", (ws: WebSocket) => {
         client.room?.ready(client, msg.ready);
         break;
       case "format": {
-        const refused = client.room?.format(client, msg.format) ?? "not in a room";
+        // null means accepted; only a missing room is "not in a room" (null ?? x would turn success into an error)
+        const refused = client.room ? client.room.format(client, msg.format) : "not in a room";
+        if (refused) send(client, { t: "error", message: refused });
+        break;
+      }
+      case "rated": {
+        const refused = client.room ? client.room.setRated(client, msg.rated) : "not in a room";
         if (refused) send(client, { t: "error", message: refused });
         break;
       }
@@ -215,17 +321,24 @@ wss.on("connection", (ws: WebSocket) => {
     }
   });
 
-  ws.on("close", () => {
+  ws.on("close", (code, reason) => {
     clearInterval(pinger);
+    log("disconnect", { who: id, code, reason: reason.toString().slice(0, 60) || closeReason(code), seconds: Math.round((Date.now() - opened) / 1000), room: client.room?.id ?? null });
+    mine.delete(ws);
+    if (mine.size === 0) sockets.delete(player.token);
     // a dropped connection mid-match holds the seat for 30 s (task 4)
     leaveRoom(client, true);
   });
-  ws.on("error", () => ws.terminate());
+  ws.on("error", (e) => {
+    log("error", { where: "ws", who: id, message: e.message });
+    ws.terminate();
+  });
 });
 
 setInterval(() => {
   for (const ws of wss.clients) {
     if (!alive.has(ws)) {
+      log("heartbeat_timeout", {});
       ws.terminate();
       continue;
     }

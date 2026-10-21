@@ -3,7 +3,7 @@
 import { games } from "../shared/games/registry.ts";
 import { ROOM_FORMATS } from "../shared/protocol.ts";
 import type { RoomFormat } from "../shared/protocol.ts";
-import { recordMatch } from "./db.ts";
+import { currentRating, recordMatch } from "./db.ts";
 import { log } from "./log.ts";
 import { Room, send } from "./room.ts";
 import type { Client } from "./room.ts";
@@ -46,6 +46,7 @@ export function createRoom(gameId: string, practice: boolean, format?: string): 
   } while (rooms.has(id));
   const room = new Room(id, gameId, practice, asRoomFormat(format, gameId), {
     record: recordMatch,
+    ratingOf: currentRating,
     clock: () => performance.now(),
     log,
     timer: true,
@@ -68,6 +69,26 @@ export function leaveRoom(c: Client, dropped = false): void {
 
 export function roomCount(): number {
   return rooms.size;
+}
+
+/** Task 8: what the rooms are doing, for /stats. */
+export function roomStats(): { rooms: number; playing: number; seated: number; spectators: number; loop: { avgMs: number; maxMs: number } } {
+  let playing = 0;
+  let seated = 0;
+  let spectators = 0;
+  let runs = 0;
+  let total = 0;
+  let max = 0;
+  for (const r of rooms.values()) {
+    if (r.lobby.inMatch || (r.practice && r.seats[0])) playing++;
+    seated += r.seats.filter((c) => c !== null).length;
+    spectators += r.spectators.size;
+    runs += r.loop.runs;
+    total += r.loop.totalMs;
+    max = Math.max(max, r.loop.maxMs);
+  }
+  const round = (n: number) => Math.round(n * 100) / 100;
+  return { rooms: rooms.size, playing, seated, spectators, loop: { avgMs: runs ? round(total / runs) : 0, maxMs: round(max) } };
 }
 
 setInterval(() => {
