@@ -162,8 +162,10 @@ test("the logo's bounce plays once per page load: drawing the menu again does no
   await expect(page.getByText(/playing as/i)).toBeVisible();
   // let the bounce finish, then draw the menu again the way the app does (Sign in / guest)
   await expect.poll(() => page.locator(".logo-letter").evaluateAll((els) => els.every((e) => e.getAnimations().length === 0)), { timeout: 5_000 }).toBe(true);
+  // draw the menu again the way the app does: signing in as a demo account (behind Dev tools) reconnects
+  await page.locator("summary", { hasText: "Dev tools" }).click();
   await page.getByRole("button", { name: /sign in as demo one/i }).click();
-  await expect(page.getByRole("button", { name: /play as guest/i })).toBeVisible();
+  await expect(page.locator(".who strong")).toHaveText("Demo One");
   // a fresh bounce would leave letters mid-air (animating) right now
   const animating = await page.locator(".logo-letter").evaluateAll((els) => els.filter((e) => e.getAnimations().length > 0).length);
   expect(animating).toBe(0);

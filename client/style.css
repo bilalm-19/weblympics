@@ -609,6 +609,26 @@ a:focus-visible {
   margin-top: 0.25rem;
 }
 
+/* Desktop: the footer's rows are one tall stack (who, Profile and Leaderboard,
+   Dev tools, README link); the first two sit side by side so the README link
+   stays on the first 1080p screen with archery's full-width button above. */
+@media (min-width: 900px) {
+  .menu-footer {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    justify-items: center;
+    align-items: center;
+    column-gap: 1rem;
+    row-gap: 0;
+  }
+
+  .menu-footer .who,
+  .menu-footer .readme,
+  .menu-footer .devtools[open] {
+    grid-column: 1 / -1;
+  }
+}
+
 /* Desktop: preview on top, sports in a two-column grid, options beside the
    sports' column so all of it fits one 1080p screen without scrolling. */
 @media (min-width: 900px) {

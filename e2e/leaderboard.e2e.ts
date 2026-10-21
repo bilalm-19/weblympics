@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import type { Browser, Page, TestInfo } from "@playwright/test";
+import { useKeyboard } from "./flow.ts";
 
 // Task 7: the leaderboard (a tab per sport, your rank, history) and the
 // host's rated switch in the ready panel, at both viewports.
@@ -34,7 +35,12 @@ test("the leaderboard opens from the home screen: a tab per sport, keyboard, fit
   expect(box.y + box.height).toBeLessThanOrEqual(v.height);
   expect(await noHorizontalScroll(page)).toBe(true);
 
+  // one tab per registered sport (tennis, archery): arrows move between them and wrap
+  await expect(tabs).toHaveCount(2);
   await tabs.first().focus();
+  await page.keyboard.press("ArrowRight");
+  await expect(tabs.nth(1)).toBeFocused();
+  await expect(tabs.nth(1)).toHaveAttribute("aria-selected", "true");
   await page.keyboard.press("ArrowRight");
   await expect(tabs.first()).toBeFocused();
   await page.keyboard.press("Escape");
@@ -64,6 +70,8 @@ test("the host's rated switch: a guest seat makes it unavailable and says why", 
   await expect(page.locator(".who strong")).toHaveText("Demo One");
   await page.getByRole("button", { name: /create a room/i }).click();
   await expect(page).toHaveURL(/#\/room\/[A-Z]{4}$/, { timeout: 15_000 });
+  // the webcam is the default (task 15): the keyboard way past the setup shows the panel
+  await useKeyboard(page);
   const panel = page.getByRole("region", { name: /match setup/i });
   const rated = panel.getByRole("switch", { name: "Rated match" });
   await expect(rated).toBeDisabled();
@@ -72,6 +80,7 @@ test("the host's rated switch: a guest seat makes it unavailable and says why", 
   // a guest joins: still unavailable, with the reason
   const guest = await newPage(browser, page, testInfo);
   await guest.goto(page.url());
+  await useKeyboard(guest);
   await expect(panel.getByText(/a guest is playing/i)).toBeVisible();
   await expect(rated).toBeDisabled();
   await expect(guest.getByRole("region", { name: /match setup/i }).getByRole("switch", { name: "Rated match" })).toBeDisabled();
@@ -90,6 +99,7 @@ test("two accounts: the host turns rated on, it clears ready, and the joiner see
   await expect(page.locator(".who strong")).toHaveText("Demo One");
   await page.getByRole("button", { name: /create a room/i }).click();
   await expect(page).toHaveURL(/#\/room\/[A-Z]{4}$/, { timeout: 15_000 });
+  await useKeyboard(page);
 
   const other = await newPage(browser, page, testInfo);
   await other.goto("/");
@@ -98,6 +108,7 @@ test("two accounts: the host turns rated on, it clears ready, and the joiner see
   await expect(other.locator(".who strong")).toHaveText("Demo Two");
   await other.goto("about:blank");
   await other.goto(page.url());
+  await useKeyboard(other);
 
   const panel = page.getByRole("region", { name: /match setup/i });
   const otherPanel = other.getByRole("region", { name: /match setup/i });
