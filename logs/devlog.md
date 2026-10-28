@@ -1034,3 +1034,9 @@ the format of the entries below (see CLAUDE.md, Docs).
 - **Numbers (first guesses, to tune by playtest):** 100 m lane; top speed 10 m/s at 8 steps a second, linear below; cap 10 steps a second (by timestamp and by a server-side bucket, burst of 2); cadence smoothed over 0.6 s; bot 6.8 steps a second with noise (about 15 s).
 - **Open rules settled for now (Claude, reversible):** a false step (same foot twice) is ignored, not penalised, since a mis-read camera frame would otherwise cost a person time; a dead heat is re-run. Both are in the spec, so changing them is one test.
 - **Verification:** `pnpm check` 444/444, exit 0, against a server built from this tree on :8431.
+
+## 2026-10-29 04:36 AEDT | decision | Home menu: sports on the left, preview and options on the right
+
+- **Decided by:** user (layout: sports as a left column, preview on the right shrunk to the same width, the selected sport's options under it, stacked on a phone); agent (how: a two-column grid from 900px, a compact wrapping tile grid above the preview below that, the pointer arrow on the tile's corner on a phone).
+- **What happened:** `client/ui/menu.ts` wraps the picker and the detail (preview, error, options) in `.menu-body`; ids, roles, `data-sport`/`data-action` hooks, roving tabindex, disabled tiles and the loops are unchanged. `client/style.css` holds the layout; the sport grid is `auto-fill`, so new sports (track, task 26) slot in. `e2e/home.e2e.ts`'s order test now checks sports left of the preview and equal columns on desktop, and sports above the preview on a phone.
+- **Verification:** against clean HEAD plus these files on :8092 (another session was editing the tree): typecheck and vitest 417/417, exit 0; `playwright --workers=1` 103 passed, 1 failed (desktop `aid.e2e.ts` "aid shows by default", in-game, not the menu); re-run alone, `aid.e2e.ts` 8/8, exit 0. Screenshots at 1920x1080 and 390x844 showed no horizontal scroll.

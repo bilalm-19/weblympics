@@ -13,18 +13,32 @@ function sentMessages(page: Page): Record<string, unknown>[] {
   return sent;
 }
 
-test("title, then the sport preview, then the sport buttons, all on screen", async ({ page }) => {
+test("title over the sports, the preview and the selected sport's options, all on screen", async ({ page }) => {
   await page.goto("/");
   await expect(page.getByText(/playing as/i)).toBeVisible();
   const title = page.getByRole("heading", { level: 1, name: "Weblympics" });
   const thumb = page.getByRole("img", { name: /tennis preview/i });
   const sports = page.getByRole("group", { name: "Sports" });
   const tennis = sports.getByRole("button", { name: /tennis/i });
-  for (const el of [title, thumb, tennis]) await expect(el).toBeVisible();
+  const options = page.locator(".options");
+  for (const el of [title, thumb, tennis, options]) await expect(el).toBeVisible();
 
-  const [t, p, s] = [(await title.boundingBox())!, (await thumb.boundingBox())!, (await sports.boundingBox())!];
-  expect(t.y + t.height).toBeLessThanOrEqual(p.y);
-  expect(p.y + p.height).toBeLessThanOrEqual(s.y);
+  const [tb, pb, sb, ob] = await Promise.all([title, thumb, sports, options].map(async (el) => (await el.boundingBox())!));
+  expect(tb.y + tb.height).toBeLessThanOrEqual(pb.y);
+  expect(tb.y + tb.height).toBeLessThanOrEqual(sb.y);
+  // the options sit under the preview, in the same column
+  expect(pb.y + pb.height).toBeLessThanOrEqual(ob.y);
+  if (page.viewportSize()!.width >= 900) {
+    // desktop: sports on the left, preview on the right, columns of equal width
+    expect(sb.x + sb.width).toBeLessThanOrEqual(pb.x);
+    expect(sb.y).toBeLessThan(pb.y + pb.height);
+    const picker = (await page.locator(".menu-picker").boundingBox())!;
+    const detail = (await page.locator(".menu-detail").boundingBox())!;
+    expect(Math.abs(picker.width - detail.width)).toBeLessThanOrEqual(2);
+  } else {
+    // phone: the sports stack on top of the preview
+    expect(sb.y + sb.height).toBeLessThanOrEqual(pb.y);
+  }
 
   // every sport button and every action sits inside the viewport width, and
   // Tennis's options fit the first screen

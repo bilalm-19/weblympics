@@ -108,6 +108,35 @@ a:focus-visible {
   gap: clamp(0.75rem, 2vh, 1.25rem);
 }
 
+/* Two parts under the title: the sport picker and the selected sport's
+   detail (preview, then its options). Phone and narrow windows stack them;
+   from 900px they sit side by side, sports on the left (task 23). */
+.menu-body {
+  display: flex;
+  flex-direction: column;
+  gap: clamp(0.75rem, 2vh, 1.25rem);
+  min-width: 0;
+}
+
+.menu-picker,
+.menu-detail {
+  display: flex;
+  flex-direction: column;
+  gap: clamp(0.75rem, 2vh, 1.25rem);
+  min-width: 0;
+}
+
+.menu-label {
+  display: none;
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+  text-align: center;
+  color: var(--ink-soft);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
 .menu h1 {
   margin: 0.75rem 0 0;
   font-size: clamp(2.4rem, 7vw, 3.6rem);
@@ -244,25 +273,22 @@ a:focus-visible {
   outline-offset: 3px;
 }
 
-/* Sport buttons */
+/* Sport buttons: a compact wrapping grid when stacked (any number of
+   sports fits the width), one column on the left from 900px. */
 .sports {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(auto-fill, minmax(7rem, 1fr));
   gap: 0.6rem;
-}
-
-/* playable sports span the row; placeholders pair up beneath */
-.menu .sport:not([aria-disabled="true"]) {
-  grid-column: 1 / -1;
 }
 
 .menu .sport {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 0.6rem;
-  min-height: 56px;
-  font-size: 1.3rem;
+  gap: 0.45rem;
+  min-height: 52px;
+  padding: 0 0.6rem;
+  font-size: 1.1rem;
 }
 
 .menu .sport[aria-pressed="true"] {
@@ -309,12 +335,8 @@ a:focus-visible {
 }
 
 .menu .sport[aria-disabled="true"] .sport-icon {
-  position: absolute;
-  left: 0.9rem;
-  top: 50%;
-  width: 1.4rem;
-  height: 1.4rem;
-  margin-top: -0.7rem;
+  width: 1.2rem;
+  height: 1.2rem;
   opacity: 0.75;
 }
 
@@ -457,29 +479,69 @@ a:focus-visible {
   gap: 0.5rem;
 }
 
-/* Desktop: preview on top, sports in a two-column grid, options beside the
-   sports' column so all of it fits one 1080p screen without scrolling. */
+/* Desktop: two equal columns under the title. Sports on the left as one
+   column, the preview on the right with the selected sport's options under
+   it, so all of it fits one 1080p screen without scrolling. */
 @media (min-width: 900px) {
   .menu-column {
-    max-width: 44rem;
+    max-width: 64rem;
+  }
+
+  .menu-body {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: clamp(1.25rem, 3vw, 2.5rem);
+    align-items: start;
+  }
+
+  .menu-picker {
+    gap: 0.6rem;
+    padding: 0.9rem 1rem 1rem;
+    border-radius: 22px;
+    background: #ffffffb3;
+    border: 2px solid #c6dbec;
+  }
+
+  .menu-label {
+    display: block;
+  }
+
+  .sports {
+    grid-template-columns: 1fr;
+    gap: 0.7rem;
+  }
+
+  .menu .sport {
+    justify-content: flex-start;
+    gap: 0.75rem;
+    min-height: 60px;
+    padding: 0 3.4rem 0 1.25rem;
+    font-size: 1.3rem;
   }
 
   .menu .sport[aria-disabled="true"] {
     flex-direction: row;
-    gap: 0.6rem;
+    gap: 0.75rem;
+    min-height: 56px;
+    padding: 0 3.4rem 0 1.25rem;
     font-size: 1.2rem;
   }
 
-  .options-row {
-    grid-template-columns: auto auto 1fr;
+  .menu .sport[aria-disabled="true"] .sport-icon {
+    width: 1.4rem;
+    height: 1.4rem;
+  }
+
+  .sport-soon {
+    margin-left: auto;
+  }
+
+  .options-row > .pill--primary {
+    grid-column: 1 / -1;
   }
 
   .options-row > .pill {
     white-space: nowrap;
-  }
-
-  .options-row .join {
-    grid-column: auto;
   }
 }
 
@@ -537,10 +599,35 @@ a:focus-visible {
     font-size: 0.9rem;
   }
 
+  .menu .sport {
+    min-height: 48px;
+    padding: 0 0.4rem;
+    font-size: 1rem;
+  }
+
+  .menu .sport[aria-disabled="true"] {
+    min-height: 48px;
+    padding: 0.15rem 0.4rem;
+    font-size: 0.95rem;
+  }
+
+  .sport-soon {
+    font-size: 0.6rem;
+  }
+
+  /* no room for a badge beside "Coming soon" on a compact tile */
+  .menu .sport[aria-disabled="true"] .sport-icon {
+    display: none;
+  }
+
+  /* compact tiles: the arrow points at the tile from its corner */
   .pointer {
-    right: 0.45rem;
-    width: 24px;
-    height: 24px;
+    top: auto;
+    right: -4px;
+    bottom: -10px;
+    width: 22px;
+    height: 22px;
+    margin-top: 0;
   }
 
   .identity-row .pill {

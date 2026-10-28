@@ -233,27 +233,34 @@ export function renderMenu(
     <div class="menu-tab" aria-hidden="true">Main Menu</div>
     <div class="menu-column">
       <h1>Weblympics</h1>
-      <figure class="thumb">
-        <div class="thumb-frame" role="img" aria-label="${selected.name} preview"></div>
-        <figcaption class="thumb-caption"><strong></strong> <span></span></figcaption>
-      </figure>
-      <div class="sports" role="group" aria-label="Sports">
-        ${SPORTS.map(
-          (s) => `
-          <button class="pill sport" data-sport="${s.id}" type="button"
-            ${s.playable ? `aria-pressed="${s === selected}"` : `aria-disabled="true"`}
-            tabindex="${s === selected ? 0 : -1}">
-            ${s.icon}<span class="sport-name">${s.name}</span>
-            ${s.playable || s.name === "??" ? "" : `<span class="sport-soon">Coming soon</span>`}
-            ${POINTER}
-          </button>`,
-        ).join("")}
+      <div class="menu-body">
+        <nav class="menu-picker" aria-label="Choose a sport">
+          <p class="menu-label" aria-hidden="true">Sports</p>
+          <div class="sports" role="group" aria-label="Sports">
+            ${SPORTS.map(
+              (s) => `
+              <button class="pill sport" data-sport="${s.id}" type="button"
+                ${s.playable ? `aria-pressed="${s === selected}"` : `aria-disabled="true"`}
+                tabindex="${s === selected ? 0 : -1}">
+                ${s.icon}<span class="sport-name">${s.name}</span>
+                ${s.playable || s.name === "??" ? "" : `<span class="sport-soon">Coming soon</span>`}
+                ${POINTER}
+              </button>`,
+            ).join("")}
+          </div>
+        </nav>
+        <div class="menu-detail">
+          <figure class="thumb">
+            <div class="thumb-frame" role="img" aria-label="${selected.name} preview"></div>
+            <figcaption class="thumb-caption"><strong></strong> <span></span></figcaption>
+          </figure>
+          <p class="error" role="alert" hidden></p>
+          <section class="options" aria-labelledby="options-title">
+            <h2 id="options-title">${selected.name}</h2>
+            <div class="options-row">${sportOptions(selected.id)}</div>
+          </section>
+        </div>
       </div>
-      <p class="error" role="alert" hidden></p>
-      <section class="options" aria-labelledby="options-title">
-        <h2 id="options-title">${selected.name}</h2>
-        <div class="options-row">${sportOptions(selected.id)}</div>
-      </section>
       <footer class="menu-footer">
         <p class="who">${name ? `Playing as <strong></strong> · <span class="matches"></span>` : "Connecting…"}</p>
         ${

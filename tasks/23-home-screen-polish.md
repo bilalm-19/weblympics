@@ -14,6 +14,16 @@ following the mouse, and each sport's thumbnail a short looping snippet.
 - Thumbnails are a **lighter loop animation**, not a replay of the real game.
 - The logo is nicer and animated (the animation spec is task 14's).
 
+## Layout (user, 2026-10-29; done)
+The sport buttons sit in a column on the LEFT and the preview on the RIGHT,
+shrunk so the two columns are the same width. The selected sport's options
+(vs bot, train/practice, create, join) are under the preview. Picking a sport
+on the left updates the preview and the options. On a phone (under 900px)
+they stack: the sports as a compact wrapping grid on top, then the preview,
+then the options. `e2e/home.e2e.ts` checks the order at both viewports and
+that the desktop columns are equal. The cursor and loop items below are
+still queued.
+
 ## Scope
 - **Pointer:** use that arrow, drawn in our own SVG, as the mouse cursor on the
   home screen, so it shows as the mouse moves. The marker on the hovered or
