@@ -10,6 +10,7 @@ export const FORMAT_LABELS: Record<RoomFormat, string> = {
   oneSet: "One set",
   bestOfThree: "Best of three",
   stages: "Eight stages",
+  race: "Race",
   unlimited: "Unlimited",
 };
 
@@ -17,11 +18,14 @@ const FORMAT_NOTES: Record<RoomFormat, string> = {
   oneSet: "First to six games, tiebreak at 6-6. Rated.",
   bestOfThree: "First to two sets. Rated.",
   stages: "One arrow each per stage, 10 m to 50 m, the wind getting stronger. Highest total wins. Rated.",
+  race: "One 100 m sprint, first across the line wins. Rated.",
   unlimited: "Play as long as you like; points and best rally are counted. No winner, not rated.",
 };
 
 // archery's unlimited counts arrows, not rallies
 const UNLIMITED_ARCHERY = "Random distance and wind every stage, as long as you like; points and best arrow are counted. No winner, not rated.";
+// track's unlimited runs race after race
+const UNLIMITED_TRACK = "Race after race, as long as you like; races won and best times are counted. No winner, not rated.";
 
 export interface ReadyPanel {
   update(view: LobbyView): void;
@@ -45,7 +49,11 @@ export function createReadyPanel(
   cb: ReadyCallbacks,
   formats: readonly RoomFormat[] = ["oneSet", "bestOfThree", "unlimited"],
 ): ReadyPanel {
-  const notes = { ...FORMAT_NOTES, ...(formats.includes("stages") ? { unlimited: UNLIMITED_ARCHERY } : {}) };
+  const notes = {
+    ...FORMAT_NOTES,
+    ...(formats.includes("stages") ? { unlimited: UNLIMITED_ARCHERY } : {}),
+    ...(formats.includes("race") ? { unlimited: UNLIMITED_TRACK } : {}),
+  };
   const el = document.createElement("section");
   el.className = "ready-panel";
   el.setAttribute("aria-label", "Match setup");

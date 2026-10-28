@@ -203,6 +203,9 @@ wss.on("connection", (ws: WebSocket) => {
       case "release":
         client.room?.aim(client, msg);
         break;
+      case "step":
+        client.room?.step(client, msg);
+        break;
       case "mode":
         client.room?.mode(client, msg.mode);
         break;

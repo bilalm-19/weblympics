@@ -1,6 +1,7 @@
 import type { RoomFormat } from "../protocol.ts";
 import { archery } from "./archery/index.ts";
 import { tennis } from "./tennis/index.ts";
+import { track } from "./track/index.ts";
 
 export interface SeatInput {
   seat: 0 | 1;
@@ -44,4 +45,4 @@ export interface GameDef {
   create(seed: number, options?: { endless?: boolean; format?: string }): GameInstance;
 }
 
-export const games: Record<string, GameDef> = { tennis, archery };
+export const games: Record<string, GameDef> = { tennis, archery, track };

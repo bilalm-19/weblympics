@@ -3,9 +3,10 @@ import type { Hand, Level, MoveMode, SwingKind } from "./games/tennis/sim.ts";
 // A room's match format (task 4): the host picks it in the ready panel before
 // play, from the ones its game offers (`GameDef.formats`). "unlimited" has no
 // winner, counts points and the best rally (archery: the best arrow), is
-// never rated, and ends when someone leaves. "stages" is archery's match.
-export type RoomFormat = "oneSet" | "bestOfThree" | "stages" | "unlimited";
-export const ROOM_FORMATS: readonly RoomFormat[] = ["oneSet", "bestOfThree", "stages", "unlimited"];
+// never rated, and ends when someone leaves. "stages" is archery's match,
+// "race" is track's (task 26): one race, first across the line.
+export type RoomFormat = "oneSet" | "bestOfThree" | "stages" | "race" | "unlimited";
+export const ROOM_FORMATS: readonly RoomFormat[] = ["oneSet", "bestOfThree", "stages", "race", "unlimited"];
 
 // waiting (a seat is empty) -> ready-check -> countdown (3 s) -> playing;
 // paused while a dropped player's seat is held (30 s)
@@ -60,6 +61,10 @@ export type ClientMsg =
   // and the release that shoots; only the shooter's count, the sim clamps
   | { t: "aim"; yaw: number; pitch: number; draw: number }
   | { t: "release"; yaw: number; pitch: number; draw: number }
+  // track (task 26): one footfall, which foot and the sender's own clock (ms).
+  // Never a distance or a finish: the server counts steps into speed and caps
+  // the cadence at a human maximum
+  | { t: "step"; side: "left" | "right"; at: number }
   // movement mode for the sender's own seat: "auto" (the server walks you to
   // the ball, the default) or "tilt" (only your own moves); anything else is
   // a bad message
@@ -135,6 +140,9 @@ export function parseClientMsg(raw: string): ClientMsg | null {
       if (![yaw, pitch, draw].every((v) => typeof v === "number" && Number.isFinite(v))) return null;
       return { t: m.t, yaw: yaw as number, pitch: pitch as number, draw: draw as number };
     }
+    case "step":
+      if (m.side !== "left" && m.side !== "right") return null;
+      return typeof m.at === "number" && Number.isFinite(m.at) ? { t: "step", side: m.side, at: m.at } : null;
     case "mode":
       return m.mode === "auto" || m.mode === "tilt" ? { t: "mode", mode: m.mode } : null;
     case "pause":

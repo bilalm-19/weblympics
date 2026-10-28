@@ -26,7 +26,11 @@ lazily and only when a player enters a game. Video never leaves the browser.
   seeded ball machine (feeds with the sim's own `launch()`). Archery
   (task 22) is `shared/games/archery/`: `sim.ts` (stages, seeded wind,
   flight, rings; `predictHit` with no wind is the client's preview),
-  `bot.ts` (`solveAim` plus noise), `index.ts` (adapter).
+  `bot.ts` (`solveAim` plus noise), `index.ts` (adapter). Track (task 26,
+  sprint; hurdles is task 27) is `shared/games/track/`: `sim.ts` (lanes,
+  steps to cadence to speed, the cadence cap, finish times; an `obstacles`
+  list, empty for the sprint), `bot.ts` (target cadence plus noise),
+  `index.ts` (adapter).
 - `server/` `index.ts` (http + ws + `/readme/`), `rooms.ts` (live rooms with
   the real clock and db), `room.ts` (one room: 60 Hz tick loop, seats,
   spectators, game), `lobby.ts` (pure room rules: phases, ready, format,
@@ -117,8 +121,9 @@ lazily and only when a player enters a game. Video never leaves the browser.
   and every swing misses. The bot lets go a ball it predicts will land out
   (`spec/rally-fixes.test.ts`, task 12).
 - Game logic stays deterministic (seed + input stream) so it can be tested.
-- Tennis and archery (task 22) are the playable games. Add another only when
-  I ask. Each lives in `shared/games/<name>/` and registers in the registry, so
+- Tennis and archery (task 22) are the playable games; track (tasks 26-27,
+  sprint then hurdles, one game with two events) is being built, sprint
+  first. Add another only when I ask. Each lives in `shared/games/<name>/` and registers in the registry, so
   rooms, lobby and reconnect stay game-agnostic. A game's specs are named
   `spec/<name>-*.test.ts` and `e2e/<name>-*.e2e.ts`.
 - Video never leaves the browser. The game page's CSP `connect-src` allows
@@ -143,6 +148,17 @@ lazily and only when a player enters a game. Video never leaves the browser.
   shoots (MediaPipe's hand model, fingers' fold in 3D); with no hand read a
   fast snap shoots; a slow closed return cancels. A fixed lens, so the board
   shrinks with distance.
+- Track (task 26; `spec/track-*.test.ts`, `e2e/track-*.e2e.ts`): a 100 m
+  lane per seat, lanes never interact. Clients send only `step` events (which
+  foot, their own timestamp); the server owns distance, speed and the finish.
+  Speed follows a smoothed cadence and decays when you stop. A step on the
+  same foot twice is ignored, not punished; steps faster than the human cap
+  (10 a second, by the step's own timestamp and by the server's own clock)
+  are dropped, so shaking or mashing buys nothing. Steps before the gun
+  don't count. First across the line wins; a dead heat is run again; the
+  other runner has 5 s after the first finish. Formats: "race" (rated
+  between two people) and "unlimited" (race after race, counts races won and
+  best times, unrated). Practice vs bot is never rated.
 - Camera is used for gameplay only. Every camera action has a keyboard/mouse
   equivalent, and the lobby and room work with no camera at all.
 - Auto-move (`spec/auto-move.test.ts`) walks slower than manual movement

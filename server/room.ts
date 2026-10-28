@@ -46,6 +46,9 @@ const BROADCAST_EVERY = 2;
 const SWING_COOLDOWN_TICKS = 15;
 // Clients send a move target about 20-30 times a second; more than this is dropped.
 const MOVES_PER_SECOND = 40;
+// track: footfalls a second accepted from one seat before the sim's own
+// cadence cap; anything past this is a flood and is dropped here
+const STEPS_PER_SECOND = 30;
 const MAX_CATCHUP_TICKS = 5;
 const EMPTY_ROOM_TTL_MS = 30_000;
 const BOT_SEAT: Seat = 1;
@@ -71,6 +74,10 @@ export class Room {
   // sent while waiting for an opponent or paused isn't lost)
   private pendingMode: [string | null, string | null] = [null, null];
   private moveWindow: [{ start: number; count: number }, { start: number; count: number }] = [
+    { start: 0, count: 0 },
+    { start: 0, count: 0 },
+  ];
+  private stepWindow: [{ start: number; count: number }, { start: number; count: number }] = [
     { start: 0, count: 0 },
     { start: 0, count: 0 },
   ];
@@ -248,6 +255,18 @@ export class Room {
     } else this.pendingAim[c.seat] = input;
   }
 
+  /** Track's footfall; the game counts it, caps the cadence and owns the distance. */
+  step(c: Client, msg: Extract<ClientMsg, { t: "step" }>): void {
+    if (c.seat === null) return;
+    const w = this.stepWindow[c.seat];
+    if (this.ticks - w.start >= 60) {
+      w.start = this.ticks;
+      w.count = 0;
+    }
+    if (++w.count > STEPS_PER_SECOND) return;
+    this.pending.push({ seat: c.seat, input: { t: "step", side: msg.side, at: msg.at } });
+  }
+
   /** Only the player in a practice room can pause: nobody else is waiting on them. */
   pause(c: Client, paused: boolean): void {
     if (!this.practice || c.seat === null || this.paused === paused) return;
@@ -325,6 +344,11 @@ export class Room {
       this.tally.points[seat] += Number(e.points);
       this.tally.bestRally = Math.max(this.tally.bestRally, Number(e.points));
       this.deps.log("shot", { room: this.id, seat, points: e.points, stage: e.stage, lost: e.lost });
+    } else if (e.type === "race") {
+      // track: a race won counts toward unlimited
+      const winner = e.winner as Seat;
+      this.tally.points[winner]++;
+      this.deps.log("race", { room: this.id, winner, times: e.times });
     } else if (e.type === "fault") {
       this.deps.log("fault", { room: this.id, server: e.server, reason: e.reason });
     }

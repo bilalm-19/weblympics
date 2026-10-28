@@ -1021,3 +1021,16 @@ the format of the entries below (see CLAUDE.md, Docs).
 - **Decided by:** user (left-hand bow on the left, right-hand on the right); Claude (how).
 - **Outcome:** the first-person bow is placed and canted by the camera panel's aiming-hand choice (saved, so it applies without the camera too; left by default), and the arrow rests on the far side of the riser. The new e2e found two bugs: on a phone the practice pickers sat over the camera setup's buttons (the dialog is now above them and the pickers hide while it is open), and a quick arrow-key tap could miss every frame on a slow page (the time held is now applied on release, like the draw).
 - **Verification:** archery e2e 14/14 at both viewports.
+
+## 2026-10-29 03:58 AEDT | decision | Track game: sprint first, hurdles second
+
+- **Decided by:** user (wants a running-on-the-spot hurdles game; sprint first; one game with two events; build both knees and elbows camera modes and pick by playtest); Claude (structure: obstacle list in the sim from day one, `shared/games/track/` with a variant).
+- **Outcome:** tasks 26 (sprint) and 27 (hurdles) written, overview and CLAUDE.md games line updated. Nothing built yet.
+
+## 2026-10-29 04:21 AEDT | milestone | Track: sprint sim, bot, adapter and rooms (task 26)
+
+- **Decided by:** user (the game, sprint first, server owns position, human cadence cap, formats); Claude (the numbers and the two open rules below).
+- **What happened:** `shared/games/track/` (sim, bot, adapter) registered; a `step` message (foot and the client's own timestamp, never a distance); the room counts and floods-cuts steps and tallies races for unlimited; the ready panel labels "Race". `spec/track-sim.test.ts` and `spec/track-room.test.ts` cover cadence to speed, alternation, the cap, the finish, determinism, the bot, rooms, the hold, spectators and no rating vs the bot.
+- **Numbers (first guesses, to tune by playtest):** 100 m lane; top speed 10 m/s at 8 steps a second, linear below; cap 10 steps a second (by timestamp and by a server-side bucket, burst of 2); cadence smoothed over 0.6 s; bot 6.8 steps a second with noise (about 15 s).
+- **Open rules settled for now (Claude, reversible):** a false step (same foot twice) is ignored, not penalised, since a mis-read camera frame would otherwise cost a person time; a dead heat is re-run. Both are in the spec, so changing them is one test.
+- **Verification:** `pnpm check` 444/444, exit 0, against a server built from this tree on :8431.
