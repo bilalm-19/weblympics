@@ -67,7 +67,13 @@ lazily and only when a player enters a game. Video never leaves the browser.
   `bow.ts` (pure: bow-hold landmarks to aim, draw, release),
   `bow-camera.ts` (its camera panel; loads the hand model too),
   `bow-model.ts` (the first-person bow), `practice.ts` + `practice-sim.ts`
-  (in-page practice), `archery.css`; it reuses tennis's ready panel.
+  (in-page practice), `archery.css`; it reuses tennis's ready panel. Track
+  (task 26) is `games/track/`: `view.ts` (side-on chase camera, race board,
+  A/D, arrows and two tap buttons), `lane.ts` (track and runners from
+  primitives), `run-camera.ts` (its camera panel: mode, stand-still
+  calibration), `practice.ts` + `practice-sim.ts` (in-page practice vs a
+  pacer), `track.css`; the pure camera maths is `input/camera/run-pose.ts`;
+  it reuses tennis's ready panel.
 - `spec/*.test.ts` vitest against the running app, plus the sim unit tests.
 - `e2e/*.e2e.ts` Playwright at both viewports, fake webcam.
 
@@ -123,9 +129,9 @@ lazily and only when a player enters a game. Video never leaves the browser.
   and every swing misses. The bot lets go a ball it predicts will land out
   (`spec/rally-fixes.test.ts`, task 12).
 - Game logic stays deterministic (seed + input stream) so it can be tested.
-- Tennis and archery (task 22) are the playable games; track (tasks 26-27,
-  sprint then hurdles, one game with two events) is being built, sprint
-  first. Add another only when I ask. Each lives in `shared/games/<name>/` and registers in the registry, so
+- Tennis, archery (task 22) and track (tasks 26-27, one game with two
+  events: the sprint is playable, hurdles is task 27) are the games. Add
+  another only when I ask. Each lives in `shared/games/<name>/` and registers in the registry, so
   rooms, lobby and reconnect stay game-agnostic. A game's specs are named
   `spec/<name>-*.test.ts` and `e2e/<name>-*.e2e.ts`.
 - Video never leaves the browser. The game page's CSP `connect-src` allows
@@ -160,7 +166,13 @@ lazily and only when a player enters a game. Video never leaves the browser.
   don't count. First across the line wins; a dead heat is run again; the
   other runner has 5 s after the first finish. Formats: "race" (rated
   between two people) and "unlimited" (race after race, counts races won and
-  best times, unrated). Practice vs bot is never rated.
+  best times, unrated). Practice vs bot is never rated. Practice runs in the
+  page against the bot as a pacer; nothing sent to the server. Camera
+  (`spec/track-run-pose.test.ts`): two modes behind a setting, "elbows"
+  (a hand rising toward its shoulder is a step) and "knees" (a knee rising
+  is a step; stand back), measured in shoulder widths from a stand-still
+  calibration. "elbows" is the provisional default until a real-webcam
+  playtest picks one.
 - Camera is used for gameplay only. Every camera action has a keyboard/mouse
   equivalent, and the lobby and room work with no camera at all.
 - Auto-move (`spec/auto-move.test.ts`) walks slower than manual movement

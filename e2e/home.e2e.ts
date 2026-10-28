@@ -130,10 +130,10 @@ test("coming-soon sports can't be activated and never reach the server", async (
   await expect(page.locator('.sport[aria-pressed="true"]')).toHaveAttribute("data-sport", "tennis");
 });
 
-test("the sports are Tennis, Bowling, Archery and two ?? tiles, in that order", async ({ page }) => {
+test("the sports are Tennis, Bowling, Archery, Track and a ?? tile, in that order", async ({ page }) => {
   await page.goto("/");
   await expect(page.getByText(/playing as/i)).toBeVisible();
-  await expect(page.locator(".sport .sport-name")).toHaveText(["Tennis", "Bowling", "Archery", "??", "??"]);
+  await expect(page.locator(".sport .sport-name")).toHaveText(["Tennis", "Bowling", "Archery", "Track", "??"]);
 });
 
 test("every current action is still on the home screen", async ({ page }) => {

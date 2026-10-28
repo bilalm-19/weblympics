@@ -1,5 +1,5 @@
 export interface MenuActions {
-  /** Training (task 5, tennis) or practice (task 22, archery): runs in the page, no server. */
+  /** Training (task 5, tennis) or practice (task 22 archery, task 26 track): runs in the page, no server. */
   onTrain(sport: string): void;
   /** A room against the bot, for the selected sport. */
   onPractice(sport: string): void;
@@ -33,6 +33,9 @@ const ICONS = {
   ),
   archery: icon(
     `<circle cx="12" cy="12" r="10" fill="#fff" stroke="#9aa5b1" stroke-width="1.2"/><circle cx="12" cy="12" r="7" fill="#4dabf7"/><circle cx="12" cy="12" r="4.4" fill="#e03131"/><circle cx="12" cy="12" r="1.8" fill="#ffd23f"/>`,
+  ),
+  track: icon(
+    `<circle cx="12" cy="12" r="10" fill="#c4553a" stroke="#8f3a26" stroke-width="1.2"/><path d="M5 9h14M5 12h14M5 15h14" stroke="#fff" stroke-width="1.2"/><path d="M15 6v12" stroke="#ffd23f" stroke-width="2.2"/>`,
   ),
   bowling: icon(
     `<path d="M12 2c2 0 2.6 2 2 4.5-.4 1.6 3 5 3 9.5 0 3.5-2 6-5 6s-5-2.5-5-6c0-4.5 3.4-7.9 3-9.5C9.4 4 10 2 12 2z" fill="#fff" stroke="#9aa5b1" stroke-width="1.2"/><path d="M9.6 7.6h4.8" stroke="#e03131" stroke-width="1.6"/>`,
@@ -155,6 +158,22 @@ function archeryThumb(): string {
   `)}</div>`;
 }
 
+function trackThumb(): string {
+  const lanes = [0, 1, 2, 3].map((i) => `<polygon points="${-40 + i * 100},180 ${60 + i * 100},180 ${150 + i * 40},96 ${110 + i * 40},96" fill="${i % 2 ? "#c4553a" : "#cf6146"}"/>`).join("");
+  return `<div class="thumb-art">${svg(`
+    ${sky("#5fb0ee", "#d6eefc")}
+    <rect y="70" width="320" height="26" fill="#3d8ff0"/><rect y="70" width="320" height="6" fill="#2f7fe0"/>
+    <rect y="96" width="320" height="84" fill="#6fbf5a"/>
+    ${lanes}
+    <g stroke="#fff" stroke-width="1.6">${[0, 1, 2, 3, 4].map((i) => `<line x1="${-40 + i * 100}" y1="180" x2="${110 + i * 40}" y2="96"/>`).join("")}</g>
+    <line x1="228" y1="118" x2="300" y2="118" stroke="#fff" stroke-width="4"/>
+    <g transform="translate(150 128)"><circle cy="-30" r="8" fill="#f3cfae"/><rect x="-6" y="-22" width="12" height="20" rx="4" fill="#2f7fe0"/>
+      <line x1="0" y1="-2" x2="-10" y2="16" stroke="#2b303b" stroke-width="5" stroke-linecap="round"/><line x1="0" y1="-2" x2="10" y2="12" stroke="#2b303b" stroke-width="5" stroke-linecap="round"/></g>
+    <g transform="translate(196 116) scale(.8)"><circle cy="-30" r="8" fill="#f3cfae"/><rect x="-6" y="-22" width="12" height="20" rx="4" fill="#e0453a"/>
+      <line x1="0" y1="-2" x2="-9" y2="14" stroke="#2b303b" stroke-width="5" stroke-linecap="round"/><line x1="0" y1="-2" x2="10" y2="14" stroke="#2b303b" stroke-width="5" stroke-linecap="round"/></g>
+  `)}</div>`;
+}
+
 function bowlingThumb(): string {
   let pins = "";
   const rows = [[160], [150, 170], [140, 160, 180], [130, 150, 170, 190]];
@@ -184,8 +203,8 @@ function mysteryThumb(): string {
 }
 
 /**
- * The sports on the home screen, in menu order. Tennis and archery are
- * playable (CLAUDE.md). The others are "coming soon" placeholders:
+ * The sports on the home screen, in menu order. Tennis, archery and track
+ * are playable (CLAUDE.md). The others are "coming soon" placeholders:
  * aria-disabled, they only change the preview, can't be selected and never
  * reach the server. Delete an entry to drop it.
  */
@@ -193,7 +212,7 @@ export const SPORTS: Sport[] = [
   { id: "tennis", name: "Tennis", playable: true, icon: ICONS.tennis, blurb: "Rally against the bot or a friend. Swing with your camera or the keyboard.", thumbnail: tennisThumb },
   { id: "bowling", name: "Bowling", playable: false, icon: ICONS.bowling, blurb: "Coming soon.", thumbnail: bowlingThumb },
   { id: "archery", name: "Archery", playable: true, icon: ICONS.archery, blurb: "Read the wind and hit the gold, stage by stage. Draw with your camera or the mouse.", thumbnail: archeryThumb },
-  { id: "mystery-1", name: "??", playable: false, icon: ICONS.mystery, blurb: "A secret sport. Who knows?", thumbnail: mysteryThumb },
+  { id: "track", name: "Track", playable: true, icon: ICONS.track, blurb: "Sprint 100 m against the bot or a friend. Run on the spot with your camera, or tap A and D.", thumbnail: trackThumb },
   { id: "mystery-2", name: "??", playable: false, icon: ICONS.mystery, blurb: "A secret sport. Who knows?", thumbnail: mysteryThumb },
 ];
 
@@ -205,8 +224,8 @@ const POINTER = `<svg class="pointer" viewBox="0 0 32 32" aria-hidden="true" foc
 
 /** The selected sport's options: a room vs the bot, in-page training or practice, a room, or join one. */
 const sportOptions = (sport: string) => `
-  <button class="pill pill--primary" data-action="practice">${sport === "archery" ? "Play vs bot" : "Practice vs bot"}</button>
-  <button class="pill" data-action="train">${sport === "archery" ? "Practice" : "Train"}</button>
+  <button class="pill pill--primary" data-action="practice">${sport === "tennis" ? "Practice vs bot" : "Play vs bot"}</button>
+  <button class="pill" data-action="train">${sport === "tennis" ? "Train" : "Practice"}</button>
   <button class="pill" data-action="create">Create a room</button>
   <form class="join">
     <label for="code" hidden>Room code</label>
@@ -328,8 +347,8 @@ export function renderMenu(
       selected = sport;
       actions.onSelect?.(sport.id);
       menu.querySelector<HTMLElement>("#options-title")!.textContent = sport.name;
-      (menu.querySelector("[data-action=train]") as HTMLElement).textContent = sport.id === "archery" ? "Practice" : "Train";
-      (menu.querySelector("[data-action=practice]") as HTMLElement).textContent = sport.id === "archery" ? "Play vs bot" : "Practice vs bot";
+      (menu.querySelector("[data-action=train]") as HTMLElement).textContent = sport.id === "tennis" ? "Train" : "Practice";
+      (menu.querySelector("[data-action=practice]") as HTMLElement).textContent = sport.id === "tennis" ? "Practice vs bot" : "Play vs bot";
       // opening a sport takes you to its options (practice / create / join)
       const options = menu.querySelector<HTMLElement>(".options")!;
       options.classList.remove("is-opened");

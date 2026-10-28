@@ -1,0 +1,127 @@
+/* Track (task 26): the race board, the "Go!" call, the two step buttons and
+   the camera's lift meter. Laid over the canvas like the other games' HUDs. */
+
+.track .tr-board {
+  display: grid;
+  gap: 0.2rem;
+  width: min(26rem, 100%);
+  min-width: 0;
+  padding: 0.35rem 0.6rem;
+  border-radius: 10px;
+  background: #0f1720cc;
+  color: #fff;
+  font-variant-numeric: tabular-nums;
+}
+
+.track .tr-head {
+  font-size: 0.8rem;
+  opacity: 0.85;
+}
+
+.track .tr-row {
+  display: grid;
+  grid-template-columns: minmax(3rem, 6rem) 1fr 4.6rem;
+  align-items: center;
+  gap: 0.5rem;
+  border-left: 4px solid var(--seat);
+  padding-left: 0.4rem;
+}
+
+.track .tr-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.track .tr-bar {
+  height: 0.5rem;
+  border-radius: 4px;
+  background: #ffffff22;
+  overflow: hidden;
+}
+
+.track .tr-bar i {
+  display: block;
+  height: 100%;
+  background: var(--seat);
+}
+
+.track .tr-time {
+  text-align: right;
+  font-size: 0.95rem;
+}
+
+.track .tr-call {
+  position: absolute;
+  left: 50%;
+  top: 40%;
+  transform: translate(-50%, -50%);
+  padding: 0.3rem 1.2rem;
+  border-radius: 12px;
+  background: #0f1720cc;
+  color: #ffd23f;
+  font-size: 2.6rem;
+  font-weight: 800;
+  pointer-events: none;
+  animation: tr-pop 0.5s ease-out;
+}
+
+.track .tr-call[hidden] {
+  display: none;
+}
+
+@keyframes tr-pop {
+  from {
+    transform: translate(-50%, -50%) scale(1.5);
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .track .tr-call {
+    animation: none;
+  }
+}
+
+/* two big feet buttons: half the width each on a phone */
+.track .controls .tr-step {
+  flex: 1 1 0;
+  max-width: 12rem;
+  min-height: 72px;
+  font-size: 1.1rem;
+  touch-action: manipulation;
+}
+
+/* the foot to press next glows, so alternating is easy to follow */
+.track[data-next="left"] .tr-step[data-side="left"],
+.track[data-next="right"] .tr-step[data-side="right"] {
+  outline: 3px solid #ffd23f;
+  outline-offset: 2px;
+}
+
+.track .tr-meter {
+  display: flex;
+  justify-content: center;
+  gap: 0.5rem;
+  height: 3rem;
+}
+
+.track .tr-meter[hidden] {
+  display: none;
+}
+
+.track .tr-meter span {
+  position: relative;
+  width: 1rem;
+  border-radius: 4px;
+  background: #0f1720aa;
+  overflow: hidden;
+}
+
+.track .tr-meter i {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: #4ade80;
+}

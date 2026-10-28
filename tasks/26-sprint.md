@@ -1,6 +1,6 @@
 # 26 Track: sprint (first event)
 
-Status: in progress (2026-10-29): sim, bot, adapter and rooms built and specced.
+Status: built (2026-10-29), waiting on the real-webcam playtest to pick the camera default ("elbows" for now).
 Model: Opus (sim and protocol), Sonnet for the view
 Session: later
 Waits on: nothing. Task 27 (hurdles) builds on this.
@@ -50,18 +50,24 @@ is thrown away.
 
 ## Still open
 - Cadence-to-speed curve, step cap, lane length and bot cadence (tune by
-  playtest).
-- Knees vs elbows default.
-- Whether a false step (no alternation) costs time or is ignored.
+  playtest). First guesses: 100 m; 10 m/s at 8 steps a second, linear below;
+  cap 10 a second; bot 6.8 a second (about 15 s).
+- Knees vs elbows default ("elbows" provisionally, since it works at laptop
+  distance). Camera thresholds are guesses until the playtest.
+- A false step (no alternation) is ignored for now, not penalised (Claude,
+  2026-10-29: a mis-read camera frame shouldn't cost time). A dead heat is
+  re-run. Both pinned in `spec/track-sim.test.ts`; your call to keep.
+- The runner is built from primitives in `lane.ts`, not `character.ts`: that
+  player always carries a racket and has no leg joints for a run cycle.
 
 ## Done when
 - [x] `shared/games/track/` sim, bot and adapter, registered; `spec/track-*.test.ts`
       cover cadence to speed, alternation, the cadence cap, finish, determinism,
       and no rating vs the bot.
 - [x] Rooms, lobby, reconnect hold and spectators work through the same server code.
-- [ ] Client view at both viewports, keyboard and touch; `e2e/track-sprint.e2e.ts`.
-- [ ] Practice runs in the page with nothing sent to the server.
-- [ ] Camera knees and elbows modes both work with the fake webcam; `run-pose.ts`
+- [x] Client view at both viewports, keyboard and touch; `e2e/track-sprint.e2e.ts`.
+- [x] Practice runs in the page with nothing sent to the server.
+- [x] Camera knees and elbows modes both work with the fake webcam; `run-pose.ts`
       unit-tested.
-- [ ] Menu tile, CLAUDE.md layout, README and `spec/` agree.
+- [x] Menu tile, CLAUDE.md layout, README and `spec/` agree.
 - [ ] Playtest both camera modes on a real webcam; pick the default; devlog it.

@@ -4,6 +4,8 @@ import { startArcheryPractice } from "./games/archery/practice.ts";
 import { startArchery } from "./games/archery/view.ts";
 import { startTraining } from "./games/tennis/training.ts";
 import { startTennis } from "./games/tennis/view.ts";
+import { startTrackPractice } from "./games/track/practice.ts";
+import { startTrack } from "./games/track/view.ts";
 import { Connection } from "./net/socket.ts";
 import { renderMenu } from "./ui/menu.ts";
 
@@ -30,7 +32,7 @@ function showMenu(): void {
     conn.demo,
     error,
     {
-      onTrain: (s) => (s === "archery" ? practiseArchery() : train()),
+      onTrain: (s) => (s === "archery" ? practiseArchery() : s === "track" ? practiseTrack() : train()),
       onPractice: (s) => conn.send({ t: "create", game: s, practice: true }),
       onCreate: (s) => conn.send({ t: "create", game: s, practice: false }),
       onJoin: (code) => conn.send({ t: "join", room: code }),
@@ -75,6 +77,19 @@ function practiseArchery(): void {
   });
 }
 
+// Track practice (task 26): in the page too, nothing sent to the server.
+function practiseTrack(): void {
+  disposeGame?.();
+  training = true;
+  sport = "track";
+  error = null;
+  history.replaceState(null, "", "#/track/practice");
+  disposeGame = startTrackPractice(root, () => {
+    history.replaceState(null, "", location.pathname);
+    showMenu();
+  });
+}
+
 function enterRoom(info: RoomInfo): void {
   disposeGame?.();
   currentRoom = info.room;
@@ -82,7 +97,8 @@ function enterRoom(info: RoomInfo): void {
   error = null;
   history.replaceState(null, "", `#/room/${info.room}`);
   sport = info.game;
-  disposeGame = info.game === "archery" ? startArchery(root, conn, info, leave) : startTennis(root, conn, info, leave);
+  const start = info.game === "archery" ? startArchery : info.game === "track" ? startTrack : startTennis;
+  disposeGame = start(root, conn, info, leave);
 }
 
 conn.on((msg) => {
@@ -104,4 +120,5 @@ const invite = location.hash.match(/^#\/room\/([A-Za-z]{4})$/);
 if (invite) conn.send({ t: "join", room: invite[1].toUpperCase() });
 if (location.hash === "#/train") train();
 else if (location.hash === "#/archery/practice") practiseArchery();
+else if (location.hash === "#/track/practice") practiseTrack();
 else showMenu();

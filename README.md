@@ -2,9 +2,9 @@
 
 Weblympics - A webcam-controlled sports game, played against a bot or another person over the web!
 
-Currently: two events - TENNIS and ARCHERY
+Currently: three events - TENNIS, ARCHERY and the TRACK sprint
 
-The shape is built to hold more: a shared game registry, a server that owns the simulation, and a client that just renders whatever the server says. Archery is the second game through it.
+The shape is built to hold more: a shared game registry, a server that owns the simulation, and a client that just renders whatever the server says. Archery and track came through it.
 
 ## Inspiration
 
@@ -31,7 +31,9 @@ In tennis: by default the game walks you to the ball, slower than you can run, s
 
 In archery: hold an imaginary bow. Your front hand aims, pulling the other back sets strength, snapping it forward shoots. A dot shows the landing without wind; reading the wind is up to you.
 
-For the current state, movement was implemented with shoulders, rather than physically stepping to the side, to account for the user satying within the frame of the webcam for actions to be picked up, aswell as considering the amount of space a user may have in the real world to play.
+In track: run on the spot (arms or knees), or alternate A and D. Only footsteps are sent; the server turns their rhythm into speed and ignores the same foot twice or faster-than-human steps.
+
+Tennis movement uses your shoulders rather than stepping sideways, so you stay in frame and need little space.
 
 ## Why is it 'good'
 
