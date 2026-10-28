@@ -1,9 +1,25 @@
 # 19 Crowd reactions and sound
 
-Status: queued
-Model: Opus for the design and the audio module, Sonnet for wiring and tests
-Session: B, after 16 (shares `view.ts`, the HUD and the stage) and after 20 if
-both touch the crowd in `stadium.ts`
+Status: queued, to start on Opus 5.5 once the integration branch is green and
+merged (user, 2026-10-29). Tasks 16 and 20 are built, so both of its inputs
+exist; it must branch from the merged result, not from `main` before the merge.
+Model: Opus 5.5 for all of it (design, audio module, wiring and tests)
+Session: its own session (B and C are finished)
+
+## Already built, use it
+- **Task 16** (`client/games/tennis/point-call.ts`): `pointCall(prev, next, name)`
+  returns the call, a detail line, winner, loser and a weight (0 point, 1 game,
+  2 set, 3 match). `reactions(call)` returns who cheers and who is frustrated.
+  Drive the crowd's sides and the sounds from these two, not a second copy.
+  `reaction-fx.ts` and `Player.react` already draw the players' own reactions.
+- **Task 20** (`client/games/tennis/crowd-layout.ts`, `stadium.ts`): the crowd is
+  four sections, `left`, `right`, `frontLeft`, `frontRight`, as seen on screen,
+  each an unbroken block of the instanced meshes, and `buildStadium()` returns a
+  `crowd` handle with the meshes, each section's block and each person's rest
+  position. The arena turns round for seat 1, so working out which seat a
+  section belongs to is this task's job.
+- **Archery shares the room code:** the room, banner and score logic is tennis's;
+  archery has its own view, so sound for archery is out of scope here.
 
 ## Goal
 The crowd reacts to every point, and you hear it.
@@ -20,7 +36,8 @@ The crowd reacts to every point, and you hear it.
 
 ## Scope
 - **Crowd (visual):** the stands are split by seat: seat one's side and seat
-  two's side. After a point, the scorer's side cheers (arms up, jumping) and the
+  two's side. Map `left`/`right` and the front pair to seats using the camera's
+  orientation for the viewer's own seat (a spectator sees seat one on the left). After a point, the scorer's side cheers (arms up, jumping) and the
   other side boos and shakes heads. The front stand is half and half the same
   way. A game or set point is a bigger reaction. Spectators see it by seat, with
   seat one on the left and seat two on the right. Instanced, cheap, flat
