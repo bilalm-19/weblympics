@@ -1,6 +1,6 @@
 # 30 Boxing
 
-Status: planned (2026-11-05), waiting on the user's OK. A "maybe": dropped if not solid by Sat 7 Nov night.
+Status: sim, server, camera maths built; view waits on 28 (2026-11-05). A "maybe": dropped if not solid by Sat 7 Nov night.
 Model: Opus
 Waits on: 28 (shared character, podium)
 
