@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import type { Page } from "@playwright/test";
+import { openProfileDialog, openProfileMenu, profileButton, shownName } from "./flow.ts";
 
 // Task 17: register a passkey, sign out, sign in again, rename, delete, on
 // Chrome's virtual authenticator (CDP WebAuthn), at both viewports. Play never
@@ -32,12 +33,11 @@ test("passkey: create an account, rename, sign out, sign in again, then delete",
   test.setTimeout(60_000);
   await virtualAuthenticator(page);
   await page.goto("/");
-  const who = page.locator(".who");
-  await expect(who).toContainText(/\(guest\)/);
-  const guestName = (await who.locator("strong").textContent())!;
+  const who = profileButton(page);
+  await expect(who).toHaveAccessibleName(/\(guest\)$/);
+  const guestName = (await shownName(page).textContent())!;
 
-  await page.getByRole("button", { name: /profile and sign in/i }).click();
-  const dialog = page.getByRole("dialog", { name: "Profile" });
+  const dialog = await openProfileDialog(page);
   await expect(dialog.getByText(/\(guest\)/)).toBeVisible();
   await dialogFits(page);
 
@@ -58,34 +58,45 @@ test("passkey: create an account, rename, sign out, sign in again, then delete",
   await expect(dialog.getByRole("status")).toHaveText(/reserved/i);
 
   await dialog.getByRole("button", { name: "Close profile" }).click();
-  await expect(who.locator("strong")).toHaveText(name);
-  await expect(who).not.toContainText(/guest/);
+  await expect(shownName(page)).toHaveText(name);
+  await expect(who).not.toHaveAccessibleName(/guest/);
 
-  await page.getByRole("button", { name: /^profile$/i }).click();
+  // sign out from the profile dialog
+  await openProfileDialog(page);
   await dialog.getByRole("button", { name: "Sign out" }).click();
   await expect(dialog.getByRole("status")).toHaveText(/signed out/i);
   await expect(dialog.getByRole("button", { name: /sign in with a passkey/i })).toBeVisible();
-  await dialog.getByRole("button", { name: /sign in with a passkey/i }).click();
-  await expect(dialog.getByRole("status")).toHaveText(/signed in/i);
-  await expect(dialog.getByLabel("Display name")).toHaveValue(name);
   await dialog.getByRole("button", { name: "Close profile" }).click();
-  await expect(who.locator("strong")).toHaveText(name);
+  await expect(who).toHaveAccessibleName(/\(guest\)$/);
 
-  await page.getByRole("button", { name: /^profile$/i }).click();
+  // and sign in again from the profile button's panel
+  const panel = await openProfileMenu(page);
+  await panel.getByRole("button", { name: /sign in with a passkey/i }).click();
+  await expect(shownName(page)).toHaveText(name);
+  await expect(who).not.toHaveAccessibleName(/guest/);
+
+  // sign out from the panel too
+  await (await openProfileMenu(page)).getByRole("button", { name: "Sign out" }).click();
+  await expect(who).toHaveAccessibleName(/\(guest\)$/);
+  await (await openProfileMenu(page)).getByRole("button", { name: /sign in with a passkey/i }).click();
+  await expect(shownName(page)).toHaveText(name);
+
+  await openProfileDialog(page);
   await dialog.getByRole("button", { name: /delete account/i }).click();
   await dialogFits(page);
   await dialog.getByRole("button", { name: /confirm with passkey and delete/i }).click();
   await expect(dialog.getByRole("status")).toHaveText(/account deleted/i);
   await dialog.getByRole("button", { name: "Close profile" }).click();
-  await expect(who).toContainText(/\(guest\)/);
-  await expect(who.locator("strong")).not.toHaveText(name);
+  await expect(who).toHaveAccessibleName(/\(guest\)$/);
+  await expect(shownName(page)).not.toHaveText(name);
 });
 
-test("the profile panel works by keyboard and Escape closes it", async ({ page }) => {
+test("the profile dialog works by keyboard and Escape closes it", async ({ page }) => {
   await page.goto("/");
-  await expect(page.getByText(/playing as/i)).toBeVisible();
-  const open = page.getByRole("button", { name: /profile and sign in/i });
-  await open.focus();
+  await profileButton(page).focus();
+  await page.keyboard.press("Enter");
+  const panel = page.locator("dialog.pm-panel");
+  await panel.getByRole("button", { name: "Profile details" }).focus();
   await page.keyboard.press("Enter");
   const dialog = page.getByRole("dialog", { name: "Profile" });
   await expect(dialog.getByRole("button", { name: /create account with a passkey/i })).toBeVisible();

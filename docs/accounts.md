@@ -10,7 +10,7 @@ enforced by `spec/accounts.test.ts`, `spec/auth-api.test.ts` and
   id in an `HttpOnly` cookie and a server-made name such as "Swift Otter 42".
   Guests play every mode, keep their matches in that browser, and are never
   rated or on a leaderboard.
-- **Create account with a passkey** (Profile on the home screen) turns the
+- **Create account with a passkey** (the profile button, top right of the home screen) turns the
   guest into an account and keeps its history. A passkey is a key pair made by
   your phone, laptop or security key; the server stores only the public half.
   There is no password and nothing secret in this repo.
@@ -54,7 +54,7 @@ and spectators, sees it. Guests wear their seat's default (blue or red top).
   never dropping below 100. A match only moves the rating of its own sport.
   The rating update is in the same database transaction as the match row,
   and ratings can be rebuilt from the rated match rows alone.
-- **The leaderboard** (home screen, Leaderboard) has a tab per sport and lists
+- **The leaderboard** (home screen, profile button, Leaderboard) has a tab per sport and lists
   accounts only: never guests, and not the demo accounts. Your row is
   highlighted and your rank is shown even outside the top list. It refreshes
   every second while open. Your profile shows your rating per sport and your
@@ -71,8 +71,8 @@ id that links to nothing and is shown as "Deleted player".
 
 "Demo One" and "Demo Two" exist so two browsers can try a rated match without
 passkeys. They are locked (no rename, delete or passkey), hidden from the
-public leaderboard, and reached from the closed **Dev tools** control at the
-bottom of the home screen. Anyone can use them, so treat them as public.
+public leaderboard, and reached from the closed **Dev tools** control in the
+home screen's profile panel (the round button, top right). Anyone can use them, so treat them as public.
 
 ## Admin: rename or remove a name by hand
 

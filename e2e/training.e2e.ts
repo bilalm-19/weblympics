@@ -113,7 +113,7 @@ test("training with keys: every step completes from real key presses, feedback i
   test.setTimeout(240_000);
   const net = traffic(page);
   await page.goto("/");
-  await expect(page.getByText(/playing as/i)).toBeVisible();
+  await expect(page.locator(".pm-button")).toBeVisible();
   const train = page.getByRole("button", { name: "Train" });
   await insideViewport(page, train);
   // what the page itself sent while loading (hello and the like); training adds nothing
@@ -246,7 +246,7 @@ test("training with the camera: safety notice and hand choice first, the camera 
   test.setTimeout(120_000);
   const net = traffic(page);
   await page.goto("/");
-  await expect(page.getByText(/playing as/i)).toBeVisible();
+  await expect(page.locator(".pm-button")).toBeVisible();
   const framesBefore = net.frames.length;
   await page.getByRole("button", { name: "Train" }).click();
   const coach = page.locator(".coach");
@@ -297,7 +297,7 @@ test("training with the camera: safety notice and hand choice first, the camera 
 
 test("Train is a Tennis option on the home screen, and Skip training goes straight back", async ({ page }) => {
   await page.goto("/");
-  await expect(page.getByText(/playing as/i)).toBeVisible();
+  await expect(page.locator(".pm-button")).toBeVisible();
   const options = page.locator(".options");
   await expect(options.getByRole("button", { name: "Train" })).toBeVisible();
   expect(await noHorizontalScroll(page)).toBe(true);
@@ -487,7 +487,7 @@ test("hit the spot (task 21): endless from the training screen, a result after e
   // listening from before the page opens its socket, or its frames would never be seen
   const net = traffic(page);
   await page.goto("/");
-  await expect(page.getByText(/playing as/i)).toBeVisible();
+  await expect(page.locator(".pm-button")).toBeVisible();
   // what the page itself sent while loading (hello); the mode adds nothing
   const framesBefore = net.frames.length;
   await page.getByRole("button", { name: "Train" }).click();

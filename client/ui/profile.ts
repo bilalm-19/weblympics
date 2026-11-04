@@ -73,7 +73,7 @@ function ratingLine(me: Me): string {
 const fmtDate = (ms: number) => new Date(ms).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" });
 
 /** Turns a failed passkey prompt or request into a short sentence. */
-function problem(e: unknown): string {
+export function problem(e: unknown): string {
   if (e instanceof ApiError) return e.message;
   if (e instanceof Error && (e.name === "NotAllowedError" || e.name === "AbortError")) return "The passkey prompt was closed.";
   if (e instanceof Error && e.name === "InvalidStateError") return "That passkey is already on this account.";

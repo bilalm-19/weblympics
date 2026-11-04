@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import type { Browser, Page, TestInfo } from "@playwright/test";
+import { openProfileDialog, openProfileMenu, profileButton, signInDemo as signInFromPanel } from "./flow.ts";
 
 // Task 18: pick a look in the profile, see it live in the preview, save it,
 // and the room shows it on that seat to both players and a spectator. Uses
@@ -15,17 +16,13 @@ async function newPage(browser: Browser, page: Page, testInfo: TestInfo): Promis
 
 async function signInDemo(page: Page, n: "One" | "Two"): Promise<void> {
   await page.goto("/");
-  await expect(page.getByText(/playing as/i)).toBeVisible();
-  await page.locator("summary", { hasText: "Dev tools" }).click();
-  await page.getByRole("button", { name: `Sign in as Demo ${n}` }).click();
-  await expect(page.locator(".who strong")).toHaveText(`Demo ${n}`);
+  await signInFromPanel(page, n);
 }
 
 test("customise: live preview, keyboard, saved, and seen on that seat by both players and a spectator", async ({ page, browser }, testInfo) => {
   test.setTimeout(90_000);
   await signInDemo(page, "Two");
-  await page.getByRole("button", { name: /^profile$/i }).click();
-  const dialog = page.getByRole("dialog", { name: "Profile" });
+  const dialog = await openProfileDialog(page);
   const preview = dialog.getByRole("img", { name: "Preview of your player" });
   await expect(preview).toBeVisible();
 
@@ -55,10 +52,17 @@ test("customise: live preview, keyboard, saved, and seen on that seat by both pl
   await dialog.getByRole("button", { name: "Save look" }).click();
   await expect(dialog.getByRole("status")).toHaveText(/look saved/i);
   await dialog.getByRole("button", { name: "Close profile" }).click();
+  // the profile button's picture is the new look at once, and its panel's figure too
+  const avatar = profileButton(page).locator(".look-svg");
+  await expect(avatar).toHaveAttribute("data-look", "purple/navy/s4/brown/long");
+  const panel = await openProfileMenu(page);
+  await expect(panel.getByRole("img", { name: "Your player" })).toHaveAttribute("data-look", "purple/navy/s4/brown/long");
+  await page.keyboard.press("Escape");
 
   // a reload keeps it (it is on the account, not in this page)
   await page.reload();
-  await page.getByRole("button", { name: /^profile$/i }).click();
+  await expect(avatar).toHaveAttribute("data-look", "purple/navy/s4/brown/long");
+  await openProfileDialog(page);
   await expect(dialog.getByRole("img", { name: "Preview of your player" })).toHaveAttribute("data-look", "purple/navy/s4/brown/long");
   await dialog.getByRole("button", { name: "Close profile" }).click();
 
@@ -87,7 +91,7 @@ test("customise: live preview, keyboard, saved, and seen on that seat by both pl
   // put Demo Two back to the default so other runs start clean
   await page.goto("about:blank");
   await page.goto("/");
-  await page.getByRole("button", { name: /^profile$/i }).click();
+  await openProfileDialog(page);
   await dialog.getByRole("radio", { name: "Blue shirt" }).check({ force: true });
   await dialog.getByRole("radio", { name: "Short hair" }).check({ force: true });
   await dialog.getByRole("radio", { name: "Skin tone 2" }).check({ force: true });
@@ -97,8 +101,7 @@ test("customise: live preview, keyboard, saved, and seen on that seat by both pl
 
 test("a guest sees no customise panel: they get the default look", async ({ page }) => {
   await page.goto("/");
-  await page.getByRole("button", { name: /profile and sign in/i }).click();
-  const dialog = page.getByRole("dialog", { name: "Profile" });
+  const dialog = await openProfileDialog(page);
   await expect(dialog.getByRole("button", { name: /create account with a passkey/i })).toBeVisible();
   await expect(dialog.getByRole("img", { name: "Preview of your player" })).toHaveCount(0);
 });

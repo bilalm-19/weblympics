@@ -75,8 +75,15 @@ lazily and only when a player enters a game. Video never leaves the browser.
   the `SPORTS` list in a left column and the framed preview (a looping SVG
   snippet per sport) with the selected sport's options in a right column,
   stacked on phones; the arrow as the mouse cursor; inline SVG/CSS only, no
-  Three.js: `spec/home-screen.test.ts`; the Profile and Leaderboard buttons and the
-  closed "Dev tools" with the demo accounts), `ui/brand.ts` (the five ring
+  Three.js: `spec/home-screen.test.ts`; its options put "Create a room" as
+  the big primary button over the smaller vs-bot and Train/Practice pair;
+  the footer keeps only the README link), `ui/profile-menu.ts` (the round
+  profile button top right, its picture the head and shoulders of your own
+  look from `look-preview.ts`, drawn once from the welcome's `look`; name
+  beside it on desktop; its panel, a popover on desktop and a bottom sheet
+  on a phone, holds the passkey sign in or create, sign out, the closed
+  "Dev tools" with the demo accounts, and the ways to the profile dialog and
+  the leaderboard: `e2e/home.e2e.ts`), `ui/brand.ts` (the five ring
   colours and every text/background pair, held to WCAG AA by
   `spec/brand.test.ts`; task 14), `ui/profile.ts` + `.css` (task 17's profile
   dialog, with task 18's customise section; `ui/look-preview.ts` draws the
@@ -177,7 +184,8 @@ lazily and only when a player enters a game. Video never leaves the browser.
   fresh passkey check and removes passkeys, sessions, name, look and ratings;
   match rows stay with a random tombstone shown as "Deleted player". The two
   demo accounts are locked (no rename, delete or passkey), hidden from the
-  board, and reached only from the home screen's closed "Dev tools".
+  board, and reached only from the closed "Dev tools" in the home screen's
+  profile panel.
 - Looks (task 18; `spec/look.test.ts`, `e2e/look.e2e.ts`): an account's look
   is five enum values from `shared/look.ts`, checked on the server (anything
   outside the lists, or any extra field, is refused and nothing is stored).

@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 import type { Browser, Page, TestInfo } from "@playwright/test";
-import { useKeyboard } from "./flow.ts";
+import { openLeaderboardFromMenu, openProfileDialog, signInDemo, useKeyboard } from "./flow.ts";
 
 // Task 7: the leaderboard (a tab per sport, your rank, history) and the
 // host's rated switch in the ready panel, at both viewports.
@@ -15,10 +15,7 @@ async function newPage(browser: Browser, page: Page, testInfo: TestInfo): Promis
 
 test("the leaderboard opens from the home screen: a tab per sport, keyboard, fits the screen, and closes", async ({ page }) => {
   await page.goto("/");
-  await expect(page.getByText(/playing as/i)).toBeVisible();
-  await page.getByRole("button", { name: "Leaderboard" }).click();
-  const dialog = page.getByRole("dialog", { name: "Leaderboard" });
-  await expect(dialog).toBeVisible();
+  const dialog = await openLeaderboardFromMenu(page);
   const tabs = dialog.getByRole("tab");
   await expect(tabs.first()).toHaveText("Tennis");
   await expect(tabs.first()).toHaveAttribute("aria-selected", "true");
@@ -51,25 +48,19 @@ test("the leaderboard opens from the home screen: a tab per sport, keyboard, fit
 
 test("a demo account sees its own rating and rank in the profile and on the board, but isn't listed", async ({ page }) => {
   await page.goto("/");
-  await page.locator("summary", { hasText: "Dev tools" }).click();
-  await page.getByRole("button", { name: "Sign in as Demo One" }).click();
-  await expect(page.locator(".who strong")).toHaveText("Demo One");
-  await page.getByRole("button", { name: /^profile$/i }).click();
-  const profile = page.getByRole("dialog", { name: "Profile" });
+  await signInDemo(page, "One");
+  const profile = await openProfileDialog(page);
   await expect(profile.getByText(/Tennis: rating \d+/)).toBeVisible();
   await expect(profile.getByText(/Longest rally: \d+ shots/)).toBeVisible();
   await profile.getByRole("button", { name: "Close profile" }).click();
-  await page.getByRole("button", { name: "Leaderboard" }).click();
-  const dialog = page.getByRole("dialog", { name: "Leaderboard" });
+  const dialog = await openLeaderboardFromMenu(page);
   await expect(dialog.getByRole("cell", { name: /^Demo One/ })).toHaveCount(0);
 });
 
 test("the host's rated switch: a guest seat makes it unavailable and says why", async ({ page, browser }, testInfo) => {
   test.setTimeout(60_000);
   await page.goto("/");
-  await page.locator("summary", { hasText: "Dev tools" }).click();
-  await page.getByRole("button", { name: "Sign in as Demo One" }).click();
-  await expect(page.locator(".who strong")).toHaveText("Demo One");
+  await signInDemo(page, "One");
   await page.getByRole("button", { name: /create a room/i }).click();
   await expect(page).toHaveURL(/#\/room\/[A-Z]{4}$/, { timeout: 15_000 });
   // the webcam is the default (task 15): the keyboard way past the setup shows the panel
@@ -96,18 +87,14 @@ test("the host's rated switch: a guest seat makes it unavailable and says why", 
 test("two accounts: the host turns rated on, it clears ready, and the joiner sees it", async ({ page, browser }, testInfo) => {
   test.setTimeout(60_000);
   await page.goto("/");
-  await page.locator("summary", { hasText: "Dev tools" }).click();
-  await page.getByRole("button", { name: "Sign in as Demo One" }).click();
-  await expect(page.locator(".who strong")).toHaveText("Demo One");
+  await signInDemo(page, "One");
   await page.getByRole("button", { name: /create a room/i }).click();
   await expect(page).toHaveURL(/#\/room\/[A-Z]{4}$/, { timeout: 15_000 });
   await useKeyboard(page);
 
   const other = await newPage(browser, page, testInfo);
   await other.goto("/");
-  await other.locator("summary", { hasText: "Dev tools" }).click();
-  await other.getByRole("button", { name: "Sign in as Demo Two" }).click();
-  await expect(other.locator(".who strong")).toHaveText("Demo Two");
+  await signInDemo(other, "Two");
   await other.goto("about:blank");
   await other.goto(page.url());
   await useKeyboard(other);
