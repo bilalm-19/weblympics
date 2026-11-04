@@ -1,5 +1,6 @@
 import type { RoomFormat } from "../protocol.ts";
 import { archery } from "./archery/index.ts";
+import { boxing } from "./boxing/index.ts";
 import { tennis } from "./tennis/index.ts";
 import { track } from "./track/index.ts";
 
@@ -28,8 +29,10 @@ export interface GameInstance {
   /**
    * Set once the match is over. `score` is the headline result (sets won in
    * tennis); `format` and `sets` (games per finished set) are optional detail.
+   * `winner: null` is a draw (boxing's exact tie on damage, task 30); no
+   * other game has one.
    */
-  finished(): { winner: 0 | 1; score: [number, number]; format?: string; sets?: Array<[number, number]> } | null;
+  finished(): { winner: 0 | 1 | null; score: [number, number]; format?: string; sets?: Array<[number, number]> } | null;
   botInputs(seat: 0 | 1): unknown[];
 }
 
@@ -45,4 +48,4 @@ export interface GameDef {
   create(seed: number, options?: { endless?: boolean; format?: string }): GameInstance;
 }
 
-export const games: Record<string, GameDef> = { tennis, archery, track };
+export const games: Record<string, GameDef> = { tennis, archery, track, boxing };

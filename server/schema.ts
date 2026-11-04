@@ -101,8 +101,10 @@ export interface MatchRecord {
   tokens: [string | null, string | null];
   /** Headline result: sets won, in tennis; points won in unlimited. */
   score: [number, number];
-  /** null: unlimited, which has no winner. */
+  /** null: unlimited, which has no winner, or a draw. */
   winner: 0 | 1 | null;
+  /** A finished match that ended level (boxing, task 30): no winner, but a result. */
+  draw?: boolean;
   format: string;
   /** Games in each finished set. */
   sets: Array<[number, number]>;
@@ -117,9 +119,11 @@ export interface MatchRecord {
  * beating people. A match also needs two signed-in players. Task 4: unlimited
  * (no winner) never does, and nor does one person on both seats (one token on
  * two tabs, allowed for testing), so nobody can feed themselves wins.
+ * Task 30: a draw (boxing's exact tie) between two people is rated, stored
+ * with no winner; a reader tells it from unlimited by `rated = 1`.
  */
 export function isRated(m: MatchRecord): boolean {
-  if (m.practice || m.format === "unlimited" || m.winner === null) return false;
+  if (m.practice || m.format === "unlimited" || (m.winner === null && !m.draw)) return false;
   return m.tokens[0] !== null && m.tokens[1] !== null && m.tokens[0] !== m.tokens[1];
 }
 

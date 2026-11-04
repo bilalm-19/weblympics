@@ -49,6 +49,9 @@ const MOVES_PER_SECOND = 40;
 // track: footfalls a second accepted from one seat before the sim's own
 // cadence cap; anything past this is a flood and is dropped here
 const STEPS_PER_SECOND = 30;
+// boxing: punch and guard messages a second accepted from one seat before
+// the sim's own punch cap; past this is a flood and is dropped here
+const BOX_PER_SECOND = 30;
 const MAX_CATCHUP_TICKS = 5;
 const EMPTY_ROOM_TTL_MS = 30_000;
 const BOT_SEAT: Seat = 1;
@@ -78,6 +81,10 @@ export class Room {
     { start: 0, count: 0 },
   ];
   private stepWindow: [{ start: number; count: number }, { start: number; count: number }] = [
+    { start: 0, count: 0 },
+    { start: 0, count: 0 },
+  ];
+  private boxWindow: [{ start: number; count: number }, { start: number; count: number }] = [
     { start: 0, count: 0 },
     { start: 0, count: 0 },
   ];
@@ -267,6 +274,22 @@ export class Room {
     this.pending.push({ seat: c.seat, input: { t: "step", side: msg.side, at: msg.at } });
   }
 
+  /**
+   * Boxing's punch and guard, in arrival order (a guard dropped then a jab in
+   * one tick throws the jab). The game lands punches and owns all damage.
+   */
+  box(c: Client, msg: Extract<ClientMsg, { t: "punch" | "guard" }>): void {
+    if (c.seat === null) return;
+    const w = this.boxWindow[c.seat];
+    if (this.ticks - w.start >= 60) {
+      w.start = this.ticks;
+      w.count = 0;
+    }
+    if (++w.count > BOX_PER_SECOND) return;
+    const input = msg.t === "punch" ? { t: "punch", kind: msg.kind, hand: msg.hand, at: msg.at } : { t: "guard", up: msg.up };
+    this.pending.push({ seat: c.seat, input });
+  }
+
   /** Only the player in a practice room can pause: nobody else is waiting on them. */
   pause(c: Client, paused: boolean): void {
     if (!this.practice || c.seat === null || this.paused === paused) return;
@@ -349,6 +372,10 @@ export class Room {
       const winner = e.winner as Seat;
       this.tally.points[winner]++;
       this.deps.log("race", { room: this.id, winner, times: e.times });
+    } else if (e.type === "bout") {
+      // boxing: a bout won counts toward unlimited (a draw counts for nobody)
+      if (e.winner !== null) this.tally.points[e.winner as Seat]++;
+      this.deps.log("bout", { room: this.id, winner: e.winner, result: e.result, dealt: e.dealt });
     } else if (e.type === "fault") {
       this.deps.log("fault", { room: this.id, server: e.server, reason: e.reason });
     }
@@ -437,6 +464,7 @@ export class Room {
         tokens: this.seatTokens(),
         score: result.score,
         winner: result.winner,
+        draw: result.winner === null,
         format: result.format ?? "default",
         sets: result.sets ?? [],
         practice: this.practice,

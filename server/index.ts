@@ -206,6 +206,10 @@ wss.on("connection", (ws: WebSocket) => {
       case "step":
         client.room?.step(client, msg);
         break;
+      case "punch":
+      case "guard":
+        client.room?.box(client, msg);
+        break;
       case "mode":
         client.room?.mode(client, msg.mode);
         break;

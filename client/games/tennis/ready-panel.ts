@@ -11,6 +11,7 @@ export const FORMAT_LABELS: Record<RoomFormat, string> = {
   bestOfThree: "Best of three",
   stages: "Eight stages",
   race: "Race",
+  bout: "Bout",
   unlimited: "Unlimited",
 };
 
@@ -19,6 +20,7 @@ const FORMAT_NOTES: Record<RoomFormat, string> = {
   bestOfThree: "First to two sets. Rated.",
   stages: "One arrow each per stage, 10 m to 50 m, the wind getting stronger. Highest total wins. Rated.",
   race: "One 100 m sprint, first across the line wins. Rated.",
+  bout: "Three rounds of 30 seconds. A knockout wins at once, else the most damage dealt; a tie is a draw. Rated.",
   unlimited: "Play as long as you like; points and best rally are counted. No winner, not rated.",
 };
 
@@ -26,6 +28,8 @@ const FORMAT_NOTES: Record<RoomFormat, string> = {
 const UNLIMITED_ARCHERY = "Random distance and wind every stage, as long as you like; points and best arrow are counted. No winner, not rated.";
 // track's unlimited runs race after race
 const UNLIMITED_TRACK = "Race after race, as long as you like; races won and best times are counted. No winner, not rated.";
+// boxing's unlimited boxes bout after bout
+const UNLIMITED_BOXING = "Bout after bout, as long as you like; bouts won and knockouts are counted. No winner, not rated.";
 
 export interface ReadyPanel {
   update(view: LobbyView): void;
@@ -53,6 +57,7 @@ export function createReadyPanel(
     ...FORMAT_NOTES,
     ...(formats.includes("stages") ? { unlimited: UNLIMITED_ARCHERY } : {}),
     ...(formats.includes("race") ? { unlimited: UNLIMITED_TRACK } : {}),
+    ...(formats.includes("bout") ? { unlimited: UNLIMITED_BOXING } : {}),
   };
   const el = document.createElement("section");
   el.className = "ready-panel";
