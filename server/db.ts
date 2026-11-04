@@ -10,8 +10,21 @@ export type { MatchRecord } from "./schema.ts";
 const dir = process.env.DATA_DIR ?? (existsSync("/data") ? "/data" : "./data");
 mkdirSync(dir, { recursive: true });
 
-const db = new DatabaseSync(join(dir, "app.db"));
-db.exec("PRAGMA journal_mode = WAL;");
+/** How long a write waits for another process's lock before giving up, ms. */
+export const LOCK_WAIT_MS = 5000;
+
+/**
+ * Opens a database file. Several processes open the same one (the server,
+ * and test workers that import this module), so a write waits for another's
+ * lock instead of failing at once with "database is locked".
+ */
+export function openDatabase(file: string, lockWaitMs = LOCK_WAIT_MS): DatabaseSync {
+  const d = new DatabaseSync(file, { timeout: lockWaitMs });
+  d.exec("PRAGMA journal_mode = WAL;");
+  return d;
+}
+
+const db = openDatabase(join(dir, "app.db"));
 migrate(db);
 
 const ADJECTIVES = ["Swift", "Lucky", "Quiet", "Brave", "Sunny", "Nimble", "Plucky", "Breezy"];

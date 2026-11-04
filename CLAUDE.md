@@ -169,7 +169,9 @@ lazily and only when a player enters a game. Video never leaves the browser.
   best times, unrated). Practice vs bot is never rated. Practice runs in the
   page against the bot as a pacer; nothing sent to the server. Camera
   (`spec/track-run-pose.test.ts`): two modes behind a setting, "elbows"
-  (a hand rising toward its shoulder is a step) and "knees" (a knee rising
+  (a hand rising a fifth of a shoulder width is a step; either arm counts,
+  sent as alternating steps, since a small quick pump is what a person
+  does) and "knees" (a knee rising
   is a step; stand back), measured in shoulder widths from a stand-still
   calibration. "elbows" is the provisional default until a real-webcam
   playtest picks one.

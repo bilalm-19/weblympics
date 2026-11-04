@@ -100,3 +100,30 @@ describe("the two modes read different joints", () => {
     expect(rest).toEqual({ left: -3, right: -3 });
   });
 });
+
+// Playtest 2026-11-05: arm pumps needed too much movement to run fast, and
+// arms falling into step lost every other pump to the same-foot rule.
+describe("elbows mode is easy on the arms", () => {
+  it("a small quick pump (a quarter shoulder width) counts", () => {
+    const tr = calibrated("elbows");
+    expect(jog(tr, "elbows", 0.25, 5, 2).length).toBeGreaterThanOrEqual(9);
+  });
+
+  it("pumps on one arm only still come out as alternating steps", () => {
+    const tr = calibrated("elbows");
+    const steps: RunStep[] = [];
+    for (let f = 0; f < 60; f++) {
+      const t = (f / 30) * 1000;
+      const lift = Math.max(0, Math.sin((t / 1000) * 4 * Math.PI)) * 0.5;
+      const s = tr.update(runHeights(body(lift, 0), ASPECT, "elbows"), t);
+      if (s) steps.push(s);
+    }
+    expect(steps.length).toBeGreaterThanOrEqual(3);
+    for (let i = 1; i < steps.length; i++) expect(steps[i].side).not.toBe(steps[i - 1].side);
+  });
+
+  it("knees mode still reports the knee that rose", () => {
+    const tr = calibrated("knees");
+    expect(tr.update(runHeights(body(0.8, 0), ASPECT, "knees"), 0)).toEqual({ side: "left", t: 0 });
+  });
+});

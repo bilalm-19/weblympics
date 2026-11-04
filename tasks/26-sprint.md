@@ -51,7 +51,10 @@ is thrown away.
 ## Still open
 - Cadence-to-speed curve, step cap, lane length and bot cadence (tune by
   playtest). First guesses: 100 m; 10 m/s at 8 steps a second, linear below;
-  cap 10 a second; bot 6.8 a second (about 15 s).
+  cap 10 a second; bot 6.8 a second (about 15 s). After the user's first
+  webcam try (2026-11-05, "I have to move my arms too much"): top speed at 6
+  steps a second, bot 5.2; elbows needs a 0.2 lift (was 0.4) and either arm
+  counts.
 - Knees vs elbows default ("elbows" provisionally, since it works at laptop
   distance). Camera thresholds are guesses until the playtest.
 - A false step (no alternation) is ignored for now, not penalised (Claude,

@@ -14,6 +14,11 @@
 // step on that side once; it must drop back below `liftOff` before it can
 // count again. The sim does the rest (alternation, the cadence cap), so a
 // read here never has to be clever about cheating.
+//
+// Elbows mode counts a pump on either arm and labels the steps left, right,
+// left... itself: arms drifting in sync (or one tired arm) would otherwise
+// lose every other pump to the sim's same-foot rule. The sim's cap (10 a
+// second) still bounds it, so this buys no speed a fair runner can't reach.
 import { LM, bodyFrame } from "./pose.ts";
 import type { Point } from "./pose.ts";
 
@@ -39,8 +44,9 @@ export interface RunConfig {
 export const DEFAULT_RUN: Record<RunMode, RunConfig> = {
   // a jogging knee comes up a third of a shoulder width or more
   knees: { liftOn: 0.3, liftOff: 0.12, minGapMs: 150 },
-  // a pumping hand rises about half a shoulder width toward the shoulder
-  elbows: { liftOn: 0.4, liftOff: 0.15, minGapMs: 150 },
+  // a quick pump lifts the hand only a little (the swing is mostly toward the
+  // camera): a fifth of a shoulder width. 0.4 was too much (playtest 2026-11-05).
+  elbows: { liftOn: 0.2, liftOff: 0.08, minGapMs: 150 },
 };
 
 /** Where each side sits, standing still: the calibration. */
@@ -90,6 +96,8 @@ export interface RunStep {
 export class RunTracker {
   private up: Record<RunSide, boolean> = { left: false, right: false };
   private last: Record<RunSide, number> = { left: -Infinity, right: -Infinity };
+  // elbows mode: the side the next counted pump is sent as
+  private next: RunSide = "left";
   rest: RunRest | null = null;
   /** The latest lift per side (shoulder widths above rest), for the panel's meter. */
   lift: RunRest = { left: 0, right: 0 };
@@ -104,6 +112,7 @@ export class RunTracker {
   reset(): void {
     this.up = { left: false, right: false };
     this.last = { left: -Infinity, right: -Infinity };
+    this.next = "left";
     this.lift = { left: 0, right: 0 };
   }
 
@@ -118,7 +127,10 @@ export class RunTracker {
         this.up[side] = true;
         if (t - this.last[side] >= this.cfg.minGapMs && out === null) {
           this.last[side] = t;
-          out = { side, t };
+          if (this.mode === "elbows") {
+            out = { side: this.next, t };
+            this.next = this.next === "left" ? "right" : "left";
+          } else out = { side, t };
         }
       } else if (this.up[side] && lift < this.cfg.liftOff) this.up[side] = false;
     }
