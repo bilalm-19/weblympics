@@ -7,7 +7,7 @@ import { startTennis } from "./games/tennis/view.ts";
 import { startTrackPractice } from "./games/track/practice.ts";
 import { startTrack } from "./games/track/view.ts";
 import { Connection } from "./net/socket.ts";
-import { signInDemo, signOut } from "./net/account.ts";
+import { addPasskey, signIn, signInDemo, signOut } from "./net/account.ts";
 import { renderMenu } from "./ui/menu.ts";
 import { openLeaderboard } from "./ui/leaderboard.ts";
 import { openProfile } from "./ui/profile.ts";
@@ -30,17 +30,28 @@ function showMenu(): void {
   conn.roomCode = null;
   renderMenu(
     root,
-    { name: conn.name, matches: conn.matches, account: conn.account, demo: conn.demo },
+    { name: conn.name, matches: conn.matches, account: conn.account, demo: conn.demo, look: conn.look },
     error,
     {
       onTrain: (s) => (s === "archery" ? practiseArchery() : s === "track" ? practiseTrack() : train()),
       onPractice: (s) => conn.send({ t: "create", game: s, practice: true }),
       onCreate: (s) => conn.send({ t: "create", game: s, practice: false }),
       onJoin: (code) => conn.send({ t: "join", room: code }),
+      // who you are changed: a new socket, whose welcome draws the menu (and its avatar) again
       onProfile: () => openProfile({ onIdentityChange: () => conn.reconnect() }),
       onLeaderboard: openLeaderboard,
-      onSignInDemo: (n) => void signInDemo(n).then(() => conn.reconnect(), showError),
-      onSignOutDemo: () => void signOut().then(() => conn.reconnect(), showError),
+      onPasskey: async (kind) => {
+        await (kind === "create" ? addPasskey() : signIn());
+        conn.reconnect();
+      },
+      onSignInDemo: async (n) => {
+        await signInDemo(n);
+        conn.reconnect();
+      },
+      onSignOut: async () => {
+        await signOut();
+        conn.reconnect();
+      },
       onSelect: (s) => (sport = s),
     },
     sport,

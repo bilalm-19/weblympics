@@ -528,6 +528,14 @@ a:focus-visible {
   gap: 0.6rem;
 }
 
+/* "Create a room" is the big button across the row (user, 2026-11-05);
+   vs the bot and training or practice are the smaller pair under it */
+.menu .options-row > .pill--primary {
+  grid-column: 1 / -1;
+  min-height: 60px;
+  font-size: 1.3rem;
+}
+
 .options-row .join {
   grid-column: 1 / -1;
   display: flex;
@@ -598,56 +606,239 @@ a:focus-visible {
   color: var(--muted);
 }
 
-.identity-row {
+/* The profile button, top right (user, 2026-11-05): a round picture of
+   your own character (client/ui/profile-menu.ts), your name beside it on
+   desktop. It opens the panel with sign in, the demo accounts and the
+   ways to the profile and the leaderboard. */
+.menu-corner {
+  position: absolute;
+  top: 0.6rem;
+  right: 0.75rem;
   display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
+  align-items: center;
+  font-family: system-ui, sans-serif;
+  color: var(--ink-soft);
+}
+
+.menu-connecting {
+  margin: 0;
+  font-size: 0.9rem;
+}
+
+.menu .pm-button {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  min-height: 52px;
+  padding: 3px 1.1rem 3px 3px;
+  border: 2px solid var(--pill-edge);
+  border-radius: 999px;
+  background: linear-gradient(180deg, var(--pill-top), var(--pill-bottom));
+  color: var(--ink);
+  font-family: "Fredoka", ui-rounded, system-ui, sans-serif;
+  font-size: 1.05rem;
+  font-weight: 600;
+  box-shadow:
+    inset 0 0 0 2px var(--rim),
+    0 3px 0 #9fbcd4;
+}
+
+.menu .pm-button[aria-expanded="true"] {
+  border-color: var(--ring-blue);
+}
+
+.menu .pm-button:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 3px;
+}
+
+.pm-avatar {
+  display: block;
+  flex: 0 0 auto;
+  width: 44px;
+  height: 44px;
+  overflow: hidden;
+  border-radius: 50%;
+  border: 2px solid #fff;
+  background: linear-gradient(180deg, #a8dcff, #e3f3ff);
+  box-shadow: 0 0 0 1px var(--pill-edge);
+}
+
+.pm-avatar .look-svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.pm-name {
+  max-width: 12rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The panel: a popover under the button on desktop, a bottom sheet on a phone */
+.menu dialog.pm-panel {
+  position: fixed;
+  inset: 4.4rem 0.75rem auto auto;
+  width: min(22rem, calc(100vw - 1.5rem));
+  max-height: calc(100dvh - 5.4rem);
+  margin: 0;
+  padding: 0;
+  overflow: auto;
+  border: 2px solid var(--pill-edge);
+  border-radius: 20px;
+  background: #f7fbff;
+  color: var(--ink);
+  font-family: system-ui, sans-serif;
+  box-shadow: 0 18px 48px #0b2a4a55;
+}
+
+.menu dialog.pm-panel::backdrop {
+  background: #0b1a2a33;
+}
+
+.pm-box {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 1rem;
+}
+
+.pm-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+}
+
+.pm-figure {
+  flex: 0 0 auto;
+  width: 5rem;
+  padding: 0.2rem;
+  border-radius: 14px;
+  background: linear-gradient(180deg, #cfe8fa, #eaf5fd);
+}
+
+.pm-figure .look-svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.pm-who {
+  flex: 1;
+  min-width: 0;
+}
+
+.pm-who h2 {
+  margin: 0.2rem 0 0;
+  font-family: "Fredoka", ui-rounded, system-ui, sans-serif;
+  font-size: 1.35rem;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+
+.pm-who p,
+.pm-note,
+.pm-status {
+  margin: 0.15rem 0 0;
+  color: var(--ink-soft);
+  font-size: 0.92rem;
+}
+
+.pm-status:empty {
+  display: none;
+}
+
+.pm-close {
+  flex: 0 0 auto;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0;
+  border-radius: 999px;
+  background: #e3eef8;
+  color: var(--ink);
+  font-size: 1.6rem;
+  line-height: 1;
+}
+
+.pm-actions {
+  display: flex;
+  flex-direction: column;
   gap: 0.5rem;
 }
 
-/* Task 17: the demo accounts sit behind a closed "Dev tools" control */
-.devtools {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
+.pm-btn {
+  min-height: 44px;
+  padding: 0 1rem;
+  border: 2px solid var(--pill-edge);
+  border-radius: 999px;
+  background: linear-gradient(180deg, #ffffff, #dcebf7);
+  color: var(--ink);
+  font-weight: 600;
 }
 
-.devtools summary {
-  min-height: 44px;
-  display: inline-flex;
+.pm-btn--primary {
+  border-color: #d48a00;
+  background: linear-gradient(180deg, #ffeec8, var(--ring-yellow));
+  color: #4d2c00;
+}
+
+.pm-btn:disabled {
+  opacity: 0.55;
+  cursor: progress;
+}
+
+.pm-panel button:focus-visible,
+.pm-devtools summary:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 2px;
+}
+
+/* Task 17: the demo accounts sit behind a closed "Dev tools" control */
+.pm-devtools summary {
+  display: flex;
   align-items: center;
-  padding: 0 0.75rem;
+  min-height: 44px;
+  padding: 0 0.5rem;
   border-radius: 999px;
   color: var(--ink-soft);
   font-size: 0.85rem;
   cursor: pointer;
 }
 
-.devtools summary:focus-visible {
-  outline: 3px solid var(--focus);
-}
-
-.devtools[open] .identity-row {
+.pm-devtools[open] .pm-actions {
   margin-top: 0.25rem;
 }
 
-/* Desktop: the footer's rows are one tall stack (who, Profile and Leaderboard,
-   Dev tools, README link); the first two sit side by side so the README link
-   stays on the first 1080p screen with archery's full-width button above. */
-@media (min-width: 900px) {
-  .menu-footer {
-    display: grid;
-    grid-template-columns: 1fr auto;
-    justify-items: center;
-    align-items: center;
-    column-gap: 1rem;
-    row-gap: 0;
+/* Phone: the button is the round picture only (its name is its label), and
+   the panel is a sheet along the bottom edge */
+@media (max-width: 560px) {
+  .menu-corner {
+    top: 0.4rem;
+    right: 0.5rem;
   }
 
-  .menu-footer .who,
-  .menu-footer .readme,
-  .menu-footer .devtools[open] {
-    grid-column: 1 / -1;
+  .menu .pm-button {
+    padding: 2px;
+    min-height: 0;
+  }
+
+  .pm-name {
+    display: none;
+  }
+
+  .menu dialog.pm-panel {
+    inset: auto 0 0 0;
+    width: 100%;
+    max-width: none;
+    max-height: 85dvh;
+    border-width: 2px 0 0;
+    border-radius: 22px 22px 0 0;
+  }
+
+  .pm-box {
+    padding-bottom: calc(1rem + env(safe-area-inset-bottom));
   }
 }
 
@@ -712,10 +903,6 @@ a:focus-visible {
 
   .sport-soon {
     margin-left: auto;
-  }
-
-  .options-row > .pill--primary {
-    grid-column: 1 / -1;
   }
 
   .options-row > .pill {
@@ -808,10 +995,9 @@ a:focus-visible {
     margin-top: 0;
   }
 
-  .identity-row .pill {
-    flex: 1 1 0;
-    padding: 0 0.5rem;
-    font-size: 0.85rem;
+  .menu .options-row > .pill--primary {
+    min-height: 56px;
+    font-size: 1.15rem;
   }
 }
 

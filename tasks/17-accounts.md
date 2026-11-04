@@ -92,7 +92,10 @@ rule, the layout section, and the spec that enforces it, together.
 - [x] Demo accounts: hidden behind Dev tools by default, seeded as locked
       accounts, rejected by rename, delete and passkey attach;
       `e2e/home.e2e.ts` opens Dev tools first. Absent from the public board:
-      task 7 (no board existed yet).
+      task 7 (no board existed yet). Since 2026-11-05 (user) sign in, sign
+      out, Dev tools and the ways to this profile and the leaderboard sit in
+      the panel of the round profile button, top right of the home screen
+      (`client/ui/profile-menu.ts`), not in the footer.
 - [x] Migration test from the previous schema version (v3 to v4).
 - [x] CSP unchanged; `spec/privacy.test.ts` passes; no new third-party host
       (the passkey library is bundled, not fetched).

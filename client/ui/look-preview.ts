@@ -6,7 +6,12 @@ import type { Look } from "../../shared/look.ts";
 
 const hex = (n: number) => `#${n.toString(16).padStart(6, "0")}`;
 
-export function lookSvg(look: Look, label: string): string {
+/**
+ * `crop: "head"` frames only the head and shoulders, for the home screen's
+ * round profile button. `label: null` makes the drawing decorative
+ * (aria-hidden), when the button around it already says who it is.
+ */
+export function lookSvg(look: Look, label: string | null, crop: "full" | "head" = "full"): string {
   const shirt = hex(SHIRTS[look.shirt]);
   const shorts = hex(SHORTS[look.shorts]);
   const skin = hex(SKINS[look.skin]);
@@ -21,7 +26,9 @@ export function lookSvg(look: Look, label: string): string {
     visor: `${hairTop}<rect x="30" y="22" width="40" height="5" rx="2" fill="${shirt}"/><path d="M48 25 H80 Q78 30 70 30 H48 Z" fill="${shirt}"/>`,
     headband: `${hairTop}<rect x="30" y="22" width="40" height="5" rx="2" fill="${shirt}"/>`,
   };
-  return `<svg class="look-svg" viewBox="0 0 100 140" role="img" aria-label="${label}" data-look="${look.shirt}/${look.shorts}/${look.skin}/${look.hair}/${look.style}">
+  const head = crop === "head";
+  const a11y = label === null ? `aria-hidden="true" focusable="false"` : `role="img" aria-label="${label}"`;
+  return `<svg class="look-svg${head ? " look-svg--head" : ""}" viewBox="${head ? "15 0 70 70" : "0 0 100 140"}" ${a11y} data-look="${look.shirt}/${look.shorts}/${look.skin}/${look.hair}/${look.style}">
     <ellipse cx="50" cy="134" rx="22" ry="4" fill="#0002"/>
     <rect x="39" y="96" width="9" height="34" rx="4" fill="${shorts}"/>
     <rect x="52" y="96" width="9" height="34" rx="4" fill="${shorts}"/>

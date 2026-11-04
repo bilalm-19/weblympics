@@ -102,8 +102,9 @@ export interface RoomInfo {
 
 export type ServerMsg =
   // account: signed in with a passkey (or a demo account); demo: one of the
-  // two locked demo accounts
-  | { t: "welcome"; name: string; account: boolean; demo: boolean; matches: number }
+  // two locked demo accounts; look: the account's saved look (task 18), null
+  // for a guest or the default, drawn as the home screen's profile picture
+  | { t: "welcome"; name: string; account: boolean; demo: boolean; matches: number; look: Look | null }
   | ({ t: "room" } & RoomInfo)
   // spectators: how many are watching (task 24: at most MAX_WATCHERS)
   | { t: "presence"; names: [string | null, string | null]; spectators: number }

@@ -252,7 +252,7 @@ wss.on("connection", (ws: WebSocket, req: IncomingMessage) => {
       // who this is was settled from the cookies when the socket opened; the
       // client never says who it is (task 17)
       hello = true;
-      send(client, { t: "welcome", name: player.name, account: player.account, demo: player.demo, matches: matchCountFor(player.token) });
+      send(client, { t: "welcome", name: player.name, account: player.account, demo: player.demo, matches: matchCountFor(player.token), look: client.look ?? null });
       log("hello", { who: id, account: player.account });
       sendPing(client);
       return;

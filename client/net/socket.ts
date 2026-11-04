@@ -1,4 +1,5 @@
 import type { ClientMsg, ServerMsg } from "../../shared/protocol.ts";
+import type { Look } from "../../shared/look.ts";
 import { fetchMe } from "./account.ts";
 
 const MAX_QUEUE = 20;
@@ -10,6 +11,8 @@ export class Connection {
   account = false;
   /** Which of the two locked demo accounts, if one. */
   demo = false;
+  /** The account's saved look (task 18); null for a guest or the default. */
+  look: Look | null = null;
   roomCode: string | null = null;
   /** Task 24: the room was joined by its watch link, so a reconnect watches again rather than taking a free seat. */
   roomWatch = false;
@@ -71,6 +74,7 @@ export class Connection {
         this.matches = msg.matches;
         this.account = msg.account;
         this.demo = msg.demo;
+        this.look = msg.look ?? null;
         this.open = true;
         if (this.roomCode) ws.send(JSON.stringify((this.roomWatch ? { t: "join", room: this.roomCode, watch: true } : { t: "join", room: this.roomCode }) satisfies ClientMsg));
         for (const queued of this.queue.splice(0)) ws.send(JSON.stringify(queued));
