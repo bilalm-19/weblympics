@@ -1178,3 +1178,9 @@ the format of the entries below (see CLAUDE.md, Docs).
 
 - **Decided by:** user (10); Claude (proposed a cap of 50 and explained why).
 - **Why a cap:** the app runs on one shared CPU with 256 MB (`fly.toml`, fixed by the course), and every watcher gets the state 30 times a second; an uncapped link (or a script opening many tabs) could lag the two players or the whole server.
+
+## 2026-11-05 05:37 AEDT | milestone | integrate5 merged into main (tasks 7, 8, 14-18, 20, 21, 23)
+
+- **Decided by:** user (merge it, and clean up old worktrees); Claude (finishing the merge another session had resolved, and the checks).
+- **What happened:** integrate5 (21 Oct: passkey accounts, looks, leaderboard and Elo, logging, brand, arena, point call, webcam default, hit the spot) had never reached main; main had since gained track and the new menu. Another session resolved the merge (six conflicts) and handed it over. I committed it, merged current main in (conflicts in server/db.ts, kept both the accounts' exported db and the lock wait, and in the devlog), and fast-forwarded main. 18 stale agent worktrees whose work was already on main or integrate5 were removed; one with 8 unsaved training files was kept.
+- **Verification:** on merge-integrate5 with its own server (:8591, fresh data dir): typecheck and vitest 611/611 exit 0, twice (the "database is locked" flake seen before 8df2445 did not recur); `pnpm e2e --workers=1` 170/170 exit 0 at both viewports.
