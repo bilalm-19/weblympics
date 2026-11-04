@@ -6,6 +6,7 @@ import type { WebSocket } from "ws";
 import { games } from "../shared/games/registry.ts";
 import type { GameEvent, GameInstance } from "../shared/games/registry.ts";
 import type { Look } from "../shared/look.ts";
+import { MAX_WATCHERS, WATCHERS_FULL } from "../shared/protocol.ts";
 import type { ClientMsg, LobbyView, RoomFormat, ServerMsg } from "../shared/protocol.ts";
 import { Lobby } from "./lobby.ts";
 import type { Timing } from "./lobby.ts";
@@ -165,9 +166,23 @@ export class Room {
     this.broadcast({ t: "lobby", ...view });
   }
 
-  join(c: Client): void {
+  /**
+   * Task 24: why `c` can't come in, else null. `watch` (the watch link)
+   * spectates unless `c` is reclaiming its own held seat; otherwise a free or
+   * held seat is taken first. A spectator needs room under MAX_WATCHERS (10,
+   * the user's cap).
+   */
+  refusal(c: Client, watch = false): string | null {
+    if (this.spectators.has(c)) return null;
+    const seat = watch ? this.lobby.heldSeatOf(c.token) : this.lobby.seatFor(c.token);
+    return seat === null && this.spectators.size >= MAX_WATCHERS ? WATCHERS_FULL : null;
+  }
+
+  /** Puts `c` in a seat or among the spectators; call `refusal` first. `watch`: the watch link, never a seat. */
+  join(c: Client, watch = false): void {
     const now = this.deps.clock();
-    const seat = this.lobby.seatFor(c.token);
+    // the watch link never takes a free seat, but your own held seat is still yours
+    const seat = watch ? this.lobby.heldSeatOf(c.token) : this.lobby.seatFor(c.token);
     c.room = this;
     c.seat = seat;
     if (seat === null) this.spectators.add(c);
@@ -183,7 +198,7 @@ export class Room {
     send(c, { t: "state", state: this.instance.snapshot() });
     this.broadcast(this.presence());
     this.syncLobby(true);
-    this.deps.log("room_join", { room: this.id, who: who(c.token), seat });
+    this.deps.log("room_join", { room: this.id, who: who(c.token), seat, watch });
   }
 
   /** `dropped`: the connection went, rather than the player choosing to leave. */

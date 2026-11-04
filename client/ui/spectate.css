@@ -1,0 +1,46 @@
+/* Task 24: the spectator's badge in the HUD (client/ui/spectate.ts). It takes
+   its own row under the score and buttons, so it never covers the court. */
+.watch-badge {
+  order: 2;
+  display: flex;
+  justify-content: center;
+  width: 100%;
+  min-width: 0;
+  font-size: 0.9rem;
+  pointer-events: none;
+}
+
+.watch-badge .wb-pill {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  max-width: 100%;
+  min-width: 0;
+  padding: 0.15rem 0.6rem 0.15rem 0.2rem;
+  border-radius: 999px;
+  /* the score bar's backing, so the muted count reads over the stands */
+  background: #0f1720d9;
+}
+
+.watch-badge b {
+  padding: 0.1rem 0.5rem;
+  border-radius: 999px;
+  /* the "red pill" pair, held to WCAG AA in client/ui/brand.ts */
+  background: #ffb3c0;
+  color: #5a0016;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.watch-badge .wb-names {
+  overflow: hidden;
+  max-width: 100%;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.watch-badge .wb-count {
+  color: var(--muted);
+}

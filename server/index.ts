@@ -280,8 +280,15 @@ wss.on("connection", (ws: WebSocket, req: IncomingMessage) => {
           break;
         }
         if (client.room !== room) {
+          // task 24: the 11th watcher is turned away before leaving anything
+          const refused = room.refusal(client, msg.watch === true);
+          if (refused) {
+            log("join_refused", { who: id, room: room.id, reason: "watchers full" });
+            send(client, { t: "error", message: refused });
+            break;
+          }
           leaveRoom(client);
-          room.join(client);
+          room.join(client, msg.watch === true);
         }
         break;
       }

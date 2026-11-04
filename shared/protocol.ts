@@ -53,7 +53,9 @@ export type ClientMsg =
   // "unlimited"); an unknown one gets the default. The host can change it in
   // the ready panel before play.
   | { t: "create"; game: string; practice: boolean; format?: string }
-  | { t: "join"; room: string }
+  // watch (task 24): the watch link; always spectates, even with a free seat.
+  // Without it a free seat is taken, else the arrival spectates
+  | { t: "join"; room: string; watch?: boolean }
   // ready-up: the sender's own seat only, before the match
   | { t: "ready"; ready: boolean }
   // the host's match format, before the match; a value not in ROOM_FORMATS is
@@ -86,6 +88,11 @@ export type ClientMsg =
   | { t: "pong"; id: number }
   | { t: "leave" };
 
+/** Task 24 (user, 2026-11-05): at most this many watchers per room, for the shared CPU and 256 MB machine. */
+export const MAX_WATCHERS = 10;
+/** The error an arrival gets when a room already has MAX_WATCHERS watchers and no free seat for them. */
+export const WATCHERS_FULL = "This match is full of watchers.";
+
 export interface RoomInfo {
   room: string;
   game: string;
@@ -98,6 +105,7 @@ export type ServerMsg =
   // two locked demo accounts
   | { t: "welcome"; name: string; account: boolean; demo: boolean; matches: number }
   | ({ t: "room" } & RoomInfo)
+  // spectators: how many are watching (task 24: at most MAX_WATCHERS)
   | { t: "presence"; names: [string | null, string | null]; spectators: number }
   | ({ t: "lobby" } & LobbyView)
   // the room is gone: a dropped player didn't come back in time
@@ -125,7 +133,9 @@ export function parseClientMsg(raw: string): ClientMsg | null {
       if (typeof m.game !== "string") return null;
       return { t: "create", game: m.game, practice: m.practice === true, format: typeof m.format === "string" ? m.format : undefined };
     case "join":
-      return typeof m.room === "string" ? { t: "join", room: m.room } : null;
+      if (typeof m.room !== "string") return null;
+      if (m.watch !== undefined && typeof m.watch !== "boolean") return null;
+      return m.watch ? { t: "join", room: m.room, watch: true } : { t: "join", room: m.room };
     case "ready":
       return typeof m.ready === "boolean" ? { t: "ready", ready: m.ready } : null;
     case "format":
