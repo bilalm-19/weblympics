@@ -45,7 +45,8 @@ lazily and only when a player enters a game. Video never leaves the browser.
   `names.ts` (pseudonyms and the chosen-name rules; shape shared in
   `shared/names.ts`).
   Rooms get their sim from the registry, so networking is game-agnostic.
-- `client/` Vite app: `games/<name>/view.ts` (scene, HUD, input wiring),
+- `client/` `ui/spectate.ts` + `.css` (task 24: "Copy watch link" and the
+  watcher's badge, added to every game's HUD); Vite app: `games/<name>/view.ts` (scene, HUD, input wiring),
   `games/tennis/score-bar.ts` (top score bar), task 16's point call:
   `point-call.ts` (pure: the call in tennis words, who won, how big, who
   reacts; task 19's crowd and sound should reuse it), `call-banner.ts` + `.css`
@@ -137,7 +138,15 @@ lazily and only when a player enters a game. Video never leaves the browser.
   (`spec/db.test.ts`).
 - Rooms (task 4; `spec/lobby.test.ts`, `spec/room-rules.test.ts`,
   `spec/rooms.test.ts`): invite link or room code only, no public list. Two
-  seats; a third arrival only spectates (no queue). Phases `waiting ->
+  seats; a third arrival only spectates (no queue). Spectating (task 24,
+  `spec/spectate.test.ts`, `e2e/spectate.e2e.ts`): anyone with the link may
+  watch; the watch link (`#/watch/CODE`, `join` with `watch`) always
+  spectates, even with a seat free (it only gives a player back their own
+  held seat); at most 10 watchers a room (`MAX_WATCHERS`), checked by the
+  server, and the 11th, by watch link or by invite with the seats full, gets
+  "This match is full of watchers." and stays where they were. Spectators see
+  the match, score, names and the watcher count, get no camera, ready or
+  controls, and the server ignores every input they send. Phases `waiting ->
   ready-check -> countdown (3 s) -> playing`; each seat's `ready` is the
   server's, the bot is always ready, un-readying cancels the countdown, a
   disconnect before the match frees the seat. The host (first seat) picks one

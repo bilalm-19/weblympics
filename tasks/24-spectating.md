@@ -1,7 +1,7 @@
 # 24 Spectating mode
 
-Status: picked up (user, 2026-11-05: "people with the link can spectate too");
-queued for an agent once the integrate5 merge is on main.
+Status: built on branch `spectate-24` (agent, 2026-11-05), awaiting merge
+and the user's OK on the agent's choices (devlog 2026-11-05 05:48).
 Model: Opus (rooms, privacy and what spectators may see)
 Session: later
 
@@ -53,8 +53,22 @@ Session: later
 - Video never leaves the browser; spectators get no camera.
 - The server stays the only owner of the ball and score.
 
-## Done when (to be refined)
-- [ ] Decisions above recorded in this file and CLAUDE.md.
-- [ ] Spectator join path, limits and view, both viewports.
-- [ ] Hostile-client test: a spectator's input is rejected.
-- [ ] README, CLAUDE.md room rules and `spec/` agree.
+## Done when
+- [x] Decisions above recorded in this file and CLAUDE.md.
+- [x] Spectator join path, limits and view, both viewports
+  (`e2e/spectate.e2e.ts`).
+- [x] Hostile-client test: a spectator's input is rejected
+  (`spec/spectate.test.ts`, every game).
+- [x] README, CLAUDE.md room rules and `spec/` agree.
+
+## As built
+- `#/watch/CODE` sends `join` with `watch: true` (an additive, optional field);
+  the server never seats it, except to give a player back their own held seat
+  after a drop. The invite (`#/room/CODE`) is unchanged.
+- `MAX_WATCHERS = 10` and the message "This match is full of watchers." are in
+  `shared/protocol.ts`; `Room.refusal` checks before the arrival leaves any
+  room it is in, so a refused join changes nothing.
+- `client/ui/spectate.ts` adds "Copy watch link" beside "Copy invite" in every
+  game's HUD, and for a watcher the "Watching" badge (both names, the count)
+  in place of the invite. Views already hid camera, ready and controls for a
+  seat of null. A tennis watcher hears every hit.

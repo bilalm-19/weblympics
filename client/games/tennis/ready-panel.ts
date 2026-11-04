@@ -198,15 +198,17 @@ export function createReadyPanel(
       }
       const other = seat === null ? null : v.seats[seat === 0 ? 1 : 0];
       hint.textContent =
-        v.phase === "countdown"
+        seat === null
+          ? v.phase === "countdown"
+            ? "Spectating. The match is about to start."
+            : "Spectating. The match starts when both players are ready."
+          : v.phase === "countdown"
           ? "Un-ready to stop the countdown."
           : v.phase === "waiting"
             ? "Send the invite link or the room code to a friend."
-            : seat === null
-              ? "Spectating. The match starts when both players are ready."
-              : v.seats[seat]?.ready
-                ? `Waiting for ${other?.name ?? "your opponent"} to ready up.`
-                : "Ready when you are. No camera needed: keys and buttons work too.";
+            : v.seats[seat]?.ready
+              ? `Waiting for ${other?.name ?? "your opponent"} to ready up.`
+              : "Ready when you are. No camera needed: keys and buttons work too.";
       place();
     },
     camera(state) {

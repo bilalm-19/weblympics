@@ -1,3 +1,4 @@
+import { addSpectating } from "../../ui/spectate.ts";
 import {
   CircleGeometry,
   Mesh,
@@ -419,6 +420,8 @@ export function startTennis(root: HTMLElement, conn: GameLink, info: RoomInfo, o
         measureStroke(hitter, kind, 1);
         // a serve is neither stroke
         if (next.shots > 1) showShot(hitter, kind, null);
+        // task 24: a watcher hears every hit (a player hears their own as they swing)
+        if (info.seat === null && !opts.local) hitSound(1);
       }
       // the server recorded a touchdown (in or out): mark it
       const lb = next.lastBounce;
@@ -470,6 +473,8 @@ export function startTennis(root: HTMLElement, conn: GameLink, info: RoomInfo, o
     button.addEventListener("contextmenu", (e) => e.preventDefault());
   }
   view.querySelector("[data-action=leave]")?.addEventListener("click", onLeave);
+  // task 24: watch link for players; the Watching badge and count for spectators
+  const disposeSpectating = opts.local ? () => {} : addSpectating(view, conn, info);
   view.querySelector("[data-action=copy]")?.addEventListener("click", (e) => {
     const button = e.currentTarget as HTMLButtonElement;
     navigator.clipboard
@@ -586,6 +591,7 @@ export function startTennis(root: HTMLElement, conn: GameLink, info: RoomInfo, o
     cancelAnimationFrame(raf);
     clearTimeout(strokeTimer);
     scoreBar.dispose();
+    disposeSpectating();
     banner?.dispose();
     reactFx.dispose();
     readyPanel.dispose();

@@ -11,6 +11,8 @@ export class Connection {
   /** Which of the two locked demo accounts, if one. */
   demo = false;
   roomCode: string | null = null;
+  /** Task 24: the room was joined by its watch link, so a reconnect watches again rather than taking a free seat. */
+  roomWatch = false;
   private ws: WebSocket | null = null;
   private open = false;
   private queue: ClientMsg[] = [];
@@ -30,6 +32,8 @@ export class Connection {
   }
 
   send(msg: ClientMsg): void {
+    if (msg.t === "join") this.roomWatch = msg.watch === true;
+    else if (msg.t === "create") this.roomWatch = false;
     if (this.open && this.ws) this.ws.send(JSON.stringify(msg));
     else if (this.queue.length < MAX_QUEUE) this.queue.push(msg);
   }
@@ -68,7 +72,7 @@ export class Connection {
         this.account = msg.account;
         this.demo = msg.demo;
         this.open = true;
-        if (this.roomCode) ws.send(JSON.stringify({ t: "join", room: this.roomCode } satisfies ClientMsg));
+        if (this.roomCode) ws.send(JSON.stringify((this.roomWatch ? { t: "join", room: this.roomCode, watch: true } : { t: "join", room: this.roomCode }) satisfies ClientMsg));
         for (const queued of this.queue.splice(0)) ws.send(JSON.stringify(queued));
       }
       if (msg.t === "room") this.roomCode = msg.room;

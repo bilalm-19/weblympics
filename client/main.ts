@@ -104,7 +104,8 @@ function enterRoom(info: RoomInfo): void {
   currentRoom = info.room;
   training = false;
   error = null;
-  history.replaceState(null, "", `#/room/${info.room}`);
+  // task 24: a watcher keeps the watch link in the address bar, so a reload watches again
+  history.replaceState(null, "", info.seat === null && conn.roomWatch ? `#/watch/${info.room}` : `#/room/${info.room}`);
   sport = info.game;
   if (info.game === "archery") {
     disposeGame = startArchery(root, conn, info, leave);
@@ -135,12 +136,19 @@ conn.on((msg) => {
     showMenu();
   } else if (msg.t === "error") {
     error = msg.message;
-    if (currentRoom === null && !training) showMenu();
+    if (currentRoom === null && !training) {
+      // a link that didn't get in (no such room, or full of watchers) leaves the address bar
+      if (/^#\/(room|watch)\//.test(location.hash)) history.replaceState(null, "", location.pathname);
+      showMenu();
+    }
   }
 });
 
 const invite = location.hash.match(/^#\/room\/([A-Za-z]{4})$/);
 if (invite) conn.send({ t: "join", room: invite[1].toUpperCase() });
+// task 24: the watch link always spectates, even when a seat is free
+const watchLink = location.hash.match(/^#\/watch\/([A-Za-z]{4})$/);
+if (watchLink) conn.send({ t: "join", room: watchLink[1].toUpperCase(), watch: true });
 if (location.hash === "#/train") train();
 else if (location.hash === "#/archery/practice") practiseArchery();
 else if (location.hash === "#/track/practice") practiseTrack();
