@@ -1167,3 +1167,9 @@ the format of the entries below (see CLAUDE.md, Docs).
 - **Bug:** `pnpm check` failed one random file per run with "database is locked" (on HEAD too): the server and test workers open `data/app.db` together and node:sqlite failed at once. `server/db.ts` `openDatabase` now waits up to 5 s for a lock.
 - **Tests:** `spec/track-run-pose.test.ts` (a quarter-width pump counts; one arm alone gives alternating steps; knees still report the real side), `spec/db-lock.test.ts` (another process holds the lock; the write waits). Each fails on the old code.
 - **Verification:** `pnpm check` exit 0 (25 files), `pnpm e2e --workers=1 e2e/track` 12/12 exit 0. Real-webcam feel still to be checked by the user.
+
+## 2026-11-05 05:16 AEDT | decision | Spectating with the link (task 24 picked up)
+
+- **Decided by:** user ("add a feature where people with the link can spectate too"); Claude (the design: a separate watch link that always spectates, a spectator view for every game, a per-room cap).
+- **What happened:** task 24 had been parked on 2026-10-21 as "write down only". The user picked it up. A third arrival already spectates; the gap is a link that spectates on purpose (so a viewer never takes a free seat), a proper spectator view and a limit. The rule "no public room list" stays.
+- **Next:** an agent builds it on main once the integrate5 merge lands, since it touches rooms and the menu that merge changed.

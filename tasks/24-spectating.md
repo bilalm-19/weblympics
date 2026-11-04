@@ -1,7 +1,7 @@
 # 24 Spectating mode
 
-Status: not started, and not to be implemented yet (user, 2026-10-21: write it
-down as a deliverable only). Plan it with the user when it is picked up.
+Status: picked up (user, 2026-11-05: "people with the link can spectate too");
+queued for an agent once the integrate5 merge is on main.
 Model: Opus (rooms, privacy and what spectators may see)
 Session: later
 
@@ -15,7 +15,24 @@ Session: later
 - There is no public room list: rooms are invite link or code only, and that is
   a rule. A spectator can only arrive with the link.
 
-## Questions to settle with the user
+## Decided (user, 2026-11-05)
+- Anyone with the link can watch. Still no public list of rooms.
+
+## Design (Claude's proposal; the agent records its choices in the devlog)
+- **A watch link:** players can copy a "Watch" link (`?watch=CODE`) next to the
+  invite link. Opening it always spectates, even when a seat is free, so a
+  viewer never takes a player's seat by accident. The plain invite link keeps
+  today's behaviour (a free seat is taken, else spectate).
+- **Spectator view:** the live match, score, crowd and sound, a "Watching"
+  badge, the number of watchers, both players' names; no camera setup, no
+  ready button, no input. Works for every game (tennis, archery, track, and
+  bowling and boxing when they land), since rooms are game-agnostic.
+- **Limit:** a cap per room (for the 256 MB machine); past it, a clear
+  "this match is full of watchers" message.
+- **Joining mid-match:** a spectator arriving during play sees the current
+  state at once (the next snapshot).
+
+## Questions settled by the design above (earlier list)
 - How does someone start watching: a "Watch" link a player shares, or a list of
   live matches? A list would change the "no public list" rule; if wanted, only
   rooms whose host opts in.
