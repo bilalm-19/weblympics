@@ -46,7 +46,7 @@ function saveMode(m: RunMode): void {
 }
 
 const MODE_TEXT: Record<RunMode, { label: string; how: string }> = {
-  elbows: { label: "Pump your arms", how: "Stay at laptop distance, shoulders and hands in view. Swing your arms like a sprinter: each hand coming up is a step." },
+  elbows: { label: "Pump your arms", how: "Stay at laptop distance, shoulders and hands in view. Swing your arms like a sprinter: each hand coming up is a step. Quick, small pumps beat big slow ones." },
   knees: { label: "Lift your knees", how: "Step back until your knees are in view. Jog on the spot: each knee coming up is a step." },
 };
 
@@ -112,7 +112,7 @@ export function createRunCamera(view: HTMLElement, button: HTMLButtonElement, ch
     const s = tracker.update(h, f.t);
     for (const side of ["left", "right"] as const) {
       const bar = meter.querySelector(`[data-side=${side}] i`) as HTMLElement;
-      bar.style.height = `${Math.round(Math.max(0, Math.min(1, tracker.lift[side] / 0.8)) * 100)}%`;
+      bar.style.height = `${Math.round(Math.max(0, Math.min(1, tracker.lift[side] / 0.4)) * 100)}%`;
     }
     if (s) cb.step(s.side);
   };

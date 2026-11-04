@@ -38,6 +38,12 @@ One flat list. Start at the top; a task only waits on the ones named.
 | 23 | [Home screen polish](23-home-screen-polish.md): arrow cursor, looping thumbnails (logo animation is in 14) | 14 | Opus |
 | 24 | [Spectating mode](24-spectating.md): written down only, not to be built yet | 4 | Opus |
 | 25 | [Swing feel](25-swing-feel.md): live swing level bar first, then calibration (full in practice, quick before ready-up) saved to the profile, side settings pop-up; discussed, not built | 15, 17 | Opus then Sonnet |
+| 26 | [Track: sprint](26-sprint.md): run on the spot, race a lane; one `track` game, knees and elbows camera modes picked by playtest | - | Opus then Sonnet |
+| 27 | [Track: hurdles](27-hurdles.md): obstacles and the jump, second event of the same game | 26 | Opus then Sonnet |
+| 28 | [Shared look kit and podium](28-shared-kit-podium.md): tennis character for every game, shared crowd, 3D podium at the end | - | Opus |
+| 29 | [Bowling](29-bowling.md): 5 frames, server rolls the pins, underarm camera swing | 28 | Opus then Sonnet |
+| 30 | [Boxing](30-boxing.md): 3 x 30 s rounds, jab, hook, guard, KO; a maybe, dropped if not solid by Sat night | 28 | Opus |
+| 31 | [Track and archery looks](31-track-archery-looks.md): colour, stadium, crowd, shared characters | 28 | Sonnet |
 
 Tasks 10 (README) and 11 (ship) are set aside by the user for now. Task 7 now
 waits on 17 and is per-sport with a host-set rated option. How the new tasks

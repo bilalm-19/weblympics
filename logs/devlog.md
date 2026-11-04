@@ -1159,3 +1159,11 @@ the format of the entries below (see CLAUDE.md, Docs).
 - **Test fix:** my task 18 e2e (`e2e/look.e2e.ts`) left two 3D browser contexts open, which starved the next file's first test (`ready.e2e.ts`: "Create a room" never reached a room within 5 s, on both viewports, in every full run). It now closes them; the leaderboard e2e does the same.
 - **Open:** the PROCESS.md finding from real `flyctl logs` is the user's (agents don't run flyctl or edit PROCESS.md).
 - **Tests:** `spec/stats-logging.test.ts` (`/stats` on the running app; a private server on a free port plays a session with a passkey sign-up, a rename, two players, a quick double swing, a bad message, a drop and a reclaim, then checks the events are there and that no cookie, session, challenge, passkey id, user handle or name appears in its output; making the server log a token on purpose turned it red).
+
+## 2026-11-05 03:56 AEDT | playtest + bug | Track: arm running too hard; flaky "database is locked" in `pnpm check`
+
+- **Decided by:** user (the finding: "I have to move my arms too much to make him run"); Claude (the numbers and either-arm rule).
+- **What happened:** elbows mode needed each wrist to rise 0.4 shoulder widths above rest, alternate strictly, at 8 steps a second for top speed. A running arm swings mostly toward the camera, so a quick pump barely rises. Now: `liftOn` 0.2 / `liftOff` 0.08, a pump on either arm counts and the tracker labels steps left, right, left itself (the sim's same-foot rule and 10-a-second cap are unchanged, so it buys nothing over a fair runner); `FULL_CADENCE` 8 to 6; bot cadence 6.8 to 5.2 so it stays a fair pacer (same ~15 s race). Knees mode unchanged.
+- **Bug:** `pnpm check` failed one random file per run with "database is locked" (on HEAD too): the server and test workers open `data/app.db` together and node:sqlite failed at once. `server/db.ts` `openDatabase` now waits up to 5 s for a lock.
+- **Tests:** `spec/track-run-pose.test.ts` (a quarter-width pump counts; one arm alone gives alternating steps; knees still report the real side), `spec/db-lock.test.ts` (another process holds the lock; the write waits). Each fails on the old code.
+- **Verification:** `pnpm check` exit 0 (25 files), `pnpm e2e --workers=1 e2e/track` 12/12 exit 0. Real-webcam feel still to be checked by the user.

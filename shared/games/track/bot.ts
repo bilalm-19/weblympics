@@ -2,7 +2,7 @@ import { TICK_MS, otherSide } from "./sim.ts";
 import type { Seat, StepInput, TrackState } from "./sim.ts";
 
 /** The bot's cadence, steps a second, and how far each stride wanders from it. */
-export const BOT_CADENCE = 6.8;
+export const BOT_CADENCE = 5.2;
 export const BOT_JITTER = 0.8;
 /** Ticks after the gun before the bot's first step: a human-ish reaction. */
 export const BOT_REACTION_TICKS = 12;
