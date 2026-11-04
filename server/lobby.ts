@@ -83,8 +83,15 @@ export class Lobby {
    * is never given to anyone else.
    */
   seatFor(token: string): Seat | null {
-    for (const s of [0, 1] as const) if (this.held[s] !== null && this.seats[s]?.token === token) return s;
+    const held = this.heldSeatOf(token);
+    if (held !== null) return held;
     for (const s of [0, 1] as const) if (this.seats[s] === null) return s;
+    return null;
+  }
+
+  /** The seat held for `token` after a drop, else null (task 24: a watch link still reclaims your own held seat). */
+  heldSeatOf(token: string): Seat | null {
+    for (const s of [0, 1] as const) if (this.held[s] !== null && this.seats[s]?.token === token) return s;
     return null;
   }
 
