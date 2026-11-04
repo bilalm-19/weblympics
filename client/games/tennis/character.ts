@@ -15,29 +15,32 @@ import {
   TorusGeometry,
   Vector3,
 } from "three";
+import { HAIRS, SHIRTS, SHORTS, SKINS } from "../../../shared/look.ts";
+import type { Look, Style } from "../../../shared/look.ts";
 import type { ArmPose } from "../../input/camera/pose.ts";
 import { strokePose } from "./stroke.ts";
 
 // A Mii-style player built from primitives: big round head with a drawn face,
 // tapered torso and limbs, bright top, dark trousers, oval racket. Local
 // forward is -z (toward the net for seat 0); the racket is in the right hand
-// (+x), and a left-handed player is the mirror image.
+// (+x), and a left-handed player is the mirror image. Colours, hair and hat
+// come from the seat's look (task 18, shared/look.ts) and can change live.
 
-const SKIN = 0xf3cfae;
-const TROUSERS = 0x2b303b;
 const SHOES = 0x4b5160;
 
 const smooth = (color: number) => new MeshLambertMaterial({ color });
 
-let faceTexture: CanvasTexture | null = null;
-/** One shared face, drawn on the part of the sphere that faces -z. */
-function face(): CanvasTexture {
-  if (faceTexture) return faceTexture;
+const faceTextures = new Map<number, CanvasTexture>();
+const css = (hex: number) => `#${hex.toString(16).padStart(6, "0")}`;
+/** One face per skin colour, drawn on the part of the sphere that faces -z. */
+function face(skin: number): CanvasTexture {
+  const cached = faceTextures.get(skin);
+  if (cached) return cached;
   const canvas = document.createElement("canvas");
   canvas.width = 256;
   canvas.height = 128;
   const g = canvas.getContext("2d") as CanvasRenderingContext2D;
-  g.fillStyle = "#f3cfae";
+  g.fillStyle = css(skin);
   g.fillRect(0, 0, 256, 128);
   // a SphereGeometry's u = 0.75 faces -z
   const cx = 192;
@@ -66,9 +69,10 @@ function face(): CanvasTexture {
   g.beginPath();
   g.arc(cx, 70, 7, 0.15 * Math.PI, 0.85 * Math.PI);
   g.stroke();
-  faceTexture = new CanvasTexture(canvas);
-  faceTexture.colorSpace = SRGBColorSpace;
-  return faceTexture;
+  const texture = new CanvasTexture(canvas);
+  texture.colorSpace = SRGBColorSpace;
+  faceTextures.set(skin, texture);
+  return texture;
 }
 
 let stringsTexture: CanvasTexture | null = null;
@@ -132,13 +136,21 @@ export interface Player {
    * their right, y up, z toward the net (metres from their feet).
    */
   racketHead(): { x: number; y: number; z: number };
+  /**
+   * A reaction to the point (task 16), laid over whatever pose was set this
+   * frame: `pump` 0..1 raises the free arm in a fist pump, `slump` 0..1 drops
+   * the head and shoulders. Call after pose() or follow().
+   */
+  react(pump: number, slump: number): void;
+  /** Recolours the player and swaps their hair or hat (task 18). */
+  setLook(look: Look): void;
 }
 
 const DOWN = new Vector3(0, -1, 0);
 // how far toward a new camera reading the arm moves each rendered frame
 const FOLLOW_SMOOTHING = 0.45;
 
-export function makePlayer(shirt: number, hair: number, racketColor: number): Player {
+export function makePlayer(look: Look, racketColor: number): Player {
   const group = new Group();
   // everything that mirrors for a left-hander
   const body = new Group();
@@ -149,7 +161,8 @@ export function makePlayer(shirt: number, hair: number, racketColor: number): Pl
   shadow.position.y = 0.015;
   group.add(shadow);
 
-  const trousers = smooth(TROUSERS);
+  const trousers = smooth(SHORTS[look.shorts]);
+  const skinMat = smooth(SKINS[look.skin]);
   for (const x of [-0.11, 0.11]) {
     const leg = new Mesh(new CapsuleGeometry(0.085, 0.62, 4, 8), trousers);
     leg.position.set(x, 0.42, 0);
@@ -159,35 +172,68 @@ export function makePlayer(shirt: number, hair: number, racketColor: number): Pl
     body.add(leg, shoe);
   }
 
-  const top = smooth(shirt);
+  const top = smooth(SHIRTS[look.shirt]);
   const torso = new Mesh(new CylinderGeometry(0.2, 0.17, 0.62, 12), top);
   torso.position.y = 1.08;
   const shoulders = new Mesh(new SphereGeometry(0.2, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2), top);
   shoulders.position.y = 1.38;
   shoulders.scale.set(1, 0.45, 0.85);
-  const neck = new Mesh(new CylinderGeometry(0.06, 0.07, 0.1, 8), smooth(SKIN));
+  const neck = new Mesh(new CylinderGeometry(0.06, 0.07, 0.1, 8), skinMat);
   neck.position.y = 1.47;
   body.add(torso, shoulders, neck);
 
-  const head = new Mesh(new SphereGeometry(0.3, 20, 14), new MeshLambertMaterial({ map: face() }));
+  const faceMat = new MeshLambertMaterial({ map: face(SKINS[look.skin]) });
+  const head = new Mesh(new SphereGeometry(0.3, 20, 14), faceMat);
   head.position.y = 1.78;
   head.scale.set(1, 1.08, 1);
-  // hair: a cap over the top and the back of the head
-  const hairMat = smooth(hair);
+  body.add(head);
+  // hair and hats: a few primitives each, shown by style (task 18)
+  const hairMat = smooth(HAIRS[look.hair]);
   const cap = new Mesh(new SphereGeometry(0.315, 20, 10, 0, Math.PI * 2, 0, Math.PI * 0.36), hairMat);
   cap.position.y = 1.79;
   cap.scale.copy(head.scale);
   const back = new Mesh(new SphereGeometry(0.312, 16, 10, 0, Math.PI, 0, Math.PI * 0.62), hairMat);
   back.position.y = 1.78;
   back.scale.copy(head.scale);
-  body.add(head, cap, back);
+  // long: hair falling down the back to the shoulders
+  const long = new Mesh(new CylinderGeometry(0.27, 0.24, 0.42, 14, 1, true, -Math.PI / 2, Math.PI), hairMat);
+  long.position.set(0, 1.62, 0.02);
+  // bun: a ball on the back of the crown
+  const bun = new Mesh(new SphereGeometry(0.11, 10, 8), hairMat);
+  bun.position.set(0, 2.02, 0.2);
+  // cap: a crown and a peak toward the face (-z)
+  const hatMat = smooth(SHIRTS[look.shirt]);
+  const crown = new Mesh(new SphereGeometry(0.33, 18, 8, 0, Math.PI * 2, 0, Math.PI * 0.42), hatMat);
+  crown.position.y = 1.8;
+  crown.scale.copy(head.scale);
+  const peak = new Mesh(new CylinderGeometry(0.22, 0.22, 0.03, 16, 1, false, Math.PI / 2, Math.PI), hatMat);
+  peak.position.set(0, 1.98, -0.22);
+  peak.scale.set(1, 1, 0.8);
+  // visor: just the peak and a band
+  const band = new Mesh(new TorusGeometry(0.3, 0.03, 6, 20), hatMat);
+  band.rotation.x = Math.PI / 2;
+  band.position.y = 1.95;
+  body.add(cap, back, long, bun, crown, peak, band);
+  const STYLE_PARTS: Record<Style, Mesh[]> = {
+    short: [cap, back],
+    long: [cap, back, long],
+    bun: [cap, back, bun],
+    bald: [],
+    cap: [back, crown, peak],
+    visor: [cap, back, peak, band],
+    headband: [cap, back, band],
+  };
+  const allHeadParts = [cap, back, long, bun, crown, peak, band];
+  // the head and every hair or hat part tip forward together when the player
+  // slumps (task 16), whichever style is showing (task 18)
+  const headGroup = [head, ...allHeadParts];
 
   // the off arm hangs relaxed
   const offArm = new Group();
   offArm.position.set(-0.24, 1.36, 0);
   const offSleeve = new Mesh(new CapsuleGeometry(0.06, 0.46, 4, 8), top);
   offSleeve.position.y = -0.27;
-  const offHand = new Mesh(new SphereGeometry(0.065, 8, 6), smooth(SKIN));
+  const offHand = new Mesh(new SphereGeometry(0.065, 8, 6), skinMat);
   offHand.position.y = -0.56;
   offArm.add(offSleeve, offHand);
   offArm.rotation.order = "YXZ";
@@ -207,7 +253,7 @@ export function makePlayer(shirt: number, hair: number, racketColor: number): Pl
   elbow.position.y = -0.27;
   const foreSleeve = new Mesh(new CapsuleGeometry(0.055, 0.18, 4, 8), top);
   foreSleeve.position.y = -0.13;
-  const hand = new Mesh(new SphereGeometry(0.065, 8, 6), smooth(SKIN));
+  const hand = new Mesh(new SphereGeometry(0.065, 8, 6), skinMat);
   hand.position.y = -0.29;
   // wrist: at rotation.x = PI the racket carries on along the arm; more than
   // PI tips the head up. `roll` spins it about its own shaft: 0 shows the
@@ -230,8 +276,25 @@ export function makePlayer(shirt: number, hair: number, racketColor: number): Pl
   roll.add(headMarker);
   const headPos = new Vector3();
 
+  const setLook = (l: Look) => {
+    const key = `${l.shirt}/${l.shorts}/${l.skin}/${l.hair}/${l.style}`;
+    if (group.userData.look === key) return;
+    top.color.setHex(SHIRTS[l.shirt]);
+    hatMat.color.setHex(SHIRTS[l.shirt]);
+    trousers.color.setHex(SHORTS[l.shorts]);
+    skinMat.color.setHex(SKINS[l.skin]);
+    faceMat.map = face(SKINS[l.skin]);
+    faceMat.needsUpdate = true;
+    hairMat.color.setHex(HAIRS[l.hair]);
+    const shown = STYLE_PARTS[l.style];
+    for (const part of allHeadParts) part.visible = shown.includes(part);
+    group.userData.look = key;
+  };
+  setLook(look);
+
   return {
     group,
+    setLook,
     follow(pose, backhand, side) {
       body.scale.x = side;
       body.rotation.y = 0;
@@ -272,6 +335,14 @@ export function makePlayer(shirt: number, hair: number, racketColor: number): Pl
       roll.rotation.y = p.roll;
       body.rotation.y = p.bodyY * side;
       offArm.rotation.set(p.offX, p.offY, -0.12);
+    },
+    react(pump, slump) {
+      // the free arm comes up past the head, bent a little at the top
+      if (pump > 0) offArm.rotation.set(-0.4 * pump, 0, -0.12 - 2.6 * pump);
+      // chin down and the shoulders forward
+      // (forward is -z, so a negative x turn tips them toward the net)
+      for (const m of headGroup) m.rotation.x = -0.45 * slump;
+      body.rotation.x = -0.12 * slump;
     },
     racketHead() {
       group.updateMatrixWorld(true);

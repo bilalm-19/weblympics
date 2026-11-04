@@ -1,6 +1,6 @@
 # 21 Training: endless hit-the-spot
 
-Status: queued
+Status: done (2026-10-21, session C; see the devlog)
 Model: Sonnet (well specified; Opus only if the scoring feels wrong)
 Session: C, after 20 or alongside it (different files)
 
@@ -24,8 +24,8 @@ land your returns on a marked spot.
   a seeded stream in a pure module.
 
 ## Done when
-- [ ] Pure module test: target placement and the closeness scoring for a table
+- [x] Pure module test: target placement and the closeness scoring for a table
       of landings.
-- [ ] e2e at both viewports: enter the mode, hit, see the result, exit; assert
+- [x] e2e at both viewports: enter the mode, hit, see the result, exit; assert
       no websocket frames are sent.
-- [ ] CLAUDE.md training rule and README updated.
+- [x] CLAUDE.md training rule and README updated.

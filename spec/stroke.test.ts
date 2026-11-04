@@ -1,12 +1,14 @@
 import { beforeAll, describe, expect, it } from "vitest";
 import { CONTACT, shotLabel, strokePose } from "../client/games/tennis/stroke.ts";
 import type { Player } from "../client/games/tennis/character.ts";
+import { DEFAULT_LOOKS } from "../shared/look.ts";
+import type { Look } from "../shared/look.ts";
 
 // Task 6: the forehand and backhand are separate arcs, measured on the real
 // character rig (racket head in the player's own frame: x to their right,
 // y up, z toward the net), not just a racket that changes side.
 
-let makePlayer: (shirt: number, hair: number, racket: number) => Player;
+let makePlayer: (look: Look, racket: number) => Player;
 
 beforeAll(async () => {
   // the character draws its face and strings on a canvas; Node has none, and
@@ -25,7 +27,7 @@ function path(p: Player, backhand: boolean, side: 1 | -1 = 1) {
 
 describe("stroke animation", () => {
   it("forehand starts and meets the ball on the racket side, backhand on the other", () => {
-    const p = makePlayer(0, 0, 0);
+    const p = makePlayer(DEFAULT_LOOKS[0], 0);
     const [fStart, fContact] = path(p, false);
     const [bStart, bContact] = path(p, true);
     // taken back behind the player (away from the net) on opposite sides
@@ -41,7 +43,7 @@ describe("stroke animation", () => {
   });
 
   it("each sweeps the other way and finishes on the opposite side", () => {
-    const p = makePlayer(0, 0, 0);
+    const p = makePlayer(DEFAULT_LOOKS[0], 0);
     const [fStart, , fEnd] = path(p, false);
     const [bStart, , bEnd] = path(p, true);
     // forehand: right to left, low to high
@@ -68,7 +70,7 @@ describe("stroke animation", () => {
   });
 
   it("a left-hander is the mirror image", () => {
-    const p = makePlayer(0, 0, 0);
+    const p = makePlayer(DEFAULT_LOOKS[0], 0);
     for (const backhand of [false, true]) {
       const right = path(p, backhand, 1);
       const left = path(p, backhand, -1);
@@ -81,7 +83,7 @@ describe("stroke animation", () => {
   });
 
   it("is continuous: no 1/25 of the stroke jumps the racket more than 0.5 m", () => {
-    const p = makePlayer(0, 0, 0);
+    const p = makePlayer(DEFAULT_LOOKS[0], 0);
     for (const backhand of [false, true]) {
       let prev = (p.pose(0, backhand, 1), p.racketHead());
       for (let i = 1; i <= 25; i++) {

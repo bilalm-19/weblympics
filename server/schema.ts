@@ -10,8 +10,19 @@ import type { DatabaseSync } from "node:sqlite";
  * Version 3: unlimited matches (task 4) have no winner, so `winner` may be
  * NULL, and `best_rally` keeps the longest rally (shots). SQLite can't relax a
  * NOT NULL in place, so the table is rebuilt with every row kept.
+ * Version 4 (task 17, accounts): a player row may be an account (claimed with
+ * a passkey) or a locked demo account; accounts' names are unique ignoring
+ * case. Passkeys (public keys only) and sessions (only a hash of the cookie)
+ * get their own tables. The two demo players become locked demo accounts.
+ * Version 5 (task 18): an account's look, as JSON of enum values from
+ * shared/look.ts (validated before it is written); NULL means the default.
+ * Version 6 (task 7): one Elo rating per account per sport (`ratings`, keyed
+ * by player and sport id, so a new sport needs no schema change). The sport
+ * of a match is its existing `game` column (the registry's id). Old rows
+ * that were marked rated before accounts existed are marked unrated: they
+ * were never between accounts, and ratings start from nothing.
  */
-export const SCHEMA_VERSION = 3;
+export const SCHEMA_VERSION = 6;
 
 const V1 = `
   CREATE TABLE IF NOT EXISTS players (
@@ -64,6 +75,51 @@ const V3 = `
   ALTER TABLE matches_v3 RENAME TO matches;
 `;
 
+const V4 = `
+  ALTER TABLE players ADD COLUMN account INTEGER NOT NULL DEFAULT 0;
+  ALTER TABLE players ADD COLUMN demo INTEGER NOT NULL DEFAULT 0;
+  ALTER TABLE players ADD COLUMN webauthn_id TEXT;
+  UPDATE players SET account = 1, demo = 1 WHERE token IN ('demo-1', 'demo-2');
+  CREATE UNIQUE INDEX players_account_name ON players (lower(name)) WHERE account = 1;
+  CREATE TABLE passkeys (
+    id TEXT PRIMARY KEY,
+    player TEXT NOT NULL,
+    public_key BLOB NOT NULL,
+    counter INTEGER NOT NULL,
+    transports TEXT NOT NULL DEFAULT '[]',
+    created_at INTEGER NOT NULL,
+    last_used_at INTEGER
+  );
+  CREATE INDEX passkeys_player ON passkeys (player);
+  CREATE TABLE sessions (
+    hash TEXT PRIMARY KEY,
+    player TEXT NOT NULL,
+    created_at INTEGER NOT NULL,
+    expires_at INTEGER NOT NULL
+  );
+  CREATE INDEX sessions_player ON sessions (player);
+`;
+
+const V5 = `
+  ALTER TABLE players ADD COLUMN look TEXT;
+`;
+
+const V6 = `
+  CREATE TABLE ratings (
+    player TEXT NOT NULL,
+    sport TEXT NOT NULL,
+    rating INTEGER NOT NULL,
+    wins INTEGER NOT NULL DEFAULT 0,
+    losses INTEGER NOT NULL DEFAULT 0,
+    updated_at INTEGER NOT NULL,
+    PRIMARY KEY (player, sport)
+  );
+  CREATE INDEX ratings_board ON ratings (sport, rating DESC);
+  CREATE INDEX matches_p0 ON matches (p0);
+  CREATE INDEX matches_p1 ON matches (p1);
+  UPDATE matches SET rated = 0;
+`;
+
 export function schemaVersion(db: DatabaseSync): number {
   db.exec("CREATE TABLE IF NOT EXISTS schema_version (version INTEGER NOT NULL)");
   const row = db.prepare("SELECT version FROM schema_version").get() as { version: number } | undefined;
@@ -78,7 +134,7 @@ export function schemaVersion(db: DatabaseSync): number {
 
 /** Brings `db` up to SCHEMA_VERSION, one step at a time, each in a transaction. */
 export function migrate(db: DatabaseSync): void {
-  const steps: Record<number, string> = { 1: V1, 2: V2, 3: V3 };
+  const steps: Record<number, string> = { 1: V1, 2: V2, 3: V3, 4: V4, 5: V5, 6: V6 };
   let v = schemaVersion(db);
   if (v > SCHEMA_VERSION) throw new Error(`database schema ${v} is newer than this app (${SCHEMA_VERSION})`);
   while (v < SCHEMA_VERSION) {
@@ -107,23 +163,31 @@ export interface MatchRecord {
   /** Games in each finished set. */
   sets: Array<[number, number]>;
   practice: boolean;
-  /** Longest rally in shots; unlimited only. */
+  /** Longest rally in shots this match. */
   bestRally?: number;
+  /** Task 7: the host turned "rated" on for the room. */
+  ratedRequested?: boolean;
+  /** Task 7: which seats were signed-in accounts (guests are never rated). */
+  accounts?: [boolean, boolean];
 }
 
 /**
- * Whether a match counts towards ratings. Decided: practice against the bot
- * never does, so a rating can't be farmed off a bot and only reflects people
- * beating people. A match also needs two signed-in players. Task 4: unlimited
- * (no winner) never does, and nor does one person on both seats (one token on
- * two tabs, allowed for testing), so nobody can feed themselves wins.
+ * Whether a match counts towards ratings (task 7). All of: the host turned
+ * "rated" on; both seats are signed-in accounts on different tokens (one
+ * person on two tabs can't feed themselves wins); a real room, not practice
+ * against the bot (a rating only reflects people beating people); a format
+ * with a winner (not unlimited); and a finished match (a match left mid-way
+ * is never recorded at all).
  */
 export function isRated(m: MatchRecord): boolean {
-  if (m.practice || m.format === "unlimited" || m.winner === null) return false;
+  if (!m.ratedRequested || m.practice || m.format === "unlimited" || m.winner === null) return false;
+  if (!m.accounts?.[0] || !m.accounts?.[1]) return false;
   return m.tokens[0] !== null && m.tokens[1] !== null && m.tokens[0] !== m.tokens[1];
 }
 
-export function insertMatch(db: DatabaseSync, m: MatchRecord, endedAt = Date.now()): void {
+/** Stores a match row; returns whether it was stored as rated. */
+export function insertMatch(db: DatabaseSync, m: MatchRecord, endedAt = Date.now()): boolean {
+  const rated = isRated(m);
   db.prepare(
     `INSERT INTO matches (room, game, p0, p1, score0, score1, winner, ended_at, format, sets, practice, rated, best_rally)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -139,7 +203,8 @@ export function insertMatch(db: DatabaseSync, m: MatchRecord, endedAt = Date.now
     m.format,
     JSON.stringify(m.sets),
     m.practice ? 1 : 0,
-    isRated(m) ? 1 : 0,
+    rated ? 1 : 0,
     m.bestRally ?? null,
   );
+  return rated;
 }

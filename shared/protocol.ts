@@ -1,4 +1,5 @@
 import type { Hand, Level, MoveMode, SwingKind } from "./games/tennis/sim.ts";
+import type { Look } from "./look.ts";
 
 // A room's match format (task 4): the host picks it in the ready panel before
 // play, from the ones its game offers (`GameDef.formats`). "unlimited" has no
@@ -17,6 +18,8 @@ export interface LobbySeat {
   ready: boolean;
   connected: boolean;
   bot: boolean;
+  /** How the seat's character looks (task 18): the account's saved look, else the seat's default. */
+  look: Look;
 }
 
 /** The room's state, owned by the server. */
@@ -34,13 +37,18 @@ export interface LobbyView {
   hold: { seat: 0 | 1; name: string; seconds: number } | null;
   /** Unlimited only: points won by each seat this match, and the longest rally in shots (archery: the best arrow's points). */
   tally: { points: [number, number]; bestRally: number } | null;
+  /** Task 7: the host's "rated" option. Whether it counts is `ratedBlocked === null`. */
+  rated: boolean;
+  /** Why a rated match isn't possible here right now (a guest seat, unlimited...), else null. */
+  ratedBlocked: string | null;
+  /** Each seat's rating in this room's sport (accounts only; null for a guest, the bot or an empty seat). */
+  ratings: [number | null, number | null];
 }
 
 export type ClientMsg =
-  // demo: sign in as one of the two fixed demo accounts instead of the
-  // player identified by `token`; the server decides who that is, never
-  // the client
-  | { t: "hello"; token?: string; demo?: 1 | 2 }
+  // who you are comes from the page's cookies when the socket opens (a guest
+  // id or an account's session, task 17); the client never says who it is
+  | { t: "hello" }
   // format: the room's starting format ("oneSet" default, "bestOfThree",
   // "unlimited"); an unknown one gets the default. The host can change it in
   // the ready panel before play.
@@ -51,6 +59,9 @@ export type ClientMsg =
   // the host's match format, before the match; a value not in ROOM_FORMATS is
   // a bad message
   | { t: "format"; format: RoomFormat }
+  // task 7: the host's "rated" option, before the match; the server decides
+  // whether the match actually counts
+  | { t: "rated"; rated: boolean }
   // lift: hand height at contact in camera follow mode, -1..1 (server clamps)
   // timingAim: aim from how early or late the ball is met instead of dirX
   // tick: the server tick the player's screen showed when they swung; the
@@ -83,7 +94,9 @@ export interface RoomInfo {
 }
 
 export type ServerMsg =
-  | { t: "welcome"; token: string; name: string; matches: number }
+  // account: signed in with a passkey (or a demo account); demo: one of the
+  // two locked demo accounts
+  | { t: "welcome"; name: string; account: boolean; demo: boolean; matches: number }
   | ({ t: "room" } & RoomInfo)
   | { t: "presence"; names: [string | null, string | null]; spectators: number }
   | ({ t: "lobby" } & LobbyView)
@@ -107,11 +120,7 @@ export function parseClientMsg(raw: string): ClientMsg | null {
   const m = v as Record<string, unknown>;
   switch (m.t) {
     case "hello":
-      return {
-        t: "hello",
-        token: typeof m.token === "string" ? m.token : undefined,
-        demo: m.demo === 1 || m.demo === 2 ? m.demo : undefined,
-      };
+      return { t: "hello" };
     case "create":
       if (typeof m.game !== "string") return null;
       return { t: "create", game: m.game, practice: m.practice === true, format: typeof m.format === "string" ? m.format : undefined };
@@ -121,6 +130,8 @@ export function parseClientMsg(raw: string): ClientMsg | null {
       return typeof m.ready === "boolean" ? { t: "ready", ready: m.ready } : null;
     case "format":
       return (ROOM_FORMATS as readonly unknown[]).includes(m.format) ? { t: "format", format: m.format as RoomFormat } : null;
+    case "rated":
+      return typeof m.rated === "boolean" ? { t: "rated", rated: m.rated } : null;
     case "swing": {
       const { dirX, kind, level, hand, lift, timingAim, tick } = m;
       if (typeof dirX !== "number" || !Number.isFinite(dirX)) return null;

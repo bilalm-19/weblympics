@@ -1,6 +1,6 @@
 # 18 Character customisation
 
-Status: queued
+Status: built on session A's branch (agent choices in the devlog entry "Task 18 built")
 Model: Sonnet
 Session: A, after 17 (needs accounts)
 
@@ -25,7 +25,10 @@ fixed list. Good enough for now.
 - The look is deleted with the account (task 17).
 
 ## Done when
-- [ ] Server rejects an out-of-list value (hostile client test).
-- [ ] Look saved, survives a restart, shows on both seats and to a spectator.
-- [ ] Both viewports checked; preview not clipped.
-- [ ] CLAUDE.md layout and `spec/` updated.
+- [x] Server rejects an out-of-list value (hostile client test:
+      `spec/look.test.ts`, unit and against the running app).
+- [x] Look saved, survives a restart (db reopened in `spec/look.test.ts`;
+      page reload in `e2e/look.e2e.ts`), shows on both seats and to a
+      spectator (room-state unit test and the e2e).
+- [x] Both viewports checked; preview not clipped (`e2e/look.e2e.ts`).
+- [x] CLAUDE.md layout and `spec/` updated.

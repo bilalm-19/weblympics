@@ -136,15 +136,172 @@ test("the sports are Tennis, Bowling, Archery, Track and a ?? tile, in that orde
   await expect(page.locator(".sport .sport-name")).toHaveText(["Tennis", "Bowling", "Archery", "Track", "??"]);
 });
 
+test("the logo (task 14): five rings and the word in the five colours, letters bounce in once, rings float; nothing clipped", async ({ page }) => {
+  await page.goto("/");
+  await expect(page.getByText(/playing as/i)).toBeVisible();
+  const logo = page.getByRole("heading", { level: 1, name: "Weblympics" });
+  await expect(logo).toBeVisible();
+  await expect(logo.locator(".logo-ring")).toHaveCount(5);
+  await expect(logo.locator(".logo-letter")).toHaveText([..."Weblympics"]);
+  const colours = await logo.locator(".logo-letter").evaluateAll((els) => [...new Set(els.map((e) => getComputedStyle(e).color))]);
+  expect(colours).toHaveLength(5);
+  // inside the viewport, and the footer link still fits the first screen
+  const viewport = page.viewportSize()!;
+  const b = (await logo.boundingBox())!;
+  expect(b.x).toBeGreaterThanOrEqual(0);
+  expect(b.y).toBeGreaterThanOrEqual(0);
+  expect(b.x + b.width).toBeLessThanOrEqual(viewport.width);
+  if (viewport.width >= 900) {
+    const link = (await page.getByRole("link", { name: /what makes this good/i }).boundingBox())!;
+    expect(link.y + link.height).toBeLessThanOrEqual(viewport.height);
+  }
+  // the bounce runs once and ends; the rings loop
+  const anim = await logo.evaluate((el) => ({
+    letter: el.querySelector(".logo-letter")!.getAnimations().map((a) => (a.effect as KeyframeEffect).getComputedTiming().iterations),
+    ring: el.querySelector(".logo-ring")!.getAnimations().map((a) => (a.effect as KeyframeEffect).getComputedTiming().iterations),
+  }));
+  expect(anim.letter).toEqual([1]);
+  expect(anim.ring).toEqual([Infinity]);
+  // the menu is drawn again when the server's welcome arrives; the bounce does
+  // not start over, and within a couple of seconds every letter is at rest
+  // (a finished bounce leaves no animation behind)
+  await expect
+    .poll(() => logo.locator(".logo-letter").evaluateAll((els) => els.every((e) => e.getAnimations().length === 0 && getComputedStyle(e).transform === "none")), { timeout: 5_000 })
+    .toBe(true);
+  expect(await noHorizontalScroll(page)).toBe(true);
+});
+
+test("the logo's bounce plays once per page load: drawing the menu again does not start it over", async ({ page }) => {
+  await page.goto("/");
+  await expect(page.getByText(/playing as/i)).toBeVisible();
+  // let the bounce finish, then draw the menu again the way the app does (Sign in / guest)
+  await expect.poll(() => page.locator(".logo-letter").evaluateAll((els) => els.every((e) => e.getAnimations().length === 0)), { timeout: 5_000 }).toBe(true);
+  // draw the menu again the way the app does: signing in as a demo account (behind Dev tools) reconnects
+  await page.locator("summary", { hasText: "Dev tools" }).click();
+  await page.getByRole("button", { name: /sign in as demo one/i }).click();
+  await expect(page.locator(".who strong")).toHaveText("Demo One");
+  // a fresh bounce would leave letters mid-air (animating) right now
+  const animating = await page.locator(".logo-letter").evaluateAll((els) => els.filter((e) => e.getAnimations().length > 0).length);
+  expect(animating).toBe(0);
+});
+
+test.describe("reduced motion", () => {
+  test.use({ reducedMotion: "reduce" });
+  test("the logo and every sport's thumbnail are one still frame", async ({ page }) => {
+    await page.goto("/");
+    await expect(page.getByText(/playing as/i)).toBeVisible();
+    const moving = () => page.evaluate(() => [...document.querySelectorAll(".logo, .logo *, .thumb-frame *")].flatMap((el) => el.getAnimations()).length);
+    expect(await moving()).toBe(0);
+    // the placeholders' previews too
+    for (const b of await page.locator(".sport").all()) {
+      await b.focus();
+      expect(await moving()).toBe(0);
+    }
+    // still drawn: the tennis ball is on screen mid-rally
+    await page.locator(".sport").first().focus();
+    await expect(page.locator(".thumb-frame .loop-ball")).toBeVisible();
+  });
+});
+
+test("each sport's thumbnail is a short loop (task 23), paused while the tab is hidden", async ({ page }) => {
+  await page.goto("/");
+  await expect(page.getByText(/playing as/i)).toBeVisible();
+  const loops = () =>
+    page.evaluate(() =>
+      document
+        .querySelector(".thumb-frame")!
+        .getAnimations({ subtree: true })
+        .map((a) => ({ iterations: (a.effect as KeyframeEffect).getComputedTiming().iterations, duration: Number((a.effect as KeyframeEffect).getComputedTiming().duration), state: a.playState })),
+    );
+  for (const b of await page.locator(".sport").all()) {
+    await b.focus();
+    const name = await b.getAttribute("data-sport");
+    const list = await loops();
+    expect(list.length, `${name} has a loop`).toBeGreaterThan(0);
+    for (const a of list) {
+      expect(a.iterations, name!).toBe(Infinity);
+      // short: a few seconds a cycle
+      expect(a.duration, name!).toBeLessThanOrEqual(4000);
+      expect(a.state, name!).toBe("running");
+    }
+  }
+  // the preview keeps its size while the loops run: no layout shift
+  const frame = page.locator(".thumb-frame");
+  const before = (await frame.boundingBox())!;
+  await page.waitForTimeout(600);
+  expect(await frame.boundingBox()).toEqual(before);
+
+  // a hidden tab pauses them; visible again, they carry on
+  const setHidden = (hidden: boolean) =>
+    page.evaluate((h) => {
+      Object.defineProperty(document, "hidden", { configurable: true, get: () => h });
+      document.dispatchEvent(new Event("visibilitychange"));
+    }, hidden);
+  await setHidden(true);
+  expect((await loops()).every((a) => a.state === "paused")).toBe(true);
+  await setHidden(false);
+  expect((await loops()).every((a) => a.state === "running")).toBe(true);
+  // and the home screen never makes a WebGL context (no Three.js scene)
+  await expect(page.locator("canvas")).toHaveCount(0);
+});
+
+test("the mouse cursor on the home screen is the arrow (task 23); the game keeps the normal one", async ({ page }, testInfo) => {
+  await page.goto("/");
+  await expect(page.getByText(/playing as/i)).toBeVisible();
+  const cursorOf = (sel: string) => page.locator(sel).first().evaluate((el) => getComputedStyle(el).cursor);
+  if (testInfo.project.name === "mobile") {
+    // touch: no custom cursor anywhere
+    for (const sel of [".menu", ".menu .pill", ".sport"]) expect(await cursorOf(sel)).not.toContain("data:image/svg+xml");
+    return;
+  }
+  for (const sel of [".menu", ".menu .pill", ".sport", ".menu a", '.sport[aria-disabled="true"]']) {
+    const c = await cursorOf(sel);
+    expect(c, sel).toContain("data:image/svg+xml");
+    // the hotspot is the arrow's tip
+    expect(c, sel).toMatch(/\)\s*6\s+3/);
+  }
+  expect(await cursorOf(".menu input")).toBe("text");
+  // the marker on the pointed sport stays
+  await page.locator(".sport").first().hover();
+  await expect(page.locator(".sport.is-pointed .pointer")).toBeVisible();
+  // in a game the cursor is the browser's own
+  await page.getByRole("button", { name: /practice vs bot/i }).click();
+  await expect(page.locator("canvas")).toBeVisible();
+  expect(await cursorOf("canvas")).not.toContain("data:image/svg+xml");
+});
+
 test("every current action is still on the home screen", async ({ page }) => {
   await page.goto("/");
   await expect(page.getByText(/playing as/i)).toBeVisible();
-  for (const name of [/practice vs bot/i, /create a room/i, /^join$/i, /sign in as demo one/i, /sign in as demo two/i]) {
+  for (const name of [/practice vs bot/i, /create a room/i, /^join$/i, /profile and sign in/i]) {
     await expect(page.getByRole("button", { name })).toBeVisible();
   }
   await expect(page.getByRole("textbox", { name: /room code/i })).toBeVisible();
   await expect(page.getByRole("link", { name: /what makes this good/i })).toHaveAttribute("href", "/readme/");
-  await page.getByRole("button", { name: /sign in as demo one/i }).click();
-  await expect(page.getByRole("button", { name: /play as guest/i })).toBeVisible();
   expect(await noHorizontalScroll(page)).toBe(true);
+});
+
+test("demo accounts sit behind a closed Dev tools control, reachable by keyboard (task 17)", async ({ page }) => {
+  await page.goto("/");
+  await expect(page.getByText(/playing as/i)).toBeVisible();
+  const demoOne = page.getByRole("button", { name: /sign in as demo one/i });
+  const demoTwo = page.getByRole("button", { name: /sign in as demo two/i });
+  await expect(demoOne).toBeHidden();
+  await expect(demoTwo).toBeHidden();
+
+  const devtools = page.locator("summary", { hasText: "Dev tools" });
+  await devtools.focus();
+  await page.keyboard.press("Enter");
+  await expect(demoOne).toBeVisible();
+  await expect(demoTwo).toBeVisible();
+  const b = (await devtools.boundingBox())!;
+  expect(b.height).toBeGreaterThanOrEqual(44);
+  expect(b.x + b.width).toBeLessThanOrEqual(page.viewportSize()!.width);
+  expect(await noHorizontalScroll(page)).toBe(true);
+
+  await demoOne.click();
+  await expect(page.locator(".who strong")).toHaveText("Demo One");
+  await page.locator("summary", { hasText: "Dev tools" }).click();
+  await page.getByRole("button", { name: /leave demo account/i }).click();
+  await expect(page.locator(".who")).toContainText(/\(guest\)/);
 });

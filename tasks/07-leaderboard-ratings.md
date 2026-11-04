@@ -1,6 +1,6 @@
 # 7 Leaderboard and ratings
 
-Status: partial (players and match results are stored with sets, games, format and a `rated` flag, schema v2 from task 1; nothing reads them yet). Unlimited matches (task 4) must be stored unrated. Rewritten 2026-10-21 for accounts.
+Status: built on session A's branch (agent choices in the devlog entry "Task 7 built"). Rewritten 2026-10-21 for accounts.
 Model: Opus (the rating rules matter)
 Session: A, after 17 (needs accounts)
 
@@ -50,15 +50,18 @@ play a rated match to test it; they are hidden from the public board.
 - Schema migration for anything new, with a test from the previous version.
 
 ## Done when
-- [ ] Finish a rated match, restart the server: rating and history are still
-      there (spec test that restarts the app, or a db-level test).
-- [ ] Rated option: host sets it, a change clears ready, a guest seat makes it
+- [x] Finish a rated match, restart the server: rating and history are still
+      there (db-level test that closes and reopens the database;
+      `spec/rated-match.test.ts` plays a real rated match on the running app).
+- [x] Rated option: host sets it, a change clears ready, a guest seat makes it
       unavailable; the server decides, a hostile client cannot force it.
-- [ ] Elo test table (equal ratings, upset, floor) and a test that unrated
+- [x] Elo test table (equal ratings, upset, floor) and a test that unrated
       matches never change a rating.
-- [ ] A match in one sport never changes another sport's rating (test with a
+- [x] A match in one sport never changes another sport's rating (test with a
       second, fake registered sport), and each sport's board lists only its own.
-- [ ] Leaderboard updates in a second session within about a second.
-- [ ] Both viewports; CLAUDE.md room rules, README and `spec/` agree.
+- [x] Leaderboard updates in a second session within about a second
+      (`spec/rated-match.test.ts` measures it).
+- [x] Both viewports (`e2e/leaderboard.e2e.ts`); CLAUDE.md room rules, README
+      and `spec/` agree.
 - [x] Migration test pattern exists (`spec/db.test.ts`).
 - [x] Practice-vs-bot matches don't affect ratings (`rated = 0`).

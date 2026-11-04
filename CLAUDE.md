@@ -30,33 +30,59 @@ lazily and only when a player enters a game. Video never leaves the browser.
   sprint; hurdles is task 27) is `shared/games/track/`: `sim.ts` (lanes,
   steps to cadence to speed, the cadence cap, finish times; an `obstacles`
   list, empty for the sprint), `bot.ts` (target cadence plus noise),
-  `index.ts` (adapter).
+  `index.ts` (adapter). `shared/look.ts`
+  is the fixed palette and hat/hair list for a player's look (task 18).
 - `server/` `index.ts` (http + ws + `/readme/`), `rooms.ts` (live rooms with
   the real clock and db), `room.ts` (one room: 60 Hz tick loop, seats,
   spectators, game), `lobby.ts` (pure room rules: phases, ready, format,
   countdown, the 30 s hold; clock injected), `db.ts` (SQLite on `/data`), `schema.ts` (versioned
-  schema, migrations, match rows, who is rated), `log.ts` (JSON log lines).
+  schema, migrations, match rows, who is rated), `log.ts` (JSON log lines;
+  players appear only as `who`, a per-run keyed hash; `/stats` in
+  `index.ts` gives counts, loop timing and memory, task 8),
+  task 17: `accounts.ts` (guests, accounts, passkeys, sessions, delete; pure
+  over a db handle), `ratings.ts` (task 7: Elo, leaderboards, history), `auth.ts` (the `/api/*` account routes and passkey
+  ceremonies), `guard.ts` (cookies, Origin check, challenges, rate limits),
+  `names.ts` (pseudonyms and the chosen-name rules; shape shared in
+  `shared/names.ts`).
   Rooms get their sim from the registry, so networking is game-agnostic.
 - `client/` Vite app: `games/<name>/view.ts` (scene, HUD, input wiring),
-  `games/tennis/score-bar.ts` (top score bar and the umpire's call),
+  `games/tennis/score-bar.ts` (top score bar), task 16's point call:
+  `point-call.ts` (pure: the call in tennis words, who won, how big, who
+  reacts; task 19's crowd and sound should reuse it), `call-banner.ts` + `.css`
+  (the big call across the top, the live region) and `reaction-fx.ts`
+  (scribble and sparkles over the players; the fist pump and slump are
+  `Player.react` in `character.ts`),
   `games/tennis/ready-panel.ts` + `.css` (the room's ready panel, task 4),
   training (task 5): `training.ts` + `.css` (coach panel, landing mark),
   `lessons.ts` (pure: steps, feedback words, "Why?" notes),
+  `spot.ts` (pure: hit-the-spot placement, closeness, streak; task 21),
   `training-sim.ts` (sim + ball machine in the page) and `local-link.ts`
   (a `GameLink` like `Connection`, so `view.ts` renders training unchanged;
   no network),
-  `games/tennis/stadium.ts` (arena from primitives, instanced crowd/trees),
-  `games/tennis/character.ts` (Mii-style player and racket),
+  `games/tennis/stadium.ts` (arena from primitives: static parts merged into
+  two vertex-coloured meshes, instanced crowd/trees; returns the crowd handle),
+  `games/tennis/crowd-layout.ts` (pure: stands and seats in four sections,
+  left, right, frontLeft, frontRight, for task 19 to drive),
+  `games/tennis/character.ts` (Mii-style player and racket, coloured and
+  hatted from the seat's look, task 18),
   `games/tennis/stroke.ts` (forehand/backhand keyframes, shot label text),
   `games/tennis/shot-fx.ts` (ball trail, bounce marks, shot arc),
   `games/tennis/trajectory-aid.ts` (pure: timing arcs, meter, strength ticks)
   with `aid.ts`/`aid-fx.ts`/`aid.css` drawing it (task 3), `input/`
   (`keyboard.ts` for keys, pointer and buttons; `camera/` with `pose.ts` pure
   landmark maths, `camera.ts` webcam + lazy MediaPipe, `index.ts` setup
-  panel), `net/socket.ts` (`Connection`), `net/link.ts` (`GameLink`), `ui/menu.ts` (home screen: title, then sport buttons from
-  the `SPORTS` list in a left column and the framed preview with the selected
-  sport's options in a right column, stacked on phones; inline SVG/CSS only,
-  no Three.js). Camera swings have two modes,
+  panel), `net/socket.ts` (`Connection`), `net/link.ts` (`GameLink`), `ui/menu.ts` (home screen: animated logo, then sport buttons from
+  the `SPORTS` list in a left column and the framed preview (a looping SVG
+  snippet per sport) with the selected sport's options in a right column,
+  stacked on phones; the arrow as the mouse cursor; inline SVG/CSS only, no
+  Three.js: `spec/home-screen.test.ts`; the Profile and Leaderboard buttons and the
+  closed "Dev tools" with the demo accounts), `ui/brand.ts` (the five ring
+  colours and every text/background pair, held to WCAG AA by
+  `spec/brand.test.ts`; task 14), `ui/profile.ts` + `.css` (task 17's profile
+  dialog, with task 18's customise section; `ui/look-preview.ts` draws the
+  look as SVG, since the menu never loads Three.js), `net/account.ts`
+  (`/api/*` calls; the passkey prompt is loaded only when needed),
+  `ui/leaderboard.ts` + `.css` (task 7: a tab per sport, polled each second). Camera swings have two modes,
   "classic" (default) and "follow" (character copies the arm, hit at the
   hitting line), and two aim modes, "timing" (default) and "point"; see
   the camera setup notes in `tasks/done/`. Movement has two modes per seat,
@@ -103,7 +129,10 @@ lazily and only when a player enters a game. Video never leaves the browser.
   hits from swing timestamps against its own sim.
 - Scoring is real tennis for everyone (`spec/sim-scoring.test.ts`): one set by
   default, best of three or unlimited, tiebreak at 6-6, two serves per point, no lets.
-  The score bar only renders the server's `ScoreState`. Practice never ends
+  The score bar only renders the server's `ScoreState`. The call after a point
+  (task 16, `spec/point-call.test.ts`, `e2e/call-banner.e2e.ts`) is worked out
+  on each screen from two snapshots: no network message, spectators see it
+  too, and it never covers the court or the HUD. Practice never ends
   (a won match starts a new one) and practice-vs-bot is never rated
   (`spec/db.test.ts`).
 - Rooms (task 4; `spec/lobby.test.ts`, `spec/room-rules.test.ts`,
@@ -120,8 +149,41 @@ lazily and only when a player enters a game. Video never leaves the browser.
   counts points and best rally, ends when someone leaves and is stored
   unrated. Practice vs bot starts at once. One token may hold both seats (two
   tabs, for testing); its second seat is shown "<name> (2)" and its matches
-  are unrated. Names are server-made pseudonyms, not renameable. Ratings read
-  only `rated = 1` rows.
+  are unrated. Ratings read only `rated = 1` rows.
+- Ratings (task 7; `spec/ratings.test.ts`, `spec/rated-match.test.ts`,
+  `e2e/leaderboard.e2e.ts`): "rated" is the host's option on the room, set
+  before play; a change clears both ready flags. A match is stored
+  `rated = 1` only if the host had it on, both seats are accounts on
+  different tokens, it isn't practice, the format has a winner and it
+  finished (`isRated` in `server/schema.ts`; the lobby's `ratedBlocked` says
+  why not, using the same rule). Elo per account per sport: start 1000,
+  K = 32, floor 100, updated in the match row's transaction
+  (`server/ratings.ts`). A match only moves its own sport's rating; sports are
+  the registry's ids (`matches.game`, `ratings.sport`). The leaderboard lists
+  accounts only, hides the demo accounts, and shows your rank outside the
+  top list; it polls once a second.
+- Accounts (task 17; `spec/accounts.test.ts`, `spec/auth-api.test.ts`,
+  `e2e/accounts.e2e.ts`): who you are comes only from HttpOnly cookies the
+  server sets (`wl_guest`, a random guest id; `wl_session`, 256 random bits
+  with only its hash stored), never from a message. Play never needs an
+  account. A guest keeps a server-made pseudonym, can't rename and is never
+  rated or on a leaderboard. A passkey (`@simplewebauthn`, never hand-rolled)
+  claims the guest, keeping its history; an account may choose a name: 3 to
+  16 ASCII letters, digits, spaces or `_ . ' -`, unique ignoring case, not
+  reserved (Bot, Admin, the server's pseudonym shape) and passing `obscenity`,
+  all checked on the server. Every POST and the WebSocket check Origin;
+  challenges are single use and expire in 2 minutes; ceremonies are rate
+  limited; no cookie, challenge or credential is logged. Deleting needs a
+  fresh passkey check and removes passkeys, sessions, name, look and ratings;
+  match rows stay with a random tombstone shown as "Deleted player". The two
+  demo accounts are locked (no rename, delete or passkey), hidden from the
+  board, and reached only from the home screen's closed "Dev tools".
+- Looks (task 18; `spec/look.test.ts`, `e2e/look.e2e.ts`): an account's look
+  is five enum values from `shared/look.ts`, checked on the server (anything
+  outside the lists, or any extra field, is refused and nothing is stored).
+  Guests always wear their seat's default. The server puts each seat's look
+  in the room state, so both players and spectators see it. The demo
+  accounts may change their look (it is how two seats get tested).
 - A schema change is a new step in `server/schema.ts` plus a test that opens
   a database made by the previous version; never edit an old step.
 - A ball in the air is live for everyone, even one going out: a person may
@@ -142,6 +204,10 @@ lazily and only when a player enters a game. Video never leaves the browser.
   Required steps: swing, forehand, backhand, timing (early, on time and late
   each landing in), strength; auto-move stays on. Moving yourself is offered
   after them and optional. Figures in its notes come from `docs/reaction-time.md`.
+  "Hit the spot" (task 21, `spec/spot.test.ts`) is an endless extra offered on
+  the training screen, never required: seeded spot on the machine's half, a
+  closeness word and ring colour per return, a streak, the best streak kept
+  only in `localStorage`; Exit leaves. Same rules: nothing sent to the server.
 - Archery (task 22; `spec/archery-*.test.ts`, `e2e/archery.e2e.ts`): eight
   stages (10 m to 50 m, wind rising from none), one arrow each per stage,
   turns alternate and the first shooter swaps; rings 10 to 1, bullseye 11;
@@ -175,10 +241,19 @@ lazily and only when a player enters a game. Video never leaves the browser.
   playtest picks one.
 - Camera is used for gameplay only. Every camera action has a keyboard/mouse
   equivalent, and the lobby and room work with no camera at all.
+- Webcam is the default (task 15, `e2e/webcam-default.e2e.ts`): a seated
+  player's game (practice, room, training) opens the camera setup first, with
+  "Use keyboard instead" on each step; that, Escape or a refused permission
+  leaves a playable game on keys. After the setup, practice offers training
+  once per device ("Train first" / "Skip training"); Train stays on the home
+  screen. Spectators get no camera setup.
 - Auto-move (`spec/auto-move.test.ts`) walks slower than manual movement
   (`AUTO_SPEED` share of `PLAYER.speed`) so a wide hard shot can beat it;
   strength must keep mattering. The movement mode is an input to the sim,
   never a client claim of position.
+- Logs never carry a token, cookie, passkey value or name, chosen or
+  pseudonym (`spec/stats-logging.test.ts` runs a private server and reads its
+  output); use `who(token)` from `server/log.ts`.
 - Every bug fix adds a test that fails without it. When I correct you, put the
   rule here or in `spec/`, not only in the chat.
 - Keep `README.md`, this file and `spec/` consistent; a claim in one needs to

@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import type { Locator, Page } from "@playwright/test";
+import { skipCheck, useKeyboard } from "./flow.ts";
 
 // Trajectory aid (task 3): the timing meter along the bottom, the three
 // timing arcs with the lit one following the ball, the strength readout and
@@ -9,6 +10,7 @@ import type { Locator, Page } from "@playwright/test";
 async function practice(page: Page): Promise<void> {
   await page.goto("/");
   await page.getByRole("button", { name: /practice vs bot/i }).click();
+  await useKeyboard(page);
   await expect(page.locator("canvas")).toBeVisible();
 }
 
@@ -19,8 +21,7 @@ async function startCamera(page: Page): Promise<void> {
   await expect(panel.getByRole("button", { name: /aim by timing/i })).toHaveAttribute("aria-pressed", "true");
   await panel.getByRole("button", { name: /start camera/i }).click();
   await expect(panel.getByRole("heading", { name: /can we see you/i })).toBeVisible({ timeout: 40_000 });
-  await panel.getByRole("button", { name: "Skip check" }).click();
-  await expect(panel).toBeHidden();
+  await skipCheck(page);
 }
 
 async function insideViewport(page: Page, locator: Locator): Promise<void> {
@@ -85,6 +86,7 @@ test("the off switch hides the meter and arcs and keeps the game playing; it is 
   expect(await canvas.getAttribute("data-aid-arcs")).toBe("0");
   await page.getByRole("button", { name: /leave/i }).click();
   await page.getByRole("button", { name: /practice vs bot/i }).click();
+  await useKeyboard(page);
   await expect(page.getByRole("button", { name: /trajectory aid/i })).toHaveAttribute("aria-pressed", "false");
   await page.getByRole("button", { name: /trajectory aid/i }).click();
   await expect(page.getByRole("img", { name: /timing meter/i })).toBeVisible();

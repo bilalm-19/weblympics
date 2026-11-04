@@ -1,0 +1,67 @@
+/* Task 7: the leaderboard dialog (shares the profile dialog's look) */
+.board-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin: 0.75rem 0 0.25rem;
+}
+
+.board-tabs [role="tab"] {
+  min-height: 44px;
+  padding: 0 1rem;
+  border: 2px solid #8fb3d1;
+  border-radius: 999px;
+  background: #fff;
+  color: #12385e;
+  font-weight: 600;
+}
+
+.board-tabs [aria-selected="true"] {
+  border-color: #0b63c4;
+  background: #dcebf7;
+}
+
+.board-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+}
+
+.board-table th,
+.board-table td {
+  padding: 0.4rem 0.35rem;
+  border-bottom: 1px solid #d5e4f1;
+  text-align: right;
+}
+
+.board-table th:nth-child(2),
+.board-table td:nth-child(2) {
+  width: 100%;
+  text-align: left;
+  overflow-wrap: anywhere;
+}
+
+.board-table tr.is-you td {
+  background: #fff3c4;
+  font-weight: 700;
+}
+
+.board-empty {
+  text-align: center !important;
+  color: #3d5873;
+}
+
+.board-history {
+  margin: 0.5rem 0 0;
+  padding-left: 1.1rem;
+  font-size: 0.92rem;
+}
+
+.board-history li {
+  margin: 0.25rem 0;
+}
+
+.board-tabs [role="tab"]:focus-visible {
+  outline: 3px solid #0b63c4;
+  outline-offset: 2px;
+}

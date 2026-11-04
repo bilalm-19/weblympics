@@ -46,12 +46,18 @@ const last = <T extends ServerMsg["t"]>(c: Fake, t: T) => c.seen.filter((m) => m
 const lobby = (c: Fake) => last(c, "lobby") as (LobbyView & { t: "lobby" }) | undefined;
 const state = (c: Fake) => last(c, "state")!.state as ArcherySnapshot;
 
-function seated(format: RoomFormat = "stages") {
+/** `opts.rated`: both seats are accounts and the host (seat 0) turns the rated option on (task 7). */
+function seated(format: RoomFormat = "stages", opts: { rated?: boolean } = {}) {
   const s = setup(format);
   const a = client("a");
   const b = client("b");
+  if (opts.rated) {
+    a.account = true;
+    b.account = true;
+  }
   s.room.join(a);
   s.room.join(b);
+  if (opts.rated) expect(s.room.setRated(a, true)).toBeNull();
   s.room.ready(a, true);
   s.room.ready(b, true);
   s.run(COUNTDOWN + 50);
@@ -110,8 +116,21 @@ describe("archery rooms", () => {
     expect(state(s.b).aim).toEqual({ yaw: 0.12, pitch: 0.06, draw: 0.6 });
   });
 
-  it("a finished match is recorded as archery, rated between two people", () => {
+  it("a finished match is recorded as archery, and unrated unless the host asked and both seats are accounts (task 7)", () => {
     const s = seated();
+    for (let i = 0; i < 16; i++) {
+      const shooter = state(s.a).turn === 0 ? s.a : s.b;
+      const st = state(s.a);
+      shootAs(s, shooter, shooter === s.a ? solveAim(st.distance, st.wind, 1) : { yaw: 0.3, pitch: 0, draw: 1 });
+    }
+    s.run(500);
+    expect(s.records).toHaveLength(1);
+    expect(s.records[0]).toMatchObject({ game: "archery", format: "stages", winner: 0, practice: false });
+    expect(isRated(s.records[0])).toBe(false);
+  });
+
+  it("a finished match is recorded as archery, rated when the host turns it on and both seats are accounts", () => {
+    const s = seated("stages", { rated: true });
     for (let i = 0; i < 16; i++) {
       const shooter = state(s.a).turn === 0 ? s.a : s.b;
       // seat 0 aims true, seat 1 wide
