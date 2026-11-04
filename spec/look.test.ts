@@ -205,6 +205,18 @@ describe("a hostile client and /api/look (running app)", () => {
     }
     ws.close();
     expect(lobby!.seats[0]!.look).toEqual(LOOK);
+    // the welcome carries it too: the home screen's profile button draws it
+    expect(seen.find((m) => m.t === "welcome")).toMatchObject({ name: "Demo Two", look: LOOK });
+    // a guest's welcome has no look (they wear their seat's default)
+    const gws = new WebSocket(wsUrl, { headers: { cookie: guest } });
+    const gotWelcome = new Promise<ServerMsg>((resolve) => gws.on("message", (d) => {
+      const m = JSON.parse(d.toString()) as ServerMsg;
+      if (m.t === "welcome") resolve(m);
+    }));
+    await new Promise((r) => gws.once("open", r));
+    gws.send(JSON.stringify({ t: "hello" }));
+    expect(await gotWelcome).toMatchObject({ account: false, look: null });
+    gws.close();
     // put Demo Two back to the default for other tests
     await post(session, DEFAULT_LOOKS[0]);
   });
