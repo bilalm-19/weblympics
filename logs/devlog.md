@@ -1173,3 +1173,8 @@ the format of the entries below (see CLAUDE.md, Docs).
 - **Decided by:** user ("add a feature where people with the link can spectate too"); Claude (the design: a separate watch link that always spectates, a spectator view for every game, a per-room cap).
 - **What happened:** task 24 had been parked on 2026-10-21 as "write down only". The user picked it up. A third arrival already spectates; the gap is a link that spectates on purpose (so a viewer never takes a free seat), a proper spectator view and a limit. The rule "no public room list" stays.
 - **Next:** an agent builds it on main once the integrate5 merge lands, since it touches rooms and the menu that merge changed.
+
+## 2026-11-05 05:17 AEDT | decision | Spectator cap: 10 per room
+
+- **Decided by:** user (10); Claude (proposed a cap of 50 and explained why).
+- **Why a cap:** the app runs on one shared CPU with 256 MB (`fly.toml`, fixed by the course), and every watcher gets the state 30 times a second; an uncapped link (or a script opening many tabs) could lag the two players or the whole server.

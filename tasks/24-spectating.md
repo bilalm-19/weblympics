@@ -17,6 +17,7 @@ Session: later
 
 ## Decided (user, 2026-11-05)
 - Anyone with the link can watch. Still no public list of rooms.
+- At most 10 watchers per room.
 
 ## Design (Claude's proposal; the agent records its choices in the devlog)
 - **A watch link:** players can copy a "Watch" link (`?watch=CODE`) next to the
@@ -27,8 +28,9 @@ Session: later
   badge, the number of watchers, both players' names; no camera setup, no
   ready button, no input. Works for every game (tennis, archery, track, and
   bowling and boxing when they land), since rooms are game-agnostic.
-- **Limit:** a cap per room (for the 256 MB machine); past it, a clear
-  "this match is full of watchers" message.
+- **Limit:** 10 watchers per room (user, 2026-11-05), for the shared CPU
+  and 256 MB machine; the 11th sees a clear "this match is full of
+  watchers" message.
 - **Joining mid-match:** a spectator arriving during play sees the current
   state at once (the next snapshot).
 
