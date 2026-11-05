@@ -1206,3 +1206,10 @@ the format of the entries below (see CLAUDE.md, Docs).
 - **What happened:** spectate-24 (task 24: watch link, watcher view, 10 per room) and profile-menu (top-right profile with the character, sign-in in its panel, Create a room as the primary button) merged on integrate-6; only the devlog conflicted.
 - **Bug:** the lock wait from 8df2445 didn't stop "database is locked": the failure is at `PRAGMA journal_mode = WAL` on open, which takes an exclusive lock SQLite's busy timeout doesn't retry, when several spec workers import server/db.ts on the same ./data/app.db. Fix: `spec/worker-data.ts` gives each worker its own DATA_DIR; `spec/db-lock.test.ts` checks it (fails without the setup file).
 - **Verification:** on integrate-6 with its own server (:8991): vitest 37/37 files three runs in a row, exit 0; `pnpm e2e --workers=1` 184/184 exit 0 at both viewports.
+
+## 2026-11-05 19:08 AEDT | bug | "Wrong origin" signing in with a passkey on the dev client
+
+- **Decided by:** user (found it); Claude (cause and fix).
+- **What happened:** on http://localhost:5173 every passkey POST got 403 "Wrong origin.". Vite's proxy forwarded /api with Host rewritten to localhost:8080 while the browser's Origin stayed localhost:5173, so server/guard.ts (Origin's host must equal Host) refused it. Through :8080 it worked.
+- **Fix:** `vite.config.ts` proxies /api, /ws and /readme with `changeOrigin: false`, keeping the browser's Host. The server's check is unchanged. Production is unaffected (no proxy there).
+- **Test:** `spec/dev-proxy.test.ts` (fails without the fix). Reproduced by curl: 403 before, 200 after. `pnpm check` 38 files exit 0.
