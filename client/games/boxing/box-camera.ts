@@ -173,63 +173,118 @@ export function createBoxCamera(view: HTMLElement, button: HTMLButtonElement, ch
   };
 }
 
-// Playtest readout (`?debug` in the address, before the `#`): each arm's live
-// measures and their peaks since the last reset, to choose how "arm out" is
-// read from a real webcam. Never shown to players otherwise. R resets the peaks.
+// Playtest readout (`?debug` in the address, before the `#`), the method in
+// docs/camera-playtest.md. Live: each arm's measures now. Recording: press 1-7
+// for a move, a 3 s countdown, 5 s recorded, and the move's row joins a table
+// (typical = median, high = 90th percentile, so one bad frame can't skew it).
+// C copies the table as text to paste into the chat. Never shown otherwise.
+const MOVES = ["relaxed", "high guard", "low guard", "jab", "hook", "body punch", "moving, no punch"] as const;
+const COUNTDOWN_MS = 3000;
+const RECORD_MS = 5000;
+
+type Sample = { size: number | null; e3: number | null; e2: number | null; fwd: number; reach: number; height: number };
+
 function createDebugReadout(dock: HTMLElement): { frame(f: CameraFrame): void; punch(label: string): void } | null {
   if (!new URLSearchParams(location.search).has("debug")) return null;
   const el = document.createElement("pre");
   el.className = "bx-debug";
   el.setAttribute("aria-hidden", "true");
   dock.append(el);
-  type Peak = { sizeMax: number; sizeMin: number; elbowMax: number; fwdMax: number; reachMax: number };
-  const fresh = (): Peak => ({ sizeMax: -Infinity, sizeMin: Infinity, elbowMax: -Infinity, fwdMax: -Infinity, reachMax: -Infinity });
-  const peaks: Record<BoxHand, Peak> = { left: fresh(), right: fresh() };
-  let lastPunch = "–";
   let fps = 0;
   let lastT = 0;
+  let status = "Press 1-7 to record a move, C to copy";
+  let rec: { move: number; startsAt: number; endsAt: number; frames: number; samples: Record<BoxHand, Sample[]>; punches: string[] } | null = null;
+  const results = new Map<number, string>();
+
+  const beep = (hz: number) => {
+    try {
+      const ctx = new AudioContext();
+      const o = ctx.createOscillator();
+      o.frequency.value = hz;
+      o.connect(ctx.destination);
+      o.start();
+      o.stop(ctx.currentTime + 0.15);
+      o.onended = () => void ctx.close();
+    } catch {
+      /* no sound is fine */
+    }
+  };
+
+  const q = (xs: number[], p: number): number | null => {
+    if (xs.length === 0) return null;
+    const s = [...xs].sort((a, b) => a - b);
+    return s[Math.min(s.length - 1, Math.floor(p * (s.length - 1) + 0.5))];
+  };
+  const n = (v: number | null, d = 2) => (v === null || !Number.isFinite(v) ? "–" : v.toFixed(d));
+  const summarise = (move: number, r: NonNullable<typeof rec>): string => {
+    const lines = [`[${move}] ${MOVES[move - 1]}  frames ${r.frames}  punches read: ${r.punches.join(", ") || "none"}`];
+    for (const hand of ["left", "right"] as const) {
+      const xs = r.samples[hand];
+      const col = <K extends keyof Sample>(k: K) => xs.map((x) => x[k]).filter((v): v is number => v !== null);
+      const sz = col("size");
+      lines.push(
+        `  ${hand.padEnd(5)} seen ${Math.round((100 * xs.length) / Math.max(1, r.frames))}%` +
+          ` | size lo ${n(q(sz, 0.1))} typ ${n(q(sz, 0.5))} hi ${n(q(sz, 0.9))}` +
+          ` | elbow3d typ ${n(q(col("e3"), 0.5), 0)} hi ${n(q(col("e3"), 0.9), 0)}` +
+          ` | elbow2d typ ${n(q(col("e2"), 0.5), 0)} hi ${n(q(col("e2"), 0.9), 0)}` +
+          ` | depth typ ${n(q(col("fwd"), 0.5))} hi ${n(q(col("fwd"), 0.9))}` +
+          ` | reach typ ${n(q(col("reach"), 0.5))} hi ${n(q(col("reach"), 0.9))}` +
+          ` | height lo ${n(q(col("height"), 0.1))} typ ${n(q(col("height"), 0.5))} hi ${n(q(col("height"), 0.9))}`,
+      );
+    }
+    return lines.join("\n");
+  };
+  const table = () => [...results.keys()].sort((a, b) => a - b).map((k) => results.get(k)).join("\n");
+
   window.addEventListener("keydown", (e) => {
-    if (e.key === "r" || e.key === "R") {
-      peaks.left = fresh();
-      peaks.right = fresh();
-      lastPunch = "–";
+    const d = Number(e.key);
+    if (Number.isInteger(d) && d >= 1 && d <= MOVES.length && !rec) {
+      const now = performance.now();
+      rec = { move: d, startsAt: now + COUNTDOWN_MS, endsAt: now + COUNTDOWN_MS + RECORD_MS, frames: 0, samples: { left: [], right: [] }, punches: [] };
+      beep(440);
+    } else if (e.key === "c" || e.key === "C") {
+      const text = `fps ~${fps.toFixed(0)}\n${table()}`;
+      navigator.clipboard?.writeText(text).then(
+        () => (status = "Copied. Paste it into the chat."),
+        () => (status = "Copy failed: select the table text instead."),
+      );
     }
   });
-  const n = (v: number | null, d = 2) => (v === null || !Number.isFinite(v) ? "  –  " : v.toFixed(d).padStart(5));
-  const row = (hand: BoxHand, m: ArmMeasures | null) => {
-    const p = peaks[hand];
-    if (m) {
-      if (m.size !== null) {
-        p.sizeMax = Math.max(p.sizeMax, m.size);
-        p.sizeMin = Math.min(p.sizeMin, m.size);
-      }
-      if (m.elbow3d !== null) p.elbowMax = Math.max(p.elbowMax, m.elbow3d);
-      p.fwdMax = Math.max(p.fwdMax, m.forward);
-      p.reachMax = Math.max(p.reachMax, m.reach);
-    }
-    const ratio = p.sizeMin > 0 && Number.isFinite(p.sizeMax) ? p.sizeMax / p.sizeMin : null;
-    return [
-      `${hand.toUpperCase().padEnd(5)}      now    peak`,
-      ` fist size ${n(m?.size ?? null)}  ${n(p.sizeMax)}  min ${n(p.sizeMin)} x${n(ratio, 1)}`,
-      ` elbow 3d  ${n(m?.elbow3d ?? null, 0)}  ${n(p.elbowMax, 0)}  2d ${n(m?.elbow2d ?? null, 0)}`,
-      ` depth fwd ${n(m?.forward ?? null)}  ${n(p.fwdMax)}`,
-      ` reach 2d  ${n(m?.reach ?? null)}  ${n(p.reachMax)}`,
-      ` height    ${n(m ? -m.down : null)}  (+ above shoulders)`,
-    ].join("\n");
-  };
+
+  const live = (hand: BoxHand, m: ArmMeasures | null) =>
+    `${hand.padEnd(5)} size ${n(m?.size ?? null)}  elbow3d ${n(m?.elbow3d ?? null, 0)}  depth ${n(m?.forward ?? null)}  reach ${n(m?.reach ?? null)}  height ${n(m ? -m.down : null)}`;
+
   return {
     frame(f) {
       if (lastT) fps = 0.9 * fps + 0.1 * (1000 / Math.max(1, f.t - lastT));
       lastT = f.t;
       const lm = f.landmarks;
-      el.textContent = [
-        `fps ${fps.toFixed(0)}   last punch: ${lastPunch}   (R resets peaks)`,
-        row("left", lm ? armMeasures(lm, f.aspect, "left") : null),
-        row("right", lm ? armMeasures(lm, f.aspect, "right") : null),
-      ].join("\n");
+      const m = { left: lm ? armMeasures(lm, f.aspect, "left") : null, right: lm ? armMeasures(lm, f.aspect, "right") : null };
+      const now = performance.now();
+      let head = status;
+      if (rec) {
+        if (now < rec.startsAt) head = `[${rec.move}] ${MOVES[rec.move - 1]}: get ready… ${Math.ceil((rec.startsAt - now) / 1000)}`;
+        else if (now < rec.endsAt) {
+          if (rec.frames === 0) beep(660);
+          rec.frames++;
+          for (const hand of ["left", "right"] as const) {
+            const a = m[hand];
+            if (a) rec.samples[hand].push({ size: a.size, e3: a.elbow3d, e2: a.elbow2d, fwd: a.forward, reach: a.reach, height: -a.down });
+          }
+          head = `[${rec.move}] ${MOVES[rec.move - 1]}: RECORDING ${Math.ceil((rec.endsAt - now) / 1000)}`;
+        } else {
+          results.set(rec.move, summarise(rec.move, rec));
+          status = `Saved [${rec.move}] ${MOVES[rec.move - 1]}. Next move, or C to copy`;
+          rec = null;
+          beep(330);
+          head = status;
+        }
+      }
+      const done = MOVES.map((name, i) => `${results.has(i + 1) ? "✓" : " "} ${i + 1} ${name}`).join("   ");
+      el.textContent = [`fps ${fps.toFixed(0)}   ${head}`, live("left", m.left), live("right", m.right), "", done, "", table()].join("\n");
     },
     punch(label) {
-      lastPunch = label;
+      if (rec && performance.now() >= rec.startsAt) rec.punches.push(label);
     },
   };
 }

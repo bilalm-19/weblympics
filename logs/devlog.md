@@ -1247,3 +1247,14 @@ the format of the entries below (see CLAUDE.md, Docs).
 - **Playtest finding:** the hook doesn't register on a real webcam. Likely cause from the code: a hook must be more sideways than forward, and a real hook arcs forward too, with noisy model depth. Not yet confirmed with numbers.
 - **What happened:** `armMeasures` in `client/input/camera/box-pose.ts` (fist size from wrist to index and pinky knuckles in shoulder widths, elbow angle on screen and with depth, depth in front of the shoulder, reach on screen, height) and a readout under the camera preview, only with `?debug` in the address, showing each arm's live value and peak (R resets). Not for players. The game's rules are unchanged until the numbers say which measure separates "in" from "out".
 - **Next:** the user boxes with the readout; then ADR 002 (arms in/out, server judges, guard by glove position), the sim, keys, camera, 3D.
+
+## 2026-11-05 22:11 AEDT | playtest + tool | Boxing: screenshots of live numbers didn't work; a recording mode instead
+
+- **Decided by:** user (asked for the recording mode and for the method to be written down); Claude (the design).
+- **Finding:** the first readout screenshot showed no live values (the hands were down to take it) and peaks from moments in between, so it said little about the guard. One real number: the model's depth peaked at 3.9 shoulder widths in front, against a real arm's reach of about 1.3, so depth alone looks too noisy for "arm out".
+- **What happened:** the `?debug` readout now records: 1-7 picks a move, 3 s countdown, 5 s recorded, then the move's row (median, 10th and 90th percentile per measure and hand, share of frames seen, punches the current detector read) joins a table; C copies it as text. The method is `docs/camera-playtest.md`, reusable for other games' cameras.
+
+## 2026-11-05 22:12 AEDT | decision | Boxing: a seated player's frame ends at mid-chest
+
+- **Decided by:** user (pointed out a seated player's stomach isn't seen); Claude (the change).
+- **What happened:** head or body is split at the shoulder line, not the stomach; the low guard is forearms across the chest with gloves below the chin; a body punch is aimed at chest height. If the two guards don't separate on camera, the fallback is one guard that blocks head shots only. `docs/camera-playtest.md` updated.
