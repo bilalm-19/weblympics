@@ -22,6 +22,13 @@ each other in real time. So it is built vs the bot first, then two people.
 5. The camera's trial detector (hand-model jab, guards by height) on for everyone, not only `?debug`.
 Movement around the ring is out (user picked the slip only).
 
+### Contract for the rework (Claude, 2026-11-05; the sim and the 3D view are built against it)
+- Inputs (client to server, seat from the connection): `{ t: "punch", hand: "left"|"right", target: "head"|"body", at }`, `{ t: "guard", guard: "high"|"low"|null }`, `{ t: "slip", side: "left"|"right" }`. Anything else, or any extra claim, is dropped.
+- `BoxerSnapshot`: `health`, `guard: Guard` (`"high"|"low"|null`), `slip: { side, until } | null` (until is a tick), `slipReadyAt` (tick), `punches: Record<Hand, Punch|null>` with `Punch { hand, target, thrownTick, landsTick }`, plus the existing counters and `slipped` (head jabs this boxer made miss).
+- `Hit { seat, hand, target, outcome: "clean"|"blocked"|"slipped", damage, tick }`; events `throw { seat, hand, target }`, `hit { seat, hand, target, outcome, damage }`, `slip { seat, side }`, `round`, `bout` as before.
+- Landing: a head jab on a slipping boxer is "slipped" (0 damage); a head jab on a high guard or a body jab on a low guard is "blocked" (BLOCKED_SHARE of damage, rounded); otherwise "clean".
+- Keys: J jab to the head, K jab to the body, hold Space high guard, hold L low guard, A slip left, D slip right; phone buttons for each.
+
 ## Design (Claude's first proposal, superseded where the rework says)
 - **Server owns every hit.** The client sends `punch` (`jab` or `hook`,
   `hand`, its timestamp) and `guard` (up or down) events, never damage or a

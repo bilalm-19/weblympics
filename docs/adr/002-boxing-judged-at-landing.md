@@ -14,7 +14,7 @@ makes a head jab miss. Body jabs beat a high guard and a slip; head jabs beat
 a low guard. Standing in one guard all bout loses to the other target.
 
 Your browser only ever says what you did: "jab, left hand, to the head, at my
-time T", "high guard up", "leaning left". It never says "I hit" or "I
+time T", "high guard up", "slip left". It never says "I hit" or "I
 dodged". The server decides on the tick the jab **lands**: it looks at the
 other boxer's guard and lean at that moment in its own sim.
 
@@ -54,9 +54,11 @@ other boxer's guard and lean at that moment in its own sim.
   just do jabs for now"; Claude: so a keyboard player can't out-hit a camera
   player who can't throw a hook). A jab carries its hand and target (head or
   body).
-- **Defence states:** guard `high` / `low` / none, and lean `left` / `right` /
-  none. Both are inputs the client sends when they change; one arm up is no
-  guard (user, playtest 3).
+- **Defence:** the guard is a state, `high` / `low` / none, sent when it
+  changes; one arm up is no guard (user, playtest 3). A slip is an event,
+  `slip left` or `right`: the server starts a short slip window itself and
+  ends it, so holding a lean buys nothing; the camera fires one when the
+  shoulders tilt past a threshold and re-arms when they come back.
 - **Judged at landing:** a jab lands a short time after it is thrown (the
   number is tuned in the playtest; on camera the read comes late in the
   punch, so it is kept short). On that tick: a head jab misses if the
