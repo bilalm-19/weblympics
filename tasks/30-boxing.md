@@ -1,6 +1,6 @@
 # 30 Boxing
 
-Status: in progress (2026-11-05). Playable in 2D (keys, buttons, practice, rooms); camera playtested on a real webcam (two recordings, a trial detector behind `?debug`); being reworked to ADR 002: the rules are in (jabs to head or body, high/low guard, the slip; sim, bot, keys, buttons, specs; rework items 1-3, camera slip still to record); the 3D ring and the detector for everyone are still to come. A "maybe": dropped if not solid by Sat 7 Nov night.
+Status: in progress (2026-11-05). Playable in 3D (keys, buttons, practice, rooms); camera playtested on a real webcam (two recordings, a trial detector behind `?debug`); being reworked to ADR 002: the rules are in (jabs to head or body, high/low guard, the slip; sim, bot, keys, buttons, specs; rework items 1-3, camera slip still to record); the 3D ring is in (2026-11-06); a camera slip and the detector for everyone are still to come. A "maybe": dropped if not solid by Sat 7 Nov night.
 Model: Opus
 Waits on: nothing (the 3D ring is built from primitives with the tennis character; task 28's kit can replace it later)
 

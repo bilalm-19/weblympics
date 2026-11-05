@@ -37,8 +37,14 @@ lazily and only when a player enters a game. Video never leaves the browser.
   height or slips after a seeded reaction delay, jabs head or body),
   `index.ts` (adapter); its pure camera maths is
   `client/input/camera/box-pose.ts`. Its client is `client/games/boxing/`:
-  `view.ts` (a flat 2D ring on one canvas, bout board, round call,
-  J/K/Space/L/A/D and six buttons), `box-camera.ts` (its camera panel; the pure maths is
+  `view.ts` (HUD, bout board, round call, J/K/Space/L/A/D and six
+  buttons; turns each snapshot into a `RingView`), the 3D scene:
+  `scene.ts` (renderer and cameras: first-person behind your head for a
+  player, side-on for a spectator), `scene-model.ts` (`RingView`, what the
+  scene draws, kept apart from the sim), `ring.ts` (the ring from
+  primitives), `boxer.ts` (the tennis character with no arms plus boxing
+  arms and gloves) and `boxer-pose.ts` (pure poses: `spec/boxing-pose.test.ts`),
+  `box-camera.ts` (its camera panel; the pure maths is
   `box-pose.ts`), `practice.ts` + `practice-sim.ts` (in-page practice vs
   the bot), `boxing.css`; it reuses tennis's ready panel.
   `shared/look.ts`
@@ -221,8 +227,7 @@ lazily and only when a player enters a game. Video never leaves the browser.
 - Game logic stays deterministic (seed + input stream) so it can be tested.
 - Tennis, archery (task 22) and track (tasks 26-27, one game with two
   events: the sprint is playable, hurdles is task 27) are the games; boxing
-  (task 30, a "maybe") is playable on keys, buttons or the camera in a flat 2D ring (its
-  3D scene waits on task 28). Add another only when I ask. Each lives in `shared/games/<name>/` and registers in the registry, so
+  (task 30, a "maybe") is playable on keys, buttons or the camera in a 3D ring. Add another only when I ask. Each lives in `shared/games/<name>/` and registers in the registry, so
   rooms, lobby and reconnect stay game-agnostic. A game's specs are named
   `spec/<name>-*.test.ts` and `e2e/<name>-*.e2e.ts`.
 - Video never leaves the browser. The game page's CSP `connect-src` allows
@@ -271,7 +276,7 @@ lazily and only when a player enters a game. Video never leaves the browser.
   calibration. "elbows" is the provisional default until a real-webcam
   playtest picks one.
 - Boxing's design is `docs/adr/002-boxing-judged-at-landing.md` (user,
-  2026-11-05). Still to come from it: the 3D ring and a camera slip. Camera
+  2026-11-05). Still to come from it: a camera slip (needs a recording). Camera
   numbers come from recordings (`docs/camera-playtest.md`), never guesses.
 - Boxing (task 30; `spec/boxing-*.test.ts`): jabs only. Clients send
   exactly `punch` {hand, target "head"|"body", their own timestamp},
