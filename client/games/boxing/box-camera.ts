@@ -1,8 +1,8 @@
 import { CameraError, openCamera, startPose } from "../../input/camera/camera.ts";
 import type { CameraSession } from "../../input/camera/camera.ts";
 import type { CameraFrame } from "../../input/camera/pose.ts";
-import { BoxTracker, boxFrame } from "../../input/camera/box-pose.ts";
-import type { BoxHand, BoxPunch } from "../../input/camera/box-pose.ts";
+import { BoxTracker, armMeasures, boxFrame } from "../../input/camera/box-pose.ts";
+import type { ArmMeasures, BoxHand, BoxPunch } from "../../input/camera/box-pose.ts";
 
 // Boxing's camera (task 30): the same webcam and local pose model as the other
 // games (video never leaves the browser), read as punches and a guard by
@@ -62,8 +62,11 @@ export function createBoxCamera(view: HTMLElement, button: HTMLButtonElement, ch
     chip.dataset.state = state;
   };
 
+  const debug = createDebugReadout(dock);
+
   const onFrame = (f: CameraFrame) => {
     const frame = f.landmarks ? boxFrame(f.landmarks, f.aspect) : null;
+    debug?.frame(f);
     tracking = frame !== null;
     setChip(frame ? "Tracking" : "Can't see your shoulders", frame ? "ok" : "warn");
     video.dataset.tracking = String(tracking);
@@ -74,6 +77,7 @@ export function createBoxCamera(view: HTMLElement, button: HTMLButtonElement, ch
     }
     guardEl.dataset.on = String(r.guard);
     if (r.punch) {
+      debug?.punch(`${r.punch.hand} ${r.punch.kind}`);
       cb.punch(r.punch.kind, r.punch.hand);
       punchEl.textContent = `${r.punch.hand} ${r.punch.kind}`;
       clearTimeout(punchTimer);
@@ -165,6 +169,67 @@ export function createBoxCamera(view: HTMLElement, button: HTMLButtonElement, ch
       stop();
       dock.remove();
       panel.remove();
+    },
+  };
+}
+
+// Playtest readout (`?debug` in the address, before the `#`): each arm's live
+// measures and their peaks since the last reset, to choose how "arm out" is
+// read from a real webcam. Never shown to players otherwise. R resets the peaks.
+function createDebugReadout(dock: HTMLElement): { frame(f: CameraFrame): void; punch(label: string): void } | null {
+  if (!new URLSearchParams(location.search).has("debug")) return null;
+  const el = document.createElement("pre");
+  el.className = "bx-debug";
+  el.setAttribute("aria-hidden", "true");
+  dock.append(el);
+  type Peak = { sizeMax: number; sizeMin: number; elbowMax: number; fwdMax: number; reachMax: number };
+  const fresh = (): Peak => ({ sizeMax: -Infinity, sizeMin: Infinity, elbowMax: -Infinity, fwdMax: -Infinity, reachMax: -Infinity });
+  const peaks: Record<BoxHand, Peak> = { left: fresh(), right: fresh() };
+  let lastPunch = "–";
+  let fps = 0;
+  let lastT = 0;
+  window.addEventListener("keydown", (e) => {
+    if (e.key === "r" || e.key === "R") {
+      peaks.left = fresh();
+      peaks.right = fresh();
+      lastPunch = "–";
+    }
+  });
+  const n = (v: number | null, d = 2) => (v === null || !Number.isFinite(v) ? "  –  " : v.toFixed(d).padStart(5));
+  const row = (hand: BoxHand, m: ArmMeasures | null) => {
+    const p = peaks[hand];
+    if (m) {
+      if (m.size !== null) {
+        p.sizeMax = Math.max(p.sizeMax, m.size);
+        p.sizeMin = Math.min(p.sizeMin, m.size);
+      }
+      if (m.elbow3d !== null) p.elbowMax = Math.max(p.elbowMax, m.elbow3d);
+      p.fwdMax = Math.max(p.fwdMax, m.forward);
+      p.reachMax = Math.max(p.reachMax, m.reach);
+    }
+    const ratio = p.sizeMin > 0 && Number.isFinite(p.sizeMax) ? p.sizeMax / p.sizeMin : null;
+    return [
+      `${hand.toUpperCase().padEnd(5)}      now    peak`,
+      ` fist size ${n(m?.size ?? null)}  ${n(p.sizeMax)}  min ${n(p.sizeMin)} x${n(ratio, 1)}`,
+      ` elbow 3d  ${n(m?.elbow3d ?? null, 0)}  ${n(p.elbowMax, 0)}  2d ${n(m?.elbow2d ?? null, 0)}`,
+      ` depth fwd ${n(m?.forward ?? null)}  ${n(p.fwdMax)}`,
+      ` reach 2d  ${n(m?.reach ?? null)}  ${n(p.reachMax)}`,
+      ` height    ${n(m ? -m.down : null)}  (+ above shoulders)`,
+    ].join("\n");
+  };
+  return {
+    frame(f) {
+      if (lastT) fps = 0.9 * fps + 0.1 * (1000 / Math.max(1, f.t - lastT));
+      lastT = f.t;
+      const lm = f.landmarks;
+      el.textContent = [
+        `fps ${fps.toFixed(0)}   last punch: ${lastPunch}   (R resets peaks)`,
+        row("left", lm ? armMeasures(lm, f.aspect, "left") : null),
+        row("right", lm ? armMeasures(lm, f.aspect, "right") : null),
+      ].join("\n");
+    },
+    punch(label) {
+      lastPunch = label;
     },
   };
 }

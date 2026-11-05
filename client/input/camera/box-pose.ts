@@ -105,6 +105,66 @@ function face(lm: readonly Point[], frame: BodyFrame, aspect: number, cfg: BoxCo
   return { across: x * a.x + y * a.y, down: x * d.x + y * d.y };
 }
 
+/**
+ * What the playtest readout (`?debug`) shows for one arm, to choose how
+ * "arm out" (a punch) is measured from a real webcam. All in shoulder widths.
+ */
+export interface ArmMeasures {
+  /** The hand's apparent size: wrist to index and pinky knuckles. Grows as the fist nears the camera. */
+  size: number | null;
+  /** Elbow angle on screen, degrees (180 is straight). Foreshortened for a punch at the camera. */
+  elbow2d: number | null;
+  /** Elbow angle using the model's depth too, degrees. */
+  elbow3d: number | null;
+  /** Wrist in front of its shoulder from the model's depth (as `BoxWrist.forward`). */
+  forward: number;
+  /** Wrist's distance from its shoulder on screen. */
+  reach: number;
+  across: number;
+  down: number;
+}
+
+const LEFT_INDEX = 19;
+const RIGHT_INDEX = 20;
+
+function angle(a: Point, b: Point, c: Point, aspect: number, depth: boolean): number | null {
+  const v = (p: Point, q: Point) => [(p.x - q.x) * aspect, p.y - q.y, depth ? ((p.z ?? 0) - (q.z ?? 0)) * aspect : 0];
+  const u = v(a, b);
+  const w = v(c, b);
+  const nu = Math.hypot(u[0], u[1], u[2]);
+  const nw = Math.hypot(w[0], w[1], w[2]);
+  if (nu < 1e-6 || nw < 1e-6) return null;
+  const cos = (u[0] * w[0] + u[1] * w[1] + u[2] * w[2]) / (nu * nw);
+  return (Math.acos(Math.min(1, Math.max(-1, cos))) * 180) / Math.PI;
+}
+
+/** One arm's measures for the readout, or null when its shoulders or wrist aren't seen. */
+export function armMeasures(lm: readonly Point[], aspect: number, hand: BoxHand): ArmMeasures | null {
+  const frame = bodyFrame(lm, aspect);
+  if (!frame) return null;
+  const w = wrist(lm, frame, hand, aspect);
+  if (!w) return null;
+  const left = hand === "left";
+  const sh = lm[left ? LM.leftShoulder : LM.rightShoulder];
+  const el = lm[left ? LM.leftElbow : LM.rightElbow];
+  const wr = lm[left ? LM.leftWrist : LM.rightWrist];
+  const idx = lm[left ? LEFT_INDEX : RIGHT_INDEX];
+  const pk = lm[left ? LM.leftPinky : LM.rightPinky];
+  const dist = (p: Point, q: Point) => Math.hypot((p.x - q.x) * aspect, p.y - q.y) / frame.width;
+  const size = seen(idx) && seen(pk) ? (dist(wr, idx) + dist(wr, pk)) / 2 : null;
+  const elbowSeen = seen(el);
+  const forward = wr.z !== undefined && sh.z !== undefined ? ((sh.z - wr.z) * aspect) / frame.width : 0;
+  return {
+    size,
+    elbow2d: elbowSeen ? angle(sh, el, wr, aspect, false) : null,
+    elbow3d: elbowSeen ? angle(sh, el, wr, aspect, true) : null,
+    forward,
+    reach: dist(wr, sh),
+    across: w.across,
+    down: w.down,
+  };
+}
+
 export interface BoxPunchEvent {
   kind: BoxPunch;
   hand: BoxHand;

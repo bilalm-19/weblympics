@@ -125,3 +125,18 @@
     visibility: hidden;
   }
 }
+
+/* playtest readout, only with ?debug */
+.boxing .bx-debug {
+  position: absolute;
+  right: 0;
+  top: 100%;
+  margin: 0.3rem 0 0;
+  padding: 0.4rem 0.5rem;
+  background: #0f1720e6;
+  color: #e2e8f0;
+  font: 11px/1.3 ui-monospace, monospace;
+  white-space: pre;
+  border-radius: 6px;
+  pointer-events: none;
+}
