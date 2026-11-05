@@ -24,8 +24,9 @@ class PracticeLink implements GameLink {
   }
 
   send(msg: ClientMsg): void {
-    if (msg.t === "punch") this.sim.punch(msg.kind, msg.hand, msg.at);
-    else if (msg.t === "guard") this.sim.guard(msg.up);
+    if (msg.t === "punch") this.sim.punch(msg.hand, msg.target, msg.at);
+    else if (msg.t === "guard") this.sim.guard(msg.guard);
+    else if (msg.t === "slip") this.sim.slip(msg.side);
     else if (msg.t === "pause") this.sim.paused = msg.paused;
     else if (msg.t === "leave") this.stop();
   }

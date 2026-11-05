@@ -321,6 +321,7 @@ wss.on("connection", (ws: WebSocket, req: IncomingMessage) => {
         break;
       case "punch":
       case "guard":
+      case "slip":
         client.room?.box(client, msg);
         break;
       case "mode":

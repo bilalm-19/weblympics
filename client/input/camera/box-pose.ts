@@ -449,3 +449,24 @@ export class TrialDetector {
     this.guard = null;
   }
 }
+
+/** What the camera sends for one frame, in the shapes a key sends (ADR 002). */
+export interface CameraBoxing {
+  guard: BoxGuard;
+  /** A jab read on this frame, or null. */
+  jab: { hand: BoxHand; target: BoxTarget } | null;
+}
+
+/**
+ * Turns either detector's read into ADR 002's messages. The trial detector's
+ * guard height and each jab's target go straight through. The old tracker has
+ * one guard and no target, so its guard is the high guard and its jab goes to
+ * the head. Jabs only: a hook from either is dropped. No slip from the camera
+ * until a real-webcam recording sets its threshold.
+ */
+export function cameraBoxing(read: TrialRead | BoxRead): CameraBoxing {
+  if ("grow" in read) {
+    return { guard: read.guard, jab: read.punch?.kind === "jab" ? { hand: read.punch.hand, target: read.punch.target } : null };
+  }
+  return { guard: read.guard ? "high" : null, jab: read.punch?.kind === "jab" ? { hand: read.punch.hand, target: "head" } : null };
+}

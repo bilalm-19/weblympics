@@ -1,6 +1,6 @@
 import { addSpectating } from "../../ui/spectate.ts";
-import { BREAK_TICKS, HEALTH, ROUNDS, ROUND_TICKS, WINDUP_TICKS } from "../../../shared/games/boxing/sim.ts";
-import type { BoxerSnapshot, BoxingSnapshot, Hand, PunchKind, Seat } from "../../../shared/games/boxing/sim.ts";
+import { BREAK_TICKS, HEALTH, JAB_WINDUP_TICKS, ROUNDS, ROUND_TICKS, SLIP_TICKS } from "../../../shared/games/boxing/sim.ts";
+import type { BoxerSnapshot, BoxingSnapshot, Guard, Hand, Outcome, Seat, Side, Target } from "../../../shared/games/boxing/sim.ts";
 import type { LobbyView, RoomFormat, RoomInfo, ServerMsg } from "../../../shared/protocol.ts";
 import type { GameLink } from "../../net/link.ts";
 import { createReadyPanel } from "../tennis/ready-panel.ts";
@@ -8,20 +8,19 @@ import { createBoxCamera } from "./box-camera.ts";
 import "./boxing.css";
 
 // The boxing view (task 30), first version: a flat 2D ring on one canvas, so
-// the rules can be felt before the 3D scene (a later task) exists. You punch
-// with J (jab) and K (hook), or the buttons; hold Space (or the Guard button)
-// to guard, or the camera (box-camera.ts: a fast hand at the screen is a jab,
-// a sweep across the body a hook, both hands by the face the guard). The
-// server lands every punch after its wind-up and checks the guard then; this
-// only draws what it says.
+// the rules can be felt before the 3D scene exists. ADR 002: J jabs to the
+// head, K to the body; hold Space for a high guard, L for a low one; A and D
+// slip left and right; or the buttons, or the camera (box-camera.ts). The
+// server lands every jab after its wind-up and judges the guard and slip
+// then; this only draws what it says.
 
 const FORMATS: readonly RoomFormat[] = ["bout", "unlimited"];
 const SEAT_CSS = ["#2f7fe0", "#e0453a"] as const;
 const SEAT_SKIN = ["#f3cfae", "#e0b48a"] as const;
-const PUNCH_KEYS: Record<string, { kind: PunchKind; hand?: Hand }> = {
-  KeyJ: { kind: "jab" },
-  KeyK: { kind: "hook" },
-};
+const PUNCH_KEYS: Record<string, Target> = { KeyJ: "head", KeyK: "body" };
+const GUARD_KEYS: Record<string, "high" | "low"> = { Space: "high", KeyL: "low" };
+const SLIP_KEYS: Record<string, Side> = { KeyA: "left", KeyD: "right" };
+const OUTCOME_COLOUR: Record<Outcome, string> = { clean: "#fbbf24", blocked: "#7dd3fc", slipped: "#e2e8f0" };
 
 export interface BoxingViewOptions {
   local?: boolean;
@@ -55,9 +54,12 @@ export function startBoxing(root: HTMLElement, conn: GameLink, info: RoomInfo, o
     </div>
     <div class="bx-call" aria-live="polite" hidden></div>
     <div class="controls bx-controls" hidden>
-      <button class="primary" type="button" data-punch="jab" aria-label="Jab (J)">Jab</button>
-      <button class="primary" type="button" data-punch="hook" aria-label="Hook (K)">Hook</button>
-      <button type="button" data-guard aria-label="Guard (hold Space)">Guard</button>
+      <button class="primary" type="button" data-punch="head" aria-label="Head jab (J)">Head</button>
+      <button class="primary" type="button" data-punch="body" aria-label="Body jab (K)">Body</button>
+      <button type="button" data-guard="high" aria-label="High guard (hold Space)">High guard</button>
+      <button type="button" data-guard="low" aria-label="Low guard (hold L)">Low guard</button>
+      <button type="button" data-slip="left" aria-label="Slip left (A)">Slip ◀</button>
+      <button type="button" data-slip="right" aria-label="Slip right (D)">Slip ▶</button>
     </div>
   `;
   root.replaceChildren(view);
@@ -81,70 +83,86 @@ export function startBoxing(root: HTMLElement, conn: GameLink, info: RoomInfo, o
   const playing = () => !lobby || info.practice || lobby.phase === "playing";
   const canBox = () => info.seat !== null && snap?.phase === "round" && playing();
 
-  // ---- input: punches and the guard, never a claim of damage ----
+  // ---- input: jabs, the guard and the slip, never a claim of damage ----
   let nextHand: Hand = "left";
-  const punch = (kind: PunchKind) => {
-    if (!canBox()) return;
+  const count = () => (canvas.dataset.sent = String(Number(canvas.dataset.sent ?? 0) + 1));
+  const punch = (target: Target, hand?: Hand) => {
+    if (!canBox()) return false;
     // alternate hands; the server refuses a busy one and the other is tried next press
-    const hand = nextHand;
-    nextHand = hand === "left" ? "right" : "left";
-    conn.send({ t: "punch", kind, hand, at: performance.now() });
-    canvas.dataset.sent = String(Number(canvas.dataset.sent ?? 0) + 1);
+    const h = hand ?? nextHand;
+    nextHand = h === "left" ? "right" : "left";
+    conn.send({ t: "punch", hand: h, target, at: performance.now() });
+    count();
+    return true;
   };
-  let guardUp = false;
-  const guard = (up: boolean) => {
-    if (up === guardUp) return;
-    if (up && !canBox()) return;
-    guardUp = up;
-    view.dataset.guard = String(up);
-    conn.send({ t: "guard", up });
+  // the guard is a state: the last guard asked for, from a key, a button or the camera
+  let guardNow: Guard = null;
+  const guard = (g: Guard) => {
+    if (g === guardNow) return;
+    if (g !== null && !canBox()) return;
+    guardNow = g;
+    view.dataset.guard = g ?? "none";
+    conn.send({ t: "guard", guard: g });
+  };
+  // a held key or button wins until let go; releasing one falls back to the other if it is still held
+  const held = new Set<"high" | "low">();
+  const hold = (g: "high" | "low", down: boolean) => {
+    if (down) held.add(g);
+    else held.delete(g);
+    guard(down ? g : held.has("high") ? "high" : held.has("low") ? "low" : null);
+  };
+  const slip = (side: Side) => {
+    if (!canBox()) return;
+    conn.send({ t: "slip", side });
+    canvas.dataset.slips = String(Number(canvas.dataset.slips ?? 0) + 1);
   };
 
   const onKeyDown = (e: KeyboardEvent) => {
     if (e.target instanceof HTMLInputElement || e.target instanceof HTMLSelectElement) return;
-    if (e.code === "Space") {
+    const g = GUARD_KEYS[e.code];
+    if (g) {
       e.preventDefault();
-      guard(true);
+      if (!e.repeat) hold(g, true);
       return;
     }
-    const p = PUNCH_KEYS[e.code];
-    if (!p) return;
+    const target = PUNCH_KEYS[e.code];
+    const side = SLIP_KEYS[e.code];
+    if (!target && !side) return;
     e.preventDefault();
-    if (!e.repeat) punch(p.kind);
+    if (e.repeat) return;
+    if (target) punch(target);
+    else slip(side);
   };
   const onKeyUp = (e: KeyboardEvent) => {
-    if (e.code === "Space") guard(false);
+    const g = GUARD_KEYS[e.code];
+    if (g) hold(g, false);
   };
   window.addEventListener("keydown", onKeyDown);
   window.addEventListener("keyup", onKeyUp);
 
-  for (const b of view.querySelectorAll<HTMLButtonElement>("[data-punch]")) {
+  for (const b of view.querySelectorAll<HTMLButtonElement>(".bx-controls button")) {
+    b.addEventListener("contextmenu", (e) => e.preventDefault());
+    const g = b.dataset.guard as "high" | "low" | undefined;
     b.addEventListener("pointerdown", (e) => {
       e.preventDefault();
-      punch(b.dataset.punch as PunchKind);
+      if (b.dataset.punch) punch(b.dataset.punch as Target);
+      else if (b.dataset.slip) slip(b.dataset.slip as Side);
+      else if (g) hold(g, true);
     });
-    b.addEventListener("contextmenu", (e) => e.preventDefault());
+    if (g) for (const ev of ["pointerup", "pointercancel", "pointerleave"]) b.addEventListener(ev, () => hold(g, false));
   }
-  const guardButton = view.querySelector("[data-guard]") as HTMLButtonElement;
-  guardButton.addEventListener("pointerdown", (e) => {
-    e.preventDefault();
-    guard(true);
-  });
-  for (const ev of ["pointerup", "pointercancel", "pointerleave"]) guardButton.addEventListener(ev, () => guard(false));
-  guardButton.addEventListener("contextmenu", (e) => e.preventDefault());
 
   // ---- the camera: the same punch and guard as the keys ----
   const cameraButton = view.querySelector("[data-action=camera]") as HTMLButtonElement;
   cameraButton.hidden = info.seat === null;
   const boxCam = createBoxCamera(view, cameraButton, view.querySelector(".tracking") as HTMLElement, {
-    punch: (kind, hand) => {
-      if (!canBox()) return;
-      nextHand = hand === "left" ? "right" : "left";
-      conn.send({ t: "punch", kind, hand, at: performance.now() });
-      canvas.dataset.sent = String(Number(canvas.dataset.sent ?? 0) + 1);
-      canvas.dataset.camPunch = String(Number(canvas.dataset.camPunch ?? 0) + 1);
+    punch: (hand, target) => {
+      if (punch(target, hand)) canvas.dataset.camPunch = String(Number(canvas.dataset.camPunch ?? 0) + 1);
     },
-    guard,
+    guard: (g) => {
+      // a held key or button outranks the camera
+      if (held.size === 0) guard(g);
+    },
     pause: (p) => {
       if (info.practice) conn.send({ t: "pause", paused: p });
     },
@@ -205,7 +223,7 @@ export function startBoxing(root: HTMLElement, conn: GameLink, info: RoomInfo, o
     else if (s.phase === "over") {
       statusEl.textContent =
         s.result === "draw" ? "A draw." : s.winner === info.seat ? (s.result === "ko" ? "Knockout! You win." : "You win on points.") : `${label((s.winner ?? 0) as Seat)} wins${s.result === "ko" ? " by knockout" : " on points"}.`;
-    } else if (s.phase === "round") statusEl.textContent = info.seat === null ? "Boxing" : "J jab · K hook · hold Space to guard";
+    } else if (s.phase === "round") statusEl.textContent = info.seat === null ? "Boxing" : "J head · K body · hold Space high guard, L low · A/D slip";
   };
 
   const unsubscribe = conn.on((msg: ServerMsg) => {
@@ -217,8 +235,14 @@ export function startBoxing(root: HTMLElement, conn: GameLink, info: RoomInfo, o
         else if (prev.phase === "round" && next.phase === "break") call(`Round ${prev.round} over`, 1800);
         else if (prev.phase === "break" && next.phase === "round") call(`Round ${next.round}`, 1200);
       } else if (next.phase === "round" && next.phaseTick < 90) call(`Round ${next.round}`, 1200);
-      if (next.lastHit && (!prev?.lastHit || next.lastHit.tick !== prev.lastHit.tick)) flash(next.lastHit.seat === 0 ? 1 : 0, next.lastHit.guarded);
+      if (next.lastHit && (!prev?.lastHit || next.lastHit.tick !== prev.lastHit.tick)) {
+        flash(next.lastHit.seat === 0 ? 1 : 0, next.lastHit.outcome, next.lastHit.target);
+        canvas.dataset.outcome = next.lastHit.outcome;
+      }
       snap = next;
+      canvas.dataset.g0 = next.boxers[0].guard ?? "none";
+      canvas.dataset.g1 = next.boxers[1].guard ?? "none";
+      canvas.dataset.slip0 = next.boxers[0].slip?.side ?? "none";
       canvas.dataset.phase = next.phase;
       canvas.dataset.round = String(next.round);
       canvas.dataset.h0 = String(next.boxers[0].health);
@@ -247,12 +271,13 @@ export function startBoxing(root: HTMLElement, conn: GameLink, info: RoomInfo, o
   });
   (view.querySelector(".bx-controls") as HTMLElement).hidden = info.seat === null;
 
-  // ---- drawing: a flat ring, the boxers facing each other, punches in flight ----
+  // ---- drawing: a flat ring, the boxers facing each other, jabs in flight ----
   const hurt = [0, 0]; // seconds of "ouch" shake left, per boxer
-  const blocked = [0, 0];
-  function flash(victim: Seat, guarded: boolean): void {
-    if (guarded) blocked[victim] = 0.25;
-    else hurt[victim] = 0.3;
+  // the last hit's word over the boxer it landed on, fading
+  const marks: Array<{ outcome: Outcome; target: Target; left: number } | null> = [null, null];
+  function flash(victim: Seat, outcome: Outcome, target: Target): void {
+    if (outcome === "clean") hurt[victim] = 0.3;
+    marks[victim] = { outcome, target, left: 0.7 };
   }
 
   const resize = () => {
@@ -266,30 +291,37 @@ export function startBoxing(root: HTMLElement, conn: GameLink, info: RoomInfo, o
 
   const drawBoxer = (seat: Seat, b: BoxerSnapshot, tick: number, cx: number, floor: number, u: number, dir: 1 | -1, dt: number) => {
     hurt[seat] = Math.max(0, hurt[seat] - dt);
-    blocked[seat] = Math.max(0, blocked[seat] - dt);
     const shake = hurt[seat] > 0 ? Math.sin(hurt[seat] * 90) * 0.12 * u : 0;
     const x = cx + shake;
     const shirt = SEAT_CSS[seat];
+    // a slip leans the upper body to its side (left/right as the boxer sees it),
+    // full in the middle of the window and back at its ends
+    let lean = 0;
+    if (b.slip) {
+      const t = Math.min(1, Math.max(0, 1 - (b.slip.until - tick) / SLIP_TICKS));
+      lean = (b.slip.side === "left" ? -1 : 1) * dir * Math.sin(t * Math.PI) * 0.9 * u;
+    }
     ctx.save();
     // legs
     ctx.fillStyle = "#2b303b";
     ctx.fillRect(x - 0.55 * u, floor - 1.7 * u, 0.5 * u, 1.7 * u);
     ctx.fillRect(x + 0.05 * u, floor - 1.7 * u, 0.5 * u, 1.7 * u);
+    const ux = x + lean;
     // torso
     ctx.fillStyle = shirt;
     ctx.beginPath();
-    ctx.roundRect(x - 0.8 * u, floor - 3.9 * u, 1.6 * u, 2.4 * u, 0.4 * u);
+    ctx.roundRect(ux - 0.8 * u, floor - 3.9 * u, 1.6 * u, 2.4 * u, 0.4 * u);
     ctx.fill();
     // head
     ctx.fillStyle = SEAT_SKIN[seat];
     ctx.beginPath();
-    ctx.arc(x, floor - 4.7 * u, 0.75 * u, 0, Math.PI * 2);
+    ctx.arc(ux, floor - 4.7 * u, 0.75 * u, 0, Math.PI * 2);
     ctx.fill();
     ctx.fillStyle = "#222";
     ctx.beginPath();
-    ctx.arc(x + dir * 0.28 * u, floor - 4.78 * u, 0.09 * u, 0, Math.PI * 2);
+    ctx.arc(ux + dir * 0.28 * u, floor - 4.78 * u, 0.09 * u, 0, Math.PI * 2);
     ctx.fill();
-    // guard: both gloves up by the face
+    // the guard: both gloves by the face (high) or forearms across the chest (low)
     const gloveR = 0.42 * u;
     const glove = (gx: number, gy: number, strong: boolean) => {
       ctx.fillStyle = strong ? "#fff" : shirt;
@@ -302,25 +334,38 @@ export function startBoxing(root: HTMLElement, conn: GameLink, info: RoomInfo, o
     };
     for (const hand of ["left", "right"] as const) {
       const p = b.punches[hand];
-      const rest = b.guard ? { x: x + dir * 0.55 * u, y: floor - 4.4 * u } : { x: x + dir * (hand === "left" ? 0.7 : 0.35) * u, y: floor - (hand === "left" ? 3.3 : 3.0) * u };
+      const off = hand === "left" ? 0 : -0.2 * u;
+      const rest =
+        b.guard === "high"
+          ? { x: ux + dir * 0.55 * u, y: floor - 4.6 * u + off }
+          : b.guard === "low"
+            ? { x: ux + dir * 0.6 * u, y: floor - 3.1 * u + off }
+            : { x: ux + dir * (hand === "left" ? 0.7 : 0.35) * u, y: floor - (hand === "left" ? 3.6 : 3.3) * u };
       let gx = rest.x;
       let gy = rest.y;
       if (p) {
-        // wind-up then reach: the glove travels out, landing on the tick the server lands it
-        const total = WINDUP_TICKS[p.kind];
-        const t = Math.min(1, Math.max(0, (tick - p.thrownTick) / total));
-        const reach = (p.kind === "jab" ? 2.6 : 2.2) * u * Math.sin(t * Math.PI * 0.5);
+        // the reach: the glove travels out, landing on the tick the server lands it, high or low by target
+        const t = Math.min(1, Math.max(0, (tick - p.thrownTick) / JAB_WINDUP_TICKS));
+        const reach = 2.6 * u * Math.sin(t * Math.PI * 0.5);
         gx = rest.x + dir * reach;
-        gy = rest.y - (p.kind === "hook" ? Math.sin(t * Math.PI) * 0.5 * u : 0) - (hand === "left" ? 0.3 : 0) * u;
+        const aimY = floor - (p.target === "head" ? 4.6 : 3.0) * u;
+        gy = rest.y + (aimY - rest.y) * t;
       }
       glove(gx, gy, p !== null);
     }
-    if (blocked[seat] > 0) {
-      ctx.strokeStyle = "#7dd3fc";
-      ctx.lineWidth = 0.14 * u;
-      ctx.beginPath();
-      ctx.arc(x + dir * 0.9 * u, floor - 4.2 * u, 1.1 * u, -0.9, 0.9);
-      ctx.stroke();
+    // the last hit's word where it landed: CLEAN, BLOCKED or SLIPPED
+    const m = marks[seat];
+    if (m) {
+      m.left -= dt;
+      if (m.left <= 0) marks[seat] = null;
+      else {
+        ctx.globalAlpha = Math.min(1, m.left / 0.3);
+        ctx.fillStyle = OUTCOME_COLOUR[m.outcome];
+        ctx.font = `800 ${Math.round(0.55 * u)}px system-ui, sans-serif`;
+        ctx.textAlign = "center";
+        ctx.fillText(m.outcome.toUpperCase(), x, floor - (m.target === "head" ? 5.8 : 2.3) * u);
+        ctx.globalAlpha = 1;
+      }
     }
     ctx.restore();
   };

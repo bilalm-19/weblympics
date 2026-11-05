@@ -1,9 +1,9 @@
 import { expect, test } from "@playwright/test";
 import type { Page } from "@playwright/test";
 
-// Task 30: boxing at both viewports. Keys and buttons throw punches and hold
-// the guard (the camera, task 30's box-pose.ts, is not wired in yet). Practice
-// runs in the page and sends nothing.
+// Task 30 (ADR 002): boxing at both viewports. J and K jab to the head and
+// body, Space and L hold the high and low guard, A and D slip; six buttons do
+// the same on a phone. Practice runs in the page and sends nothing.
 
 const noHorizontalScroll = (page: Page) => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth);
 const canvas = (page: Page) => page.locator(".boxing canvas");
@@ -53,41 +53,72 @@ test("practice: punches wear the sparring partner down, in the page, nothing sen
   }
   await expect.poll(() => health(page, 1)).toBeLessThan(before);
   expect(Number(await canvas(page).getAttribute("data-sent"))).toBeGreaterThanOrEqual(8);
+  // A and D slip: the sim starts the window (the snapshot shows it) and ends it
+  await page.keyboard.press("KeyA");
+  await expect(canvas(page)).toHaveAttribute("data-slip0", "left");
+  await expect(canvas(page)).toHaveAttribute("data-slip0", "none");
+  await page.waitForTimeout(800);
+  await page.keyboard.press("KeyD");
+  await expect(canvas(page)).toHaveAttribute("data-slip0", "right");
+  // hold L for the low guard; the server's snapshot carries it
+  await page.keyboard.down("KeyL");
+  await expect(page.locator(".boxing")).toHaveAttribute("data-guard", "low");
+  await expect(canvas(page)).toHaveAttribute("data-g0", "low");
+  await page.keyboard.up("KeyL");
+  await expect(canvas(page)).toHaveAttribute("data-g0", "none");
 
   expect(frames.slice(sent).map((f) => JSON.parse(f).t).filter((t) => t !== "pong"), "practice sends nothing").toEqual([]);
   await page.getByRole("button", { name: "Done" }).click();
   await expect(page.locator("#options-title")).toHaveText("Boxing");
 });
 
-test("the Jab, Hook and Guard buttons work too, and holding Guard raises it", async ({ page }) => {
+test("the six buttons: Head and Body jab, the guards go up while held, the slips lean", async ({ page }) => {
   await openBoxing(page);
   await startPractice(page);
+  const names = ["Head", "Body", "High guard", "Low guard", "Slip ◀", "Slip ▶"];
+  const v = page.viewportSize()!;
+  for (const name of names) {
+    const b = page.locator(".bx-controls button", { hasText: name });
+    await expect(b).toBeVisible();
+    const box = (await b.boundingBox())!;
+    expect(box.x).toBeGreaterThanOrEqual(0);
+    expect(box.x + box.width).toBeLessThanOrEqual(v.width);
+    expect(box.y + box.height).toBeLessThanOrEqual(v.height);
+  }
+  expect(await noHorizontalScroll(page)).toBe(true);
+
   const before = await health(page, 1);
-  const jab = page.getByRole("button", { name: /^Jab/ });
+  const head = page.getByRole("button", { name: /^Head jab/ });
+  const body = page.getByRole("button", { name: /^Body jab/ });
   for (let i = 0; i < 6; i++) {
-    await jab.dispatchEvent("pointerdown");
+    await (i % 2 ? body : head).dispatchEvent("pointerdown");
     await page.waitForTimeout(420);
   }
   await expect.poll(() => health(page, 1)).toBeLessThan(before);
 
-  const guard = page.getByRole("button", { name: /^Guard/ });
-  await guard.dispatchEvent("pointerdown");
-  await expect(page.locator(".boxing")).toHaveAttribute("data-guard", "true");
-  await guard.dispatchEvent("pointerup");
-  await expect(page.locator(".boxing")).toHaveAttribute("data-guard", "false");
+  for (const [name, g] of [[/^High guard/, "high"], [/^Low guard/, "low"]] as const) {
+    const b = page.getByRole("button", { name });
+    await b.dispatchEvent("pointerdown");
+    await expect(page.locator(".boxing")).toHaveAttribute("data-guard", g);
+    await expect(canvas(page)).toHaveAttribute("data-g0", g);
+    await b.dispatchEvent("pointerup");
+    await expect(page.locator(".boxing")).toHaveAttribute("data-guard", "none");
+  }
+  await page.getByRole("button", { name: /^Slip right/ }).dispatchEvent("pointerdown");
+  await expect(canvas(page)).toHaveAttribute("data-slip0", "right");
 });
 
-test("holding Space guards, and a guarded boxer loses far less than an open one", async ({ page }) => {
+test("holding Space raises the high guard; the bot goes to the body, and the low guard is still yours to find", async ({ page }) => {
   await openBoxing(page);
   await startPractice(page);
   await page.keyboard.down("Space");
-  await expect(page.locator(".boxing")).toHaveAttribute("data-guard", "true");
-  await page.waitForTimeout(6000);
-  const guarded = 500 - (await health(page, 0));
+  await expect(page.locator(".boxing")).toHaveAttribute("data-guard", "high");
+  await expect(canvas(page)).toHaveAttribute("data-g0", "high");
+  // a guarded or clean hit is drawn and named on the canvas
+  await expect.poll(() => canvas(page).getAttribute("data-outcome"), { timeout: 15_000 }).toMatch(/^(clean|blocked)$/);
   await page.keyboard.up("Space");
-  await expect(page.locator(".boxing")).toHaveAttribute("data-guard", "false");
-  // the bot throws about a punch a second; with the guard up each costs a fifth
-  expect(guarded).toBeLessThan(40);
+  await expect(page.locator(".boxing")).toHaveAttribute("data-guard", "none");
+  await expect(canvas(page)).toHaveAttribute("data-g0", "none");
 });
 
 test("a room offers boxing's own formats", async ({ page }) => {
@@ -127,7 +158,7 @@ test("camera: the panel offers a keyboard way out, the fake webcam starts, and k
   await expect(page.locator(".bx-read")).toBeVisible();
   expect(await noHorizontalScroll(page)).toBe(true);
 
-  // with the camera on, J, K and the guard still work. The pose model on a
+  // with the camera on, J and K still work. The pose model on a
   // software-rendered page starves the in-page sim's timer, so allow longer.
   await expect(canvas(page)).toHaveAttribute("data-phase", "round", { timeout: 30_000 });
   const before = Number(await canvas(page).getAttribute("data-sent") ?? 0);

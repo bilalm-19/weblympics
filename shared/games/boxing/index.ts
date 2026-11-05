@@ -3,19 +3,32 @@ import { botInputs } from "./bot.ts";
 import { cloneState, createState, snapshot, step } from "./sim.ts";
 import type { BoxingInput, BoxingState, Format, Seat } from "./sim.ts";
 
+const KEYS: Record<BoxingInput["t"], readonly string[]> = {
+  punch: ["t", "hand", "target", "at"],
+  guard: ["t", "guard"],
+  slip: ["t", "side"],
+};
+
 /**
- * Validates one seat's input. The seat comes from the connection, never the
- * payload, and anything else in it (damage, health, a hit) is dropped.
+ * Validates one seat's input: exactly one of the three contract shapes
+ * (task 30's "Contract for the rework"), `punch` {hand, target, at},
+ * `guard` {guard: "high"|"low"|null} or `slip` {side}. The seat comes from
+ * the connection, never the payload. Anything else is dropped whole: an
+ * unknown type, a bad value, or any extra field (a damage, a health, a hit,
+ * a seat, the old `kind` or `up`).
  */
 export function asInput(seat: Seat, input: unknown): BoxingInput | null {
-  if (typeof input !== "object" || input === null) return null;
+  if (typeof input !== "object" || input === null || Array.isArray(input)) return null;
   const m = input as Record<string, unknown>;
-  if (m.t === "guard") return typeof m.up === "boolean" ? { t: "guard", seat, up: m.up } : null;
-  if (m.t !== "punch") return null;
-  if (m.kind !== "jab" && m.kind !== "hook") return null;
+  if (m.t !== "punch" && m.t !== "guard" && m.t !== "slip") return null;
+  const allowed = KEYS[m.t];
+  if (Object.keys(m).some((k) => !allowed.includes(k))) return null;
+  if (m.t === "guard") return m.guard === "high" || m.guard === "low" || m.guard === null ? { t: "guard", seat, guard: m.guard } : null;
+  if (m.t === "slip") return m.side === "left" || m.side === "right" ? { t: "slip", seat, side: m.side } : null;
   if (m.hand !== "left" && m.hand !== "right") return null;
+  if (m.target !== "head" && m.target !== "body") return null;
   if (typeof m.at !== "number" || !Number.isFinite(m.at)) return null;
-  return { t: "punch", seat, kind: m.kind, hand: m.hand, at: m.at };
+  return { t: "punch", seat, hand: m.hand, target: m.target, at: m.at };
 }
 
 /** "unlimited" boxes bout after bout; anything else is a single bout. */
@@ -54,6 +67,8 @@ function makeInstance(s: BoxingState): GameInstance {
       s.phase === "over" && s.result !== null && s.format !== "unlimited"
         ? { winner: s.winner, score: [s.boxers[0].dealt, s.boxers[1].dealt], format: s.format }
         : null,
-    botInputs: (seat) => botInputs(s, seat),
+    // on the wire shape, like a client's: the room adds the seat back and
+    // asInput refuses an input that names its own seat
+    botInputs: (seat) => botInputs(s, seat).map(({ seat: _seat, ...wire }) => wire),
   };
 }

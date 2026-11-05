@@ -57,7 +57,7 @@ const MOVES_PER_SECOND = 40;
 // track: footfalls a second accepted from one seat before the sim's own
 // cadence cap; anything past this is a flood and is dropped here
 const STEPS_PER_SECOND = 30;
-// boxing: punch and guard messages a second accepted from one seat before
+// boxing: punch, guard and slip messages a second accepted from one seat before
 // the sim's own punch cap; past this is a flood and is dropped here
 const BOX_PER_SECOND = 30;
 const MAX_CATCHUP_TICKS = 5;
@@ -321,10 +321,12 @@ export class Room {
   }
 
   /**
-   * Boxing's punch and guard, in arrival order (a guard dropped then a jab in
-   * one tick throws the jab). The game lands punches and owns all damage.
+   * Boxing's punch, guard and slip, in arrival order (a guard dropped then a
+   * jab in one tick throws the jab). Rebuilt field by field, so nothing else a
+   * client put in the message reaches the game. The game lands jabs, ends
+   * slips and owns all damage.
    */
-  box(c: Client, msg: Extract<ClientMsg, { t: "punch" | "guard" }>): void {
+  box(c: Client, msg: Extract<ClientMsg, { t: "punch" | "guard" | "slip" }>): void {
     if (c.seat === null) return;
     const w = this.boxWindow[c.seat];
     if (this.ticks - w.start >= 60) {
@@ -332,7 +334,12 @@ export class Room {
       w.count = 0;
     }
     if (++w.count > BOX_PER_SECOND) return;
-    const input = msg.t === "punch" ? { t: "punch", kind: msg.kind, hand: msg.hand, at: msg.at } : { t: "guard", up: msg.up };
+    const input =
+      msg.t === "punch"
+        ? { t: "punch", hand: msg.hand, target: msg.target, at: msg.at }
+        : msg.t === "guard"
+          ? { t: "guard", guard: msg.guard }
+          : { t: "slip", side: msg.side };
     this.pending.push({ seat: c.seat, input });
   }
 

@@ -1,6 +1,6 @@
 import { botInputs } from "../../../shared/games/boxing/bot.ts";
 import { createState, snapshot, step } from "../../../shared/games/boxing/sim.ts";
-import type { BoxingInput, BoxingSnapshot, BoxingState, Hand, PunchKind } from "../../../shared/games/boxing/sim.ts";
+import type { BoxingInput, BoxingSnapshot, BoxingState, Guard, Hand, Side, Target } from "../../../shared/games/boxing/sim.ts";
 
 // Boxing practice (task 30): the bout sim in the page, you in seat 0 against
 // the bot, bout after bout. No room, no score kept, nothing sent anywhere.
@@ -15,12 +15,16 @@ export class PracticeSim {
     this.state = createState(seed, { endless: true });
   }
 
-  punch(kind: PunchKind, hand: Hand, at: number): void {
-    this.queued.push({ t: "punch", seat: 0, kind, hand, at });
+  punch(hand: Hand, target: Target, at: number): void {
+    this.queued.push({ t: "punch", seat: 0, hand, target, at });
   }
 
-  guard(up: boolean): void {
-    this.queued.push({ t: "guard", seat: 0, up });
+  guard(guard: Guard): void {
+    this.queued.push({ t: "guard", seat: 0, guard });
+  }
+
+  slip(side: Side): void {
+    this.queued.push({ t: "slip", seat: 0, side });
   }
 
   tick(): void {

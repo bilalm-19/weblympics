@@ -1,155 +1,361 @@
-// Boxing's sim (task 30): the server owns every hit. Punches have a wind-up,
-// the guard is checked when the punch lands, a hand recovers before it
-// throws again, a cap stops flailing, 3 x 30 s rounds, KO, decision, draw.
+// Boxing's sim (task 30, ADR 002): the server owns every hit. Jabs only, to
+// the head or the body, with a short wind-up; the defender's guard (high, low
+// or none) and slip are judged on the landing tick; a slip is a window the
+// sim ends itself, with a cooldown; a hand recovers before it throws again; a
+// cap stops flailing; 3 x 30 s rounds, KO, decision, draw.
 import { describe, expect, it } from "vitest";
-import { botInputs, botWantsGuard } from "../shared/games/boxing/bot.ts";
+import { BOT_PUNCH_CHANCE, botDefence, botInputs, botWantsGuard } from "../shared/games/boxing/bot.ts";
 import { asInput, boxing, boxingFrom } from "../shared/games/boxing/index.ts";
 import {
+  BLOCKED_SHARE,
   BREAK_TICKS,
-  DAMAGE,
   HEALTH,
+  JAB_DAMAGE,
+  JAB_WINDUP_MS,
+  JAB_WINDUP_TICKS,
   MAX_PUNCH_RATE,
   RECOVER_TICKS,
   ROUNDS,
   ROUND_TICKS,
+  SLIP_COOLDOWN_MS,
+  SLIP_COOLDOWN_TICKS,
+  SLIP_MS,
+  SLIP_TICKS,
   TICK_MS,
-  WINDUP_TICKS,
   createState,
   damageFor,
+  judge,
   snapshot,
   step,
 } from "../shared/games/boxing/sim.ts";
-import type { BoxingInput, BoxingState, Hand, PunchKind, Seat } from "../shared/games/boxing/sim.ts";
+import type { BoxingEvent, BoxingInput, BoxingState, Guard, Hand, Seat, Side, Target } from "../shared/games/boxing/sim.ts";
 import { games } from "../shared/games/registry.ts";
 import { isRated } from "../server/schema.ts";
 
-const punch = (s: BoxingState, seat: Seat, kind: PunchKind, hand: Hand = "right"): BoxingInput => ({ t: "punch", seat, kind, hand, at: s.tick * TICK_MS });
-const guard = (seat: Seat, up: boolean): BoxingInput => ({ t: "guard", seat, up });
+const punch = (s: BoxingState, seat: Seat, target: Target = "head", hand: Hand = "right"): BoxingInput => ({ t: "punch", seat, hand, target, at: s.tick * TICK_MS });
+const guard = (seat: Seat, g: Guard): BoxingInput => ({ t: "guard", seat, guard: g });
+const slip = (seat: Seat, side: Side = "left"): BoxingInput => ({ t: "slip", seat, side });
 const idle = (s: BoxingState, n: number) => {
-  for (let i = 0; i < n; i++) step(s, []);
+  const ev: BoxingEvent[] = [];
+  for (let i = 0; i < n; i++) ev.push(...step(s, []));
+  return ev;
 };
 
-describe("boxing punches", () => {
+describe("boxing jabs", () => {
   it("is registered with its own formats, a bout by default", () => {
     expect(games.boxing).toBe(boxing);
     expect(boxing.formats).toEqual(["bout", "unlimited"]);
   });
 
-  it("a jab lands after its 200 ms wind-up, a hook after 350 ms, for full damage on an open boxer", () => {
-    expect(WINDUP_TICKS).toEqual({ jab: 12, hook: 21 });
-    for (const kind of ["jab", "hook"] as const) {
+  it("the playtest's first numbers: jab 6, a 150 ms wind-up, a 400 ms slip, a 1 s slip cooldown, health 500", () => {
+    expect(JAB_DAMAGE).toBe(6);
+    expect(JAB_WINDUP_MS).toBe(150);
+    expect(JAB_WINDUP_TICKS).toBe(9);
+    expect(SLIP_MS).toBe(400);
+    expect(SLIP_TICKS).toBe(24);
+    expect(SLIP_COOLDOWN_MS).toBe(1000);
+    expect(SLIP_COOLDOWN_TICKS).toBe(60);
+    expect(HEALTH).toBe(500);
+  });
+
+  it("a jab lands after its wind-up, for full damage on an open boxer, to the head or the body", () => {
+    for (const target of ["head", "body"] as const) {
       const s = createState(1);
-      step(s, [punch(s, 0, kind)]);
-      idle(s, WINDUP_TICKS[kind] - 1);
+      const thrown = step(s, [punch(s, 0, target)]);
+      expect(thrown).toContainEqual({ type: "throw", seat: 0, hand: "right", target });
+      expect(s.boxers[0].punches.right).toEqual({ hand: "right", target, thrownTick: 1, landsTick: 1 + JAB_WINDUP_TICKS });
+      idle(s, JAB_WINDUP_TICKS - 1);
       expect(s.boxers[1].health).toBe(HEALTH);
-      expect(s.boxers[0].punches.right).not.toBeNull();
       const ev = step(s, []);
-      expect(ev).toContainEqual({ type: "hit", seat: 0, kind, hand: "right", guarded: false, damage: DAMAGE[kind] });
-      expect(s.boxers[1].health).toBe(HEALTH - DAMAGE[kind]);
-      expect(s.boxers[0].dealt).toBe(DAMAGE[kind]);
+      expect(ev).toContainEqual({ type: "hit", seat: 0, hand: "right", target, outcome: "clean", damage: JAB_DAMAGE });
+      expect(s.lastHit).toEqual({ seat: 0, hand: "right", target, outcome: "clean", damage: JAB_DAMAGE, tick: 1 + JAB_WINDUP_TICKS });
+      expect(s.boxers[1].health).toBe(HEALTH - JAB_DAMAGE);
+      expect(s.boxers[0].dealt).toBe(JAB_DAMAGE);
+      expect(s.boxers[0].landed).toBe(1);
     }
   });
 
-  it("a guarded punch does 20% of its damage", () => {
-    expect(damageFor("jab", true)).toBe(1);
-    expect(damageFor("hook", true)).toBe(3);
-    const s = createState(1);
-    step(s, [guard(1, true), punch(s, 0, "hook")]);
-    idle(s, WINDUP_TICKS.hook);
-    expect(s.boxers[1].health).toBe(HEALTH - 3);
-    expect(s.boxers[0].blocked).toBe(1);
+  it("judge: every guard x target x slip gives the contract's outcome", () => {
+    const want = (target: Target, g: Guard, slipping: boolean) => {
+      if (target === "head" && slipping) return "slipped";
+      if (target === "head" && g === "high") return "blocked";
+      if (target === "body" && g === "low") return "blocked";
+      return "clean";
+    };
+    // spelled out, so the table is read, not only recomputed
+    expect(judge("head", null, false)).toBe("clean");
+    expect(judge("head", "high", false)).toBe("blocked");
+    expect(judge("head", "low", false)).toBe("clean");
+    expect(judge("head", null, true)).toBe("slipped");
+    expect(judge("head", "high", true)).toBe("slipped");
+    expect(judge("head", "low", true)).toBe("slipped");
+    expect(judge("body", null, false)).toBe("clean");
+    expect(judge("body", "high", false)).toBe("clean");
+    expect(judge("body", "low", false)).toBe("blocked");
+    expect(judge("body", null, true)).toBe("clean");
+    expect(judge("body", "high", true)).toBe("clean");
+    expect(judge("body", "low", true)).toBe("blocked");
+    for (const target of ["head", "body"] as const) for (const g of ["high", "low", null] as const) for (const sl of [false, true]) expect(judge(target, g, sl)).toBe(want(target, g, sl));
   });
 
-  it("the guard is checked when the punch lands, not when it is thrown", () => {
+  it("damage: clean full, blocked BLOCKED_SHARE rounded, slipped none", () => {
+    expect(damageFor("clean")).toBe(JAB_DAMAGE);
+    expect(damageFor("blocked")).toBe(Math.round(JAB_DAMAGE * BLOCKED_SHARE));
+    expect(damageFor("blocked")).toBe(1);
+    expect(damageFor("slipped")).toBe(0);
+  });
+
+  it("in the sim, each reachable guard x target x slip lands as judged (a slip can't start under a guard)", () => {
+    const cases: Array<{ target: Target; defence: "none" | "high" | "low" | "slip"; outcome: string }> = [
+      { target: "head", defence: "none", outcome: "clean" },
+      { target: "head", defence: "high", outcome: "blocked" },
+      { target: "head", defence: "low", outcome: "clean" },
+      { target: "head", defence: "slip", outcome: "slipped" },
+      { target: "body", defence: "none", outcome: "clean" },
+      { target: "body", defence: "high", outcome: "clean" },
+      { target: "body", defence: "low", outcome: "blocked" },
+      { target: "body", defence: "slip", outcome: "clean" },
+    ];
+    for (const c of cases) {
+      const s = createState(1);
+      step(s, [punch(s, 0, c.target)]);
+      // the defence goes on after the throw, before landing
+      step(s, c.defence === "none" ? [] : c.defence === "slip" ? [slip(1)] : [guard(1, c.defence)]);
+      const ev = idle(s, JAB_WINDUP_TICKS);
+      const hit = ev.find((e) => e.type === "hit");
+      expect(hit, `${c.target} vs ${c.defence}`).toMatchObject({ outcome: c.outcome, damage: damageFor(c.outcome as never) });
+      expect(s.boxers[1].health).toBe(HEALTH - damageFor(c.outcome as never));
+      expect(s.boxers[0].blocked).toBe(c.outcome === "blocked" ? 1 : 0);
+      expect(s.boxers[1].slipped).toBe(c.outcome === "slipped" ? 1 : 0);
+      expect(s.boxers[0].landed).toBe(c.outcome === "slipped" ? 0 : 1);
+    }
+  });
+
+  it("the guard and slip are judged when the jab lands, not when it is thrown", () => {
     // guard raised after the throw, before landing: blocked
     const late = createState(1);
-    step(late, [punch(late, 0, "hook")]);
-    idle(late, 10);
-    step(late, [guard(1, true)]);
-    idle(late, WINDUP_TICKS.hook);
-    expect(late.boxers[1].health).toBe(HEALTH - damageFor("hook", true));
-    // guard up at the throw, dropped before landing: open
+    step(late, [punch(late, 0, "head")]);
+    idle(late, 5);
+    step(late, [guard(1, "high")]);
+    idle(late, JAB_WINDUP_TICKS);
+    expect(late.boxers[1].health).toBe(HEALTH - damageFor("blocked"));
+    // guard up at the throw, dropped before landing: clean
     const dropped = createState(1);
-    step(dropped, [guard(1, true), punch(dropped, 0, "hook")]);
-    idle(dropped, 10);
-    step(dropped, [guard(1, false)]);
-    idle(dropped, WINDUP_TICKS.hook);
-    expect(dropped.boxers[1].health).toBe(HEALTH - DAMAGE.hook);
+    step(dropped, [guard(1, "high"), punch(dropped, 0, "head")]);
+    idle(dropped, 5);
+    step(dropped, [guard(1, null)]);
+    idle(dropped, JAB_WINDUP_TICKS);
+    expect(dropped.boxers[1].health).toBe(HEALTH - JAB_DAMAGE);
+    // guard switched from high to low before landing: a head jab is clean
+    const switched = createState(1);
+    step(switched, [guard(1, "high"), punch(switched, 0, "head")]);
+    idle(switched, 5);
+    step(switched, [guard(1, "low")]);
+    idle(switched, JAB_WINDUP_TICKS);
+    expect(switched.boxers[1].health).toBe(HEALTH - JAB_DAMAGE);
+    // a slip that ended before the jab lands doesn't save you
+    const early = createState(1);
+    step(early, [slip(1)]);
+    idle(early, SLIP_TICKS - 3);
+    step(early, [punch(early, 0, "head")]);
+    idle(early, JAB_WINDUP_TICKS);
+    expect(early.boxers[1].slip).toBeNull();
+    expect(early.boxers[1].health).toBe(HEALTH - JAB_DAMAGE);
   });
 
-  it("a hand can't throw again until its punch lands plus 150 ms; the other hand can", () => {
+  it("a hand can't throw again until its jab lands plus 150 ms; the other hand can", () => {
     const s = createState(1);
-    step(s, [punch(s, 0, "jab", "right")]);
-    idle(s, 5);
-    step(s, [punch(s, 0, "jab", "right")]);
+    step(s, [punch(s, 0, "head", "right")]);
+    idle(s, 3);
+    step(s, [punch(s, 0, "head", "right")]);
     expect(s.boxers[0].thrown).toBe(1);
     // the other hand is free (time apart from the cap's minimum gap)
-    idle(s, 6);
-    step(s, [punch(s, 0, "jab", "left")]);
+    idle(s, 3);
+    step(s, [punch(s, 0, "head", "left")]);
     expect(s.boxers[0].thrown).toBe(2);
-    // the right lands at tick 13; it is ready again RECOVER_TICKS later
     const readyAt = s.boxers[0].readyAt.right;
-    expect(readyAt).toBe(1 + WINDUP_TICKS.jab + RECOVER_TICKS);
+    expect(readyAt).toBe(1 + JAB_WINDUP_TICKS + RECOVER_TICKS);
     // inputs are judged on the tick the step moves to: one tick early is refused
     while (s.tick < readyAt - 2) step(s, []);
-    step(s, [punch(s, 0, "jab", "right")]);
+    step(s, [punch(s, 0, "head", "right")]);
     expect(s.boxers[0].thrown).toBe(2);
-    step(s, [punch(s, 0, "jab", "right")]);
+    step(s, [punch(s, 0, "head", "right")]);
     expect(s.boxers[0].thrown).toBe(3);
   });
 
-  it("guarding blocks punching", () => {
-    const s = createState(1);
-    step(s, [guard(0, true), punch(s, 0, "jab")]);
-    expect(s.boxers[0].thrown).toBe(0);
-    // drop the guard and throw in the same tick: it goes
-    step(s, [guard(0, false), punch(s, 0, "jab")]);
-    expect(s.boxers[0].thrown).toBe(1);
+  it("guarding, high or low, stops punching; drop it and throw in the same tick and it goes", () => {
+    for (const g of ["high", "low"] as const) {
+      const s = createState(1);
+      step(s, [guard(0, g), punch(s, 0)]);
+      expect(s.boxers[0].thrown).toBe(0);
+      step(s, [guard(0, null), punch(s, 0)]);
+      expect(s.boxers[0].thrown).toBe(1);
+    }
   });
 
   it("the punch cap: flailing both hands as fast as possible counts no more than the cap", () => {
     const s = createState(1);
     let at = 0;
     for (let i = 0; i < 60 * 10; i++) {
-      // a punch on each hand every tick, timestamps racing ahead
+      // a jab on each hand every tick, timestamps racing ahead
       step(s, [
-        { t: "punch", seat: 0, kind: "jab", hand: "left", at: (at += 50) },
-        { t: "punch", seat: 0, kind: "jab", hand: "right", at: (at += 50) },
+        { t: "punch", seat: 0, hand: "left", target: "head", at: (at += 50) },
+        { t: "punch", seat: 0, hand: "right", target: "body", at: (at += 50) },
       ]);
     }
     expect(s.boxers[0].thrown).toBeLessThanOrEqual(MAX_PUNCH_RATE * 10 + 2);
     expect(s.boxers[0].capped).toBeGreaterThan(0);
   });
 
-  it("punches stamped closer than the minimum gap are dropped even when the server's bucket has room", () => {
+  it("jabs stamped closer than the minimum gap are dropped even when the server's bucket has room", () => {
     const s = createState(1);
-    step(s, [{ t: "punch", seat: 0, kind: "jab", hand: "left", at: 1000 }, { t: "punch", seat: 0, kind: "jab", hand: "right", at: 1020 }]);
+    step(s, [
+      { t: "punch", seat: 0, hand: "left", target: "head", at: 1000 },
+      { t: "punch", seat: 0, hand: "right", target: "head", at: 1020 },
+    ]);
     expect(s.boxers[0].thrown).toBe(1);
     expect(s.boxers[0].capped).toBe(1);
   });
+});
 
-  it("a client can't send damage, health or a seat: only a punch kind, a hand and a timestamp get through", () => {
-    expect(asInput(0, { t: "punch", kind: "hook", hand: "left", at: 5, damage: 100, seat: 1 })).toEqual({ t: "punch", seat: 0, kind: "hook", hand: "left", at: 5 });
-    expect(asInput(1, { t: "guard", up: true, health: 100 })).toEqual({ t: "guard", seat: 1, up: true });
-    expect(asInput(0, { t: "punch", kind: "uppercut", hand: "left", at: 5 })).toBeNull();
-    expect(asInput(0, { t: "punch", kind: "jab", hand: "left" })).toBeNull();
+describe("boxing slips", () => {
+  it("a slip starts a window the sim ends by itself after SLIP_TICKS; holding a lean buys nothing", () => {
+    const s = createState(1);
+    const ev = step(s, [slip(0, "right")]);
+    expect(ev).toContainEqual({ type: "slip", seat: 0, side: "right" });
+    expect(s.boxers[0].slip).toEqual({ side: "right", until: 1 + SLIP_TICKS });
+    expect(s.boxers[0].slipReadyAt).toBe(1 + SLIP_COOLDOWN_TICKS);
+    idle(s, SLIP_TICKS - 1);
+    expect(s.boxers[0].slip).not.toBeNull();
+    idle(s, 1);
+    expect(s.boxers[0].slip).toBeNull();
+    // sending slip again and again during the window doesn't stretch it
+    const held = createState(1);
+    step(held, [slip(0)]);
+    for (let i = 0; i < SLIP_TICKS + 5; i++) step(held, [slip(0)]);
+    expect(held.boxers[0].slip).toBeNull();
+  });
+
+  it("a slip can't start while one is on, nor before slipReadyAt (1 s from the last slip's start)", () => {
+    const s = createState(1);
+    step(s, [slip(0, "left")]);
+    step(s, [slip(0, "right")]);
+    expect(s.boxers[0].slip?.side).toBe("left");
+    // the window ends, the cooldown hasn't
+    idle(s, SLIP_TICKS);
+    expect(s.boxers[0].slip).toBeNull();
+    const ev = step(s, [slip(0, "right")]);
+    expect(ev.filter((e) => e.type === "slip")).toEqual([]);
+    expect(s.boxers[0].slip).toBeNull();
+    while (s.tick < s.boxers[0].slipReadyAt - 1) step(s, [slip(0)]);
+    expect(s.boxers[0].slip).toBeNull();
+    step(s, [slip(0, "right")]);
+    expect(s.boxers[0].slip).toEqual({ side: "right", until: s.tick + SLIP_TICKS });
+  });
+
+  it("you can't punch while slipping; once the window ends you can", () => {
+    const s = createState(1);
+    step(s, [slip(0)]);
+    step(s, [punch(s, 0)]);
+    expect(s.boxers[0].thrown).toBe(0);
+    expect(s.boxers[0].capped).toBe(0);
+    idle(s, SLIP_TICKS);
+    step(s, [punch(s, 0)]);
+    expect(s.boxers[0].thrown).toBe(1);
+  });
+
+  it("a slip can't start with a guard up; raising a guard ends a slip", () => {
+    const s = createState(1);
+    step(s, [guard(0, "high"), slip(0)]);
+    expect(s.boxers[0].slip).toBeNull();
+    // the refused slip doesn't start the cooldown
+    expect(s.boxers[0].slipReadyAt).toBe(0);
+    step(s, [guard(0, null), slip(0)]);
+    expect(s.boxers[0].slip).not.toBeNull();
+    step(s, [guard(0, "low")]);
+    expect(s.boxers[0].slip).toBeNull();
+    expect(s.boxers[0].guard).toBe("low");
+  });
+
+  it("no slip between rounds; the bell ends a slip and the break resets the cooldown", () => {
+    const s = createState(1);
+    idle(s, ROUND_TICKS - 3);
+    step(s, [slip(0)]);
+    idle(s, 3);
+    expect(s.phase).toBe("break");
+    expect(s.boxers[0].slip).toBeNull();
+    step(s, [slip(0)]);
+    expect(s.boxers[0].slip).toBeNull();
+    idle(s, BREAK_TICKS);
+    expect(s.phase).toBe("round");
+    step(s, [slip(0)]);
+    expect(s.boxers[0].slip).not.toBeNull();
+  });
+});
+
+describe("boxing inputs from the network", () => {
+  it("accepts exactly the three contract inputs, the seat from the connection", () => {
+    expect(asInput(0, { t: "punch", hand: "left", target: "head", at: 5 })).toEqual({ t: "punch", seat: 0, hand: "left", target: "head", at: 5 });
+    expect(asInput(1, { t: "punch", hand: "right", target: "body", at: 0 })).toEqual({ t: "punch", seat: 1, hand: "right", target: "body", at: 0 });
+    for (const g of ["high", "low", null] as const) expect(asInput(1, { t: "guard", guard: g })).toEqual({ t: "guard", seat: 1, guard: g });
+    for (const side of ["left", "right"] as const) expect(asInput(0, { t: "slip", side })).toEqual({ t: "slip", seat: 0, side });
+  });
+
+  it("refuses any extra field: damage, health, a seat, an outcome, a slip's end", () => {
+    expect(asInput(0, { t: "punch", hand: "left", target: "head", at: 5, damage: 100 })).toBeNull();
+    expect(asInput(0, { t: "punch", hand: "left", target: "head", at: 5, seat: 1 })).toBeNull();
+    expect(asInput(0, { t: "punch", hand: "left", target: "head", at: 5, outcome: "clean" })).toBeNull();
+    expect(asInput(1, { t: "guard", guard: "high", health: 100 })).toBeNull();
+    expect(asInput(1, { t: "slip", side: "left", until: 1e9 })).toBeNull();
+    expect(asInput(1, { t: "slip", side: "left", seat: 0 })).toBeNull();
+  });
+
+  it("refuses the old shapes (hooks, kind, a boolean guard) and malformed inputs", () => {
+    expect(asInput(0, { t: "punch", kind: "jab", hand: "left", at: 5 })).toBeNull();
+    expect(asInput(0, { t: "punch", kind: "hook", hand: "left", target: "head", at: 5 })).toBeNull();
+    expect(asInput(0, { t: "guard", up: true })).toBeNull();
+    expect(asInput(0, { t: "guard", guard: true })).toBeNull();
+    expect(asInput(0, { t: "guard" })).toBeNull();
+    expect(asInput(0, { t: "guard", guard: "mid" })).toBeNull();
+    expect(asInput(0, { t: "punch", hand: "left", target: "legs", at: 5 })).toBeNull();
+    expect(asInput(0, { t: "punch", hand: "both", target: "head", at: 5 })).toBeNull();
+    expect(asInput(0, { t: "punch", hand: "left", target: "head" })).toBeNull();
+    expect(asInput(0, { t: "punch", hand: "left", target: "head", at: Infinity })).toBeNull();
+    expect(asInput(0, { t: "punch", hand: "left", target: "head", at: "5" })).toBeNull();
+    expect(asInput(0, { t: "slip", side: "back" })).toBeNull();
+    expect(asInput(0, { t: "slip" })).toBeNull();
     expect(asInput(0, { t: "hit", damage: 100 })).toBeNull();
     expect(asInput(0, { t: "health", health: 0 })).toBeNull();
+    expect(asInput(0, null)).toBeNull();
+    expect(asInput(0, "punch")).toBeNull();
+    expect(asInput(0, [])).toBeNull();
+  });
+
+  it("the game drops what asInput refuses: an old hook does nothing", () => {
+    const g = boxing.create(1);
+    g.step([{ seat: 0, input: { t: "punch", kind: "hook", hand: "left", at: 0 } }]);
+    g.step([{ seat: 0, input: { t: "punch", hand: "left", target: "head", at: 0, damage: 500 } }]);
+    for (let i = 0; i < 30; i++) g.step([]);
+    const snap = g.snapshot() as ReturnType<typeof snapshot>;
+    expect(snap.boxers[0].thrown).toBe(0);
+    expect(snap.boxers[1].health).toBe(HEALTH);
   });
 });
 
 describe("boxing rounds and results", () => {
-  it("three rounds of 30 s with a 5 s break; no punches in the break; punches in the air at the bell don't count", () => {
+  it("three rounds of 30 s with a 5 s break; no jabs in the break; jabs in the air at the bell don't count", () => {
     const s = createState(1);
     idle(s, ROUND_TICKS - 5);
-    step(s, [punch(s, 0, "jab")]);
-    const ev: unknown[] = [];
-    for (let i = 0; i < 4; i++) ev.push(...step(s, []));
+    step(s, [punch(s, 0)]);
+    const ev = idle(s, 4);
     expect(ev).toContainEqual({ type: "round", round: 1, damage: [0, 0] });
     expect(s.phase).toBe("break");
     expect(s.boxers[1].health).toBe(HEALTH);
-    step(s, [punch(s, 0, "jab")]);
+    step(s, [punch(s, 0)]);
     expect(s.boxers[0].thrown).toBe(1);
+    // the guard may still be moved in the break
+    step(s, [guard(0, "low")]);
+    expect(s.boxers[0].guard).toBe("low");
     idle(s, BREAK_TICKS);
     expect(s.phase).toBe("round");
     expect(s.round).toBe(2);
@@ -160,11 +366,10 @@ describe("boxing rounds and results", () => {
 
   it("a knockout ends the bout at once", () => {
     const s = createState(1);
-    s.boxers[1].health = DAMAGE.hook;
-    step(s, [punch(s, 0, "hook")]);
-    const ev = [];
-    for (let i = 0; i < WINDUP_TICKS.hook; i++) ev.push(...step(s, []));
-    expect(ev).toContainEqual({ type: "bout", winner: 0, result: "ko", dealt: [DAMAGE.hook, 0] });
+    s.boxers[1].health = JAB_DAMAGE;
+    step(s, [punch(s, 0)]);
+    const ev = idle(s, JAB_WINDUP_TICKS);
+    expect(ev).toContainEqual({ type: "bout", winner: 0, result: "ko", dealt: [JAB_DAMAGE, 0] });
     expect(s.phase).toBe("over");
     expect(s.round).toBe(1);
     expect(s.kos).toEqual([1, 0]);
@@ -172,21 +377,21 @@ describe("boxing rounds and results", () => {
 
   it("after three rounds the most damage dealt wins", () => {
     const g = boxing.create(1);
-    g.step([{ seat: 1, input: { t: "punch", kind: "jab", hand: "left", at: 0 } }]);
+    g.step([{ seat: 1, input: { t: "punch", hand: "left", target: "body", at: 0 } }]);
     for (let i = 0; i < 3 * ROUND_TICKS + 2 * BREAK_TICKS && !g.finished(); i++) g.step([]);
-    expect(g.finished()).toEqual({ winner: 1, score: [0, DAMAGE.jab], format: "bout" });
+    expect(g.finished()).toEqual({ winner: 1, score: [0, JAB_DAMAGE], format: "bout" });
     expect((g.snapshot() as ReturnType<typeof snapshot>).result).toBe("decision");
   });
 
   it("an exact tie on damage is a draw: no winner, and it is still a result (rated between two people)", () => {
     const g = boxing.create(1);
     g.step([
-      { seat: 0, input: { t: "punch", kind: "jab", hand: "left", at: 0 } },
-      { seat: 1, input: { t: "punch", kind: "jab", hand: "left", at: 0 } },
+      { seat: 0, input: { t: "punch", hand: "left", target: "head", at: 0 } },
+      { seat: 1, input: { t: "punch", hand: "left", target: "head", at: 0 } },
     ]);
     for (let i = 0; i < 3 * ROUND_TICKS + 2 * BREAK_TICKS && !g.finished(); i++) g.step([]);
     const r = g.finished();
-    expect(r).toEqual({ winner: null, score: [DAMAGE.jab, DAMAGE.jab], format: "bout" });
+    expect(r).toEqual({ winner: null, score: [JAB_DAMAGE, JAB_DAMAGE], format: "bout" });
     expect((g.snapshot() as ReturnType<typeof snapshot>).result).toBe("draw");
     const rec = { room: "X", game: "boxing", tokens: ["a", "b"] as [string, string], score: r!.score, winner: null, draw: true, format: "bout", sets: [], practice: false, ratedRequested: true, accounts: [true, true] as [boolean, boolean] };
     expect(isRated(rec)).toBe(true);
@@ -199,12 +404,13 @@ describe("boxing rounds and results", () => {
     const g = boxing.create(1, { format: "unlimited" });
     const snap = () => g.snapshot() as ReturnType<typeof snapshot>;
     for (let bout = 0; bout < 2; bout++) {
-      for (let i = 0; i < 2000 && snap().phase === "round"; i++) {
+      for (let i = 0; i < 20_000 && snap().phase !== "over"; i++) {
         const s = snap();
         const hand: Hand = s.boxers[0].punches.left === null && s.tick >= s.boxers[0].readyAt.left ? "left" : "right";
-        g.step([{ seat: 0, input: { t: "punch", kind: "hook", hand, at: s.tick * TICK_MS } }]);
+        g.step([{ seat: 0, input: { t: "punch", hand, target: "head", at: s.tick * TICK_MS } }]);
       }
       expect(snap().phase).toBe("over");
+      expect(snap().result).toBe("ko");
       expect(g.finished()).toBeNull();
       for (let i = 0; i < 300 && snap().phase === "over"; i++) g.step([]);
     }
@@ -213,11 +419,23 @@ describe("boxing rounds and results", () => {
     expect(snap().boxers[1].health).toBe(HEALTH);
   });
 
-  it("the snapshot carries no cap internals", () => {
-    const snap = snapshot(createState(1));
+  it("the snapshot has the contract's boxer fields and no cap internals", () => {
+    const s = createState(1);
+    step(s, [punch(s, 0, "body"), slip(1, "right")]);
+    const snap = snapshot(s);
     expect(snap).not.toHaveProperty("rng");
-    expect(snap.boxers[0]).not.toHaveProperty("tokens");
-    expect(snap.boxers[0]).not.toHaveProperty("lastAt");
+    const b0 = snap.boxers[0];
+    const b1 = snap.boxers[1];
+    expect(b0).not.toHaveProperty("tokens");
+    expect(b0).not.toHaveProperty("lastAt");
+    expect(b0.guard).toBeNull();
+    expect(b0.punches.right).toEqual({ hand: "right", target: "body", thrownTick: 1, landsTick: 1 + JAB_WINDUP_TICKS });
+    expect(b1.slip).toEqual({ side: "right", until: 1 + SLIP_TICKS });
+    expect(b1.slipReadyAt).toBe(1 + SLIP_COOLDOWN_TICKS);
+    for (const k of ["health", "guard", "slip", "slipReadyAt", "punches", "readyAt", "dealt", "thrown", "landed", "blocked", "slipped", "capped"]) expect(b0).toHaveProperty(k);
+    // a copy: changing the state doesn't change a snapshot already taken
+    s.boxers[1].slip!.side = "left";
+    expect(b1.slip!.side).toBe("right");
   });
 });
 
@@ -238,56 +456,142 @@ describe("boxing determinism and the bot", () => {
   it("asking the bot doesn't change the game", () => {
     const s = createState(3);
     idle(s, 100);
+    step(s, [punch(s, 0)]);
+    idle(s, 4);
     const before = JSON.stringify(s);
     botInputs(s, 1);
     botWantsGuard(s, 1);
+    botDefence(s, 1);
     expect(JSON.stringify(s)).toBe(before);
   });
 
-  it("two bots box a full bout with jabs and hooks, some blocked, to a result", () => {
+  it("the bot sends only contract inputs, each one asInput accepts", () => {
+    const s = createState(5);
+    for (let i = 0; i < 60 * 40; i++) {
+      const inputs = [...botInputs(s, 0), ...botInputs(s, 1)];
+      for (const input of inputs) {
+        const { seat, ...wire } = input;
+        expect(asInput(seat, wire)).toEqual(input);
+      }
+      step(s, inputs);
+    }
+  });
+
+  it("two bots box a full bout: head and body jabs, clean, blocked and slipped, to a result", () => {
     const g = boxing.create(11);
-    const kinds = new Set<string>();
-    let blocked = 0;
+    const targets = new Set<string>();
+    const outcomes = new Set<string>();
     for (let i = 0; i < 3 * ROUND_TICKS + 2 * BREAK_TICKS && !g.finished(); i++) {
       const ev = g.step([...g.botInputs(0).map((input) => ({ seat: 0 as const, input })), ...g.botInputs(1).map((input) => ({ seat: 1 as const, input }))]);
       for (const e of ev) {
         if (e.type === "hit") {
-          kinds.add(String(e.kind));
-          if (e.guarded) blocked++;
+          targets.add(String(e.target));
+          outcomes.add(String(e.outcome));
         }
       }
     }
-    expect(kinds).toEqual(new Set(["jab", "hook"]));
-    expect(blocked).toBeGreaterThan(0);
+    expect(targets).toEqual(new Set(["head", "body"]));
+    expect(outcomes).toEqual(new Set(["clean", "blocked", "slipped"]));
     expect(g.finished()).not.toBeNull();
   });
 
-  it("the bot guards after a human-ish reaction, not at once, and blocks more hooks than jabs", () => {
-    let jabs = 0;
-    let hooks = 0;
-    for (let seed = 0; seed < 200; seed++) {
-      for (const kind of ["jab", "hook"] as const) {
+  it("the bot reacts after a human-ish delay, guards the right height for the target, and sometimes slips a head jab", () => {
+    let defended = 0;
+    let wrong = 0;
+    let slips = 0;
+    let highs = 0;
+    let lows = 0;
+    const N = 200;
+    for (let seed = 0; seed < N; seed++) {
+      for (const target of ["head", "body"] as const) {
         const s = createState(seed);
         idle(s, 10 + (seed % 7));
-        step(s, [punch(s, 0, kind)]);
-        // never guarding on the very next tick
-        expect(botWantsGuard(s, 1)).toBe(false);
+        step(s, [punch(s, 0, target)]);
+        // never on the very next tick
+        expect(botDefence(s, 1)).toBeNull();
+        expect(botInputs(s, 1).filter((i) => i.t !== "punch")).toEqual([]);
         const g = boxingFrom(s);
-        for (let i = 0; i < WINDUP_TICKS[kind]; i++) g.step(g.botInputs(1).map((input) => ({ seat: 1 as const, input })));
+        for (let i = 0; i < JAB_WINDUP_TICKS + 2; i++) {
+          const inputs = g.botInputs(1) as Array<{ t: string; guard?: Guard }>;
+          for (const input of inputs) {
+            if (input.t === "slip") {
+              slips++;
+              if (target === "body") wrong++;
+            }
+            if (input.t === "guard" && input.guard === "high") {
+              highs++;
+              if (target === "body") wrong++;
+            }
+            if (input.t === "guard" && input.guard === "low") {
+              lows++;
+              if (target === "head") wrong++;
+            }
+          }
+          g.step(inputs.map((input) => ({ seat: 1 as const, input })));
+        }
         const after = g.snapshot() as ReturnType<typeof snapshot>;
-        if (after.lastHit?.guarded) kind === "jab" ? jabs++ : hooks++;
+        if (after.lastHit && after.lastHit.outcome !== "clean") defended++;
       }
     }
-    expect(hooks).toBeGreaterThan(jabs);
-    expect(hooks).toBeGreaterThan(50);
-    expect(hooks).toBeLessThan(200);
+    expect(wrong).toBe(0);
+    expect(highs).toBeGreaterThan(0);
+    expect(lows).toBeGreaterThan(0);
+    expect(slips).toBeGreaterThan(0);
+    // it defends some jabs in time but far from all: it stays beatable
+    expect(defended).toBeGreaterThan(N * 2 * 0.05);
+    expect(defended).toBeLessThan(N * 2 * 0.5);
+  });
+
+  it("the bot jabs mostly to the head, and more to the body when the other holds a high guard", () => {
+    const share = (g: Guard) => {
+      let head = 0;
+      let all = 0;
+      for (let seed = 0; seed < 40; seed++) {
+        const s = createState(seed);
+        if (g) step(s, [guard(0, g)]);
+        for (let i = 0; i < 60 * 20; i++) {
+          const inputs = botInputs(s, 1);
+          for (const input of inputs) {
+            if (input.t !== "punch") continue;
+            all++;
+            if (input.target === "head") head++;
+          }
+          step(s, inputs);
+        }
+      }
+      return head / all;
+    };
+    expect(share(null)).toBeGreaterThan(0.6);
+    expect(share("high")).toBeLessThan(0.4);
+    expect(share("low")).toBeGreaterThan(0.75);
+  });
+
+  it("the bot is beatable: a player who jabs to the body when it is open wins most bouts", () => {
+    // jab steadily to the body (the bot never holds a low guard unless it reads a body jab)
+    let wins = 0;
+    const N = 10;
+    for (let seed = 1; seed <= N; seed++) {
+      const s = createState(seed);
+      let hand: Hand = "left";
+      while (s.phase !== "over") {
+        const inputs = botInputs(s, 1);
+        if (s.tick % 20 === 0) {
+          inputs.push({ t: "punch", seat: 0, hand, target: s.tick % 40 === 0 ? "body" : "head", at: s.tick * TICK_MS });
+          hand = hand === "left" ? "right" : "left";
+        }
+        step(s, inputs);
+      }
+      if (s.winner === 0) wins++;
+    }
+    expect(wins).toBeGreaterThanOrEqual(N - 2);
+    expect(BOT_PUNCH_CHANCE).toBeLessThan(1 / 20);
   });
 });
 
 // Playtest 2026-11-05: with health 100 two bots knocked each other out in
 // about 15 seconds, so the three rounds never happened. Health is 500 now.
 describe("boxing: a bout is worth watching", () => {
-  it("bots trading punches last well into the bout, and a good share go past round 1", () => {
+  it("bots trading jabs last well into the bout, and a good share go past round 1", () => {
     let pastRoundOne = 0;
     let seconds = 0;
     const N = 12;

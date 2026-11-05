@@ -71,7 +71,8 @@
 }
 
 .boxing .bx-controls {
-  gap: 0.6rem;
+  gap: 0.5rem;
+  flex-wrap: wrap;
 }
 
 .boxing .bx-controls button {
@@ -81,7 +82,28 @@
   user-select: none;
 }
 
-.boxing[data-guard="true"] .bx-controls [data-guard] {
+/* six buttons: three to a row on a phone (Head, Body, Slip ◀ / guards, Slip ▶) */
+@media (max-width: 700px) {
+  .boxing .bx-controls {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.4rem;
+  }
+
+  .boxing .bx-controls[hidden] {
+    display: none;
+  }
+
+  .boxing .bx-controls button {
+    min-width: 0;
+    min-height: 2.9rem;
+    padding: 0.3rem 0.2rem;
+    font-size: 0.9rem;
+  }
+}
+
+.boxing[data-guard="high"] .bx-controls [data-guard="high"],
+.boxing[data-guard="low"] .bx-controls [data-guard="low"] {
   outline: 3px solid #7dd3fc;
 }
 

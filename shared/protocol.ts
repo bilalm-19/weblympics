@@ -79,11 +79,14 @@ export type ClientMsg =
   // Never a distance or a finish: the server counts steps into speed and caps
   // the cadence at a human maximum
   | { t: "step"; side: "left" | "right"; at: number }
-  // boxing (task 30): a punch thrown (which kind, which hand, the sender's own
-  // clock, ms) and the guard up or down. Never damage, a hit or a health: the
-  // server lands the punch after its wind-up and checks the guard then
-  | { t: "punch"; kind: "jab" | "hook"; hand: "left" | "right"; at: number }
-  | { t: "guard"; up: boolean }
+  // boxing (task 30, ADR 002): a jab thrown (which hand, head or body, the
+  // sender's own clock, ms), the guard (high, low or none) and a slip (which
+  // way). Never damage, a hit or a health: the server lands the jab after its
+  // wind-up and judges the guard and slip then. A message with any extra
+  // field is dropped whole
+  | { t: "punch"; hand: "left" | "right"; target: "head" | "body"; at: number }
+  | { t: "guard"; guard: "high" | "low" | null }
+  | { t: "slip"; side: "left" | "right" }
   // movement mode for the sender's own seat: "auto" (the server walks you to
   // the ball, the default) or "tilt" (only your own moves); anything else is
   // a bad message
@@ -123,6 +126,9 @@ export type ServerMsg =
   // allowed: ticks back the server would judge it; rewind: ticks back it did
   | { t: "swing"; tick: number; outcome: string; rtt: number | null; allowed: number; rewind: number }
   | { t: "error"; message: string };
+
+/** Boxing's messages carry no extra claim: one with any other field is dropped whole (task 30's contract). */
+const onlyKeys = (m: Record<string, unknown>, keys: readonly string[]): boolean => Object.keys(m).every((k) => keys.includes(k));
 
 export function parseClientMsg(raw: string): ClientMsg | null {
   let v: unknown;
@@ -172,11 +178,16 @@ export function parseClientMsg(raw: string): ClientMsg | null {
       if (m.side !== "left" && m.side !== "right") return null;
       return typeof m.at === "number" && Number.isFinite(m.at) ? { t: "step", side: m.side, at: m.at } : null;
     case "punch":
-      if (m.kind !== "jab" && m.kind !== "hook") return null;
+      if (!onlyKeys(m, ["t", "hand", "target", "at"])) return null;
       if (m.hand !== "left" && m.hand !== "right") return null;
-      return typeof m.at === "number" && Number.isFinite(m.at) ? { t: "punch", kind: m.kind, hand: m.hand, at: m.at } : null;
+      if (m.target !== "head" && m.target !== "body") return null;
+      return typeof m.at === "number" && Number.isFinite(m.at) ? { t: "punch", hand: m.hand, target: m.target, at: m.at } : null;
     case "guard":
-      return typeof m.up === "boolean" ? { t: "guard", up: m.up } : null;
+      if (!onlyKeys(m, ["t", "guard"])) return null;
+      return m.guard === "high" || m.guard === "low" || m.guard === null ? { t: "guard", guard: m.guard } : null;
+    case "slip":
+      if (!onlyKeys(m, ["t", "side"])) return null;
+      return m.side === "left" || m.side === "right" ? { t: "slip", side: m.side } : null;
     case "mode":
       return m.mode === "auto" || m.mode === "tilt" ? { t: "mode", mode: m.mode } : null;
     case "pause":

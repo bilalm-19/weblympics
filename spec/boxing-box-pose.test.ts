@@ -1,7 +1,7 @@
 // Boxing's camera (task 30): jab, hook and guard read from pose landmarks on
 // synthetic frames, in shoulder widths.
 import { describe, expect, it } from "vitest";
-import { BoxTracker, DEFAULT_BOX, NOSE, boxFrame } from "../client/input/camera/box-pose.ts";
+import { BoxTracker, DEFAULT_BOX, NOSE, boxFrame, cameraBoxing } from "../client/input/camera/box-pose.ts";
 import type { BoxPunchEvent } from "../client/input/camera/box-pose.ts";
 import { LM } from "../client/input/camera/pose.ts";
 import { PracticeSim } from "../client/games/boxing/practice-sim.ts";
@@ -187,29 +187,44 @@ describe("boxing camera: the guard", () => {
   });
 });
 
-// The camera panel (client/games/boxing/box-camera.ts) sends a tracker's read
-// as the same punch and guard messages a key sends. So a camera jab must land
-// on the sparring partner through the practice sim, and a raised guard must
-// reach the sim as a guard.
+// The camera panel (client/games/boxing/box-camera.ts) turns a detector's
+// read into the same punch and guard messages a key sends (`cameraBoxing`,
+// ADR 002). So a camera jab must land on the sparring partner through the
+// practice sim, and a raised guard must reach the sim as a guard.
 describe("the camera's reads reach the sim like keys do", () => {
-  it("a jab read from the body becomes a punch in the practice sim and costs the partner health", () => {
+  it("a jab read from the body becomes a head jab in the practice sim and costs the partner health", () => {
     const tr = new BoxTracker();
     const { punches } = play(tr, [hold("left", LEFT_REST, 400), { hand: "left", from: LEFT_REST, to: { across: 0.4, down: 0.6, forward: 1.2 }, ms: 120 }]);
     expect(punches).toHaveLength(1);
+    const msg = cameraBoxing({ guard: false, punch: punches[0], tracking: true });
+    expect(msg.jab).toEqual({ hand: "left", target: "head" });
     const sim = new PracticeSim(5);
-    sim.punch(punches[0].kind, punches[0].hand, 0);
+    sim.punch(msg.jab!.hand, msg.jab!.target, 0);
     for (let i = 0; i < 60; i++) sim.tick();
     expect(sim.state.boxers[0].thrown).toBe(1);
     expect(sim.state.boxers[1].health).toBeLessThan(HEALTH);
   });
 
-  it("both hands up by the face is a guard read, and the sim raises it", () => {
+  it("both hands up by the face is a guard read, sent as the high guard, and the sim raises it", () => {
     const tr = new BoxTracker();
     const { guards } = play(tr, [{ hand: "left", from: LEFT_REST, to: LEFT_GUARD, ms: 300 }, { hand: "right", from: RIGHT_REST, to: RIGHT_GUARD, ms: 300 }]);
     expect(guards.at(-1)).toBe(true);
+    const msg = cameraBoxing({ guard: guards.at(-1)!, punch: null, tracking: true });
+    expect(msg).toEqual({ guard: "high", jab: null });
     const sim = new PracticeSim(6);
-    sim.guard(guards.at(-1)!);
+    sim.guard(msg.guard);
     sim.tick();
-    expect(sim.state.boxers[0].guard).toBe(true);
+    expect(sim.state.boxers[0].guard).toBe("high");
+  });
+
+  it("the old tracker's hook is dropped: jabs only", () => {
+    expect(cameraBoxing({ guard: false, punch: { kind: "hook", hand: "right", t: 0 }, tracking: true })).toEqual({ guard: null, jab: null });
+  });
+
+  it("the trial detector's guard height and jab target go straight through; its hooks are dropped", () => {
+    const grow = { left: null, right: null };
+    expect(cameraBoxing({ guard: "low", punch: { kind: "jab", hand: "right", target: "body", t: 0 }, grow })).toEqual({ guard: "low", jab: { hand: "right", target: "body" } });
+    expect(cameraBoxing({ guard: "high", punch: null, grow })).toEqual({ guard: "high", jab: null });
+    expect(cameraBoxing({ guard: null, punch: { kind: "hook", hand: "left", target: "head", t: 0 }, grow })).toEqual({ guard: null, jab: null });
   });
 });

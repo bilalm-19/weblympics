@@ -1,21 +1,21 @@
 import { CameraError, openCamera, startPose } from "../../input/camera/camera.ts";
 import type { CameraSession } from "../../input/camera/camera.ts";
 import type { CameraFrame } from "../../input/camera/pose.ts";
-import { BoxTracker, TrialDetector, armMeasures, boxFrame, handMeasures } from "../../input/camera/box-pose.ts";
-import type { ArmMeasures, BoxHand, BoxPunch, HandMeasures, TrialRead } from "../../input/camera/box-pose.ts";
+import { BoxTracker, TrialDetector, armMeasures, boxFrame, cameraBoxing, handMeasures } from "../../input/camera/box-pose.ts";
+import type { ArmMeasures, BoxGuard, BoxHand, BoxTarget, HandMeasures, TrialRead } from "../../input/camera/box-pose.ts";
 
 // Boxing's camera (task 30): the same webcam and local pose model as the other
 // games (video never leaves the browser), read as punches and a guard by
-// box-pose.ts. A jab is a fast hand toward the screen, a hook a fast sweep
-// across the body, and both hands by your face is the guard. Laptop distance,
+// box-pose.ts. A jab is a fast hand toward the screen and both hands by your
+// face is the guard (ADR 002: jabs only; hooks read are dropped). Laptop distance,
 // upper body in view; the maths is in shoulder widths, so there is nothing to
 // calibrate. Every step can be skipped: J, K, Space and the buttons still work.
 
 export interface BoxCameraCallbacks {
-  /** A punch the camera read; the view sends it as the same message a key does. */
-  punch(kind: BoxPunch, hand: BoxHand): void;
-  /** The guard went up (true) or down. */
-  guard(up: boolean): void;
+  /** A jab the camera read; the view sends it as the same message a key does. */
+  punch(hand: BoxHand, target: BoxTarget): void;
+  /** The guard changed: high, low or none. */
+  guard(guard: BoxGuard): void;
   /** The setup panel opened (true) or closed (false); practice holds the bout meanwhile. */
   pause(paused: boolean): void;
 }
@@ -51,7 +51,7 @@ export function createBoxCamera(view: HTMLElement, button: HTMLButtonElement, ch
   const tracker = new BoxTracker();
   let starting = false;
   let tracking = false;
-  let guardSent = false;
+  let guardSent: BoxGuard = null;
   let punchTimer = 0;
   const punchEl = read.querySelector("[data-read=punch]") as HTMLElement;
   const guardEl = read.querySelector("[data-read=guard]") as HTMLElement;
@@ -69,21 +69,20 @@ export function createBoxCamera(view: HTMLElement, button: HTMLButtonElement, ch
     tracking = frame !== null;
     setChip(frame ? "Tracking" : "Can't see your shoulders", frame ? "ok" : "warn");
     video.dataset.tracking = String(tracking);
-    // with ?debug the trial detector drives the bout; otherwise the old one.
-    // The sim has one guard and no target yet, so either guard is "up" and the
-    // target is only shown.
+    // with ?debug the trial detector drives the bout, otherwise the old
+    // tracker; cameraBoxing turns either into ADR 002's messages (no camera
+    // slip yet: A/D and the buttons slip)
     const trial = debug?.frame(f) ?? null;
-    const r = trial
-      ? { guard: trial.guard !== null, punch: trial.punch }
-      : tracker.update(frame, f.t);
-    if (r.guard !== guardSent) {
-      guardSent = r.guard;
-      cb.guard(r.guard);
+    const { guard: guardNow, jab } = cameraBoxing(trial ?? tracker.update(frame, f.t));
+    if (guardNow !== guardSent) {
+      guardSent = guardNow;
+      cb.guard(guardNow);
     }
-    guardEl.dataset.on = String(r.guard);
-    if (r.punch) {
-      cb.punch(r.punch.kind, r.punch.hand);
-      punchEl.textContent = `${r.punch.hand} ${r.punch.kind}`;
+    guardEl.dataset.on = String(guardNow !== null);
+    guardEl.textContent = guardNow === "low" ? "Low guard" : guardNow === "high" ? "High guard" : "Guard";
+    if (jab) {
+      cb.punch(jab.hand, jab.target);
+      punchEl.textContent = `${jab.hand} jab · ${jab.target}`;
       clearTimeout(punchTimer);
       punchTimer = window.setTimeout(() => (punchEl.textContent = "–"), 600);
     }
@@ -99,8 +98,8 @@ export function createBoxCamera(view: HTMLElement, button: HTMLButtonElement, ch
     session = null;
     tracking = false;
     tracker.reset();
-    if (guardSent) cb.guard(false);
-    guardSent = false;
+    if (guardSent !== null) cb.guard(null);
+    guardSent = null;
     video.hidden = true;
     read.hidden = true;
     chip.hidden = true;
@@ -127,7 +126,7 @@ export function createBoxCamera(view: HTMLElement, button: HTMLButtonElement, ch
       session = await startPose(video, stream, onFrame, () => {}, { hands: debug !== null, poseEvery: debug ? 3 : 1 });
       button.textContent = "Stop camera";
       read.hidden = false;
-      panel.innerHTML = `<h2>Ready to box</h2><p role="status">Hands up by your face to guard. Jab: punch straight at the screen. Hook: sweep a hand across your body. Keep your shoulders in view.</p><div class="row"><button class="primary" data-step="close">Start boxing</button></div>`;
+      panel.innerHTML = `<h2>Ready to box</h2><p role="status">Hands up by your face to guard. Jab: punch straight at the screen. Slip with A and D. Keep your shoulders in view.</p><div class="row"><button class="primary" data-step="close">Start boxing</button></div>`;
       panel.querySelector("[data-step=close]")?.addEventListener("click", close);
       (panel.querySelector("[data-step=close]") as HTMLElement | null)?.focus();
     } catch (err) {
@@ -140,7 +139,7 @@ export function createBoxCamera(view: HTMLElement, button: HTMLButtonElement, ch
   const intro = () => {
     panel.innerHTML = `
       <h2>Box with your camera</h2>
-      <p class="tr-how">Stay at laptop distance with your shoulders and both hands in view. Hands up by your face is your guard. Punch toward the screen for a jab, or sweep a hand across your body for a hook.</p>
+      <p class="tr-how">Stay at laptop distance with your shoulders and both hands in view. Hands up by your face is your guard. Punch toward the screen for a jab. Slip with A and D (or the buttons) for now.</p>
       <details class="rp-safety"><summary>Before you start</summary>
         <ul><li>Clear the space around you; don't hit anything or anyone.</li><li>Punch the air, not the screen.</li><li>Stop if anything hurts.</li></ul>
       </details>
