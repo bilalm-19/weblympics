@@ -1,8 +1,8 @@
 # 30 Boxing
 
-Status: sim, server, camera maths built; a first playable view (flat 2D ring, keys and buttons, practice and rooms) added 2026-11-05; health raised 100 to 500 after bots KO'd each other in ~15 s. Camera added the same day (`box-camera.ts`; the fake webcam has no person, so the e2e covers the panel and keys, not the punches). Still open: the 3D scene (waits on 28) and a real-webcam playtest of the thresholds. A "maybe": dropped if not solid by Sat 7 Nov night.
+Status: in progress (2026-11-05). Playable in 2D (keys, buttons, practice, rooms); camera playtested on a real webcam (two recordings, a trial detector behind `?debug`); being reworked to ADR 002: jabs only, two guards, a slip, a 3D ring. A "maybe": dropped if not solid by Sat 7 Nov night.
 Model: Opus
-Waits on: 28 (shared character, podium)
+Waits on: nothing (the 3D ring is built from primitives with the tennis character; task 28's kit can replace it later)
 
 ## Context
 The user asked for boxing on 2026-11-05 as a maybe, after bowling. It is
@@ -14,7 +14,15 @@ each other in real time. So it is built vs the bot first, then two people.
   a blocked punch does little. A health bar each; knockout at zero, else
   points decide.
 
-## Design (Claude's proposal)
+## Rework (user, 2026-11-05 playtest; docs/adr/002-boxing-judged-at-landing.md)
+1. Jabs only (sim, keys, bot); a jab has a target, head or body.
+2. Guard high / low / none; one arm up is no guard.
+3. Slip: lean left or right; a head jab that lands while leaning misses; short, can't punch while leaning. Keys A/D; camera shoulder lean (recorded before its threshold is set).
+4. 3D ring from primitives, the tennis character with gloves, first-person view behind your head; guards, slip and hits shown.
+5. The camera's trial detector (hand-model jab, guards by height) on for everyone, not only `?debug`.
+Movement around the ring is out (user picked the slip only).
+
+## Design (Claude's first proposal, superseded where the rework says)
 - **Server owns every hit.** The client sends `punch` (`jab` or `hook`,
   `hand`, its timestamp) and `guard` (up or down) events, never damage or a
   hit. A punch has a wind-up: a jab lands 200 ms after it is thrown, a hook
