@@ -53,7 +53,7 @@ export const SECTION_COLOUR: Record<CrowdSection, number> = {
  * Collects static geometry, each piece with one colour, and merges it into one
  * lit (flat-shaded Lambert) and one unlit mesh: lots of detail, two draw calls.
  */
-class Painter {
+export class Painter {
   private lit: BufferGeometry[] = [];
   private unlit: BufferGeometry[] = [];
   private colour = new Color();
