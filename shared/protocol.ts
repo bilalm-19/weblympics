@@ -86,7 +86,7 @@ export type ClientMsg =
   // field is dropped whole
   | { t: "punch"; hand: "left" | "right"; target: "head" | "body"; at: number }
   | { t: "guard"; guard: "high" | "low" | null }
-  | { t: "slip"; side: "left" | "right" }
+  | { t: "slip"; side: "left" | "right" | null }
   // movement mode for the sender's own seat: "auto" (the server walks you to
   // the ball, the default) or "tilt" (only your own moves); anything else is
   // a bad message
@@ -187,7 +187,7 @@ export function parseClientMsg(raw: string): ClientMsg | null {
       return m.guard === "high" || m.guard === "low" || m.guard === null ? { t: "guard", guard: m.guard } : null;
     case "slip":
       if (!onlyKeys(m, ["t", "side"])) return null;
-      return m.side === "left" || m.side === "right" ? { t: "slip", side: m.side } : null;
+      return m.side === "left" || m.side === "right" || m.side === null ? { t: "slip", side: m.side } : null;
     case "mode":
       return m.mode === "auto" || m.mode === "tilt" ? { t: "mode", mode: m.mode } : null;
     case "pause":

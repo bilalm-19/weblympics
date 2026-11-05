@@ -32,7 +32,7 @@ lazily and only when a player enters a game. Video never leaves the browser.
   list, empty for the sprint), `bot.ts` (target cadence plus noise),
   `index.ts` (adapter). Boxing (task 30) is `shared/games/boxing/`:
   `sim.ts` (jabs in the air with a wind-up, `judge` of guard and slip at
-  landing, the slip window and cooldown, health, the per-hand recovery and
+  landing, the held lean (slip), health, the per-hand recovery and
   the punch cap, rounds, KO, decision, draw), `bot.ts` (guards the right
   height or slips after a seeded reaction delay, jabs head or body),
   `index.ts` (adapter); its pure camera maths is
@@ -280,18 +280,19 @@ lazily and only when a player enters a game. Video never leaves the browser.
   numbers come from recordings (`docs/camera-playtest.md`), never guesses.
 - Boxing (task 30; `spec/boxing-*.test.ts`): jabs only. Clients send
   exactly `punch` {hand, target "head"|"body", their own timestamp},
-  `guard` {"high"|"low"|null} and `slip` {side}; anything else, or any
+  `guard` {"high"|"low"|null} and `slip` {"left"|"right"|null}; anything else, or any
   extra field, is dropped whole (`asInput`, `parseClientMsg`). A jab lands
   150 ms after it is thrown and is judged on that tick: a head jab on a
   slipping boxer is "slipped" (no damage), a head jab on a high guard or a
   body jab on a low guard is "blocked" (20%, rounded), anything else is
   "clean"; the slip doesn't help against a body jab. So a guard or slip
-  started in time still saves you. A slip is an event: the server starts a
-  400 ms window and ends it, the next may start 1 s after the last one
-  started; a slip may start with a guard up and a guard change leaves it
-  alone (user, playtest 4: you lean with your hands up), so while slipping
-  a head jab misses and a body jab still meets the guard; no punching while
-  slipping or guarding. Health 500 (100 ended bot bouts in
+  started in time still saves you. A slip is a held lean, like the guard
+  (user, playtest 4: "it doesn't stay slipped"): it lasts until the boxer
+  sends `slip` null, and head jabs miss the whole time it is held (user's
+  choice, knowing lean plus a low guard blocks everything; the only cost is
+  no punching while leaning). It goes with any guard and a guard change
+  leaves it alone (playtest 4: you lean with your hands up); while leaning a
+  body jab still meets the guard. No punching while leaning or guarding. Health 500 (100 ended bot bouts in
   about 15 s; `spec/boxing-sim.test.ts` holds bouts to well over a round),
   jab 6; these numbers are guesses for the playtest. A hand can't throw
   again until its jab lands plus 150 ms; a punch cap (4 a second per
@@ -312,12 +313,14 @@ lazily and only when a player enters a game. Video never leaves the browser.
   `BoxTracker` read "jabs" from depth noise in a held guard, playtest 4): the
   hand model's palm growing past its own resting size is a jab, its height
   the target; both palms up is the guard, high or low by height, one arm up
-  is none. A shoulder lean is a slip (`SlipDetector`): neutral is the median
-  of the first second of tracking, 8 degrees past it fires one slip that way,
-  back within 4 re-arms (first guesses from tennis's tilt). The pose model
+  is none. A shoulder lean is a held slip (`SlipDetector`): neutral is the
+  median of the first second of tracking; past 8 degrees from it you lean
+  that way for as long as you stay past 4, back within 4 you're upright
+  (first guesses from tennis's tilt). The pose model
   runs every third frame (shoulders only). No hooks. `?debug` adds a readout
   and a recorder only (move 9 records a lean). Keys: J head jab, K body jab, hold Space
-  high guard, hold L low guard, A/D slip; six buttons on a phone.
+  high guard, hold L low guard, hold A/D to lean; six buttons on a phone
+  (the slip ones held like the guards).
 - Camera is used for gameplay only. Every camera action has a keyboard/mouse
   equivalent, and the lobby and room work with no camera at all.
 - Webcam is the default (task 15, `e2e/webcam-default.e2e.ts`): a seated

@@ -24,7 +24,7 @@ export function asInput(seat: Seat, input: unknown): BoxingInput | null {
   const allowed = KEYS[m.t];
   if (Object.keys(m).some((k) => !allowed.includes(k))) return null;
   if (m.t === "guard") return m.guard === "high" || m.guard === "low" || m.guard === null ? { t: "guard", seat, guard: m.guard } : null;
-  if (m.t === "slip") return m.side === "left" || m.side === "right" ? { t: "slip", seat, side: m.side } : null;
+  if (m.t === "slip") return m.side === "left" || m.side === "right" || m.side === null ? { t: "slip", seat, side: m.side } : null;
   if (m.hand !== "left" && m.hand !== "right") return null;
   if (m.target !== "head" && m.target !== "body") return null;
   if (typeof m.at !== "number" || !Number.isFinite(m.at)) return null;

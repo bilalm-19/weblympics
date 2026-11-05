@@ -60,8 +60,8 @@ export function startBoxing(root: HTMLElement, conn: GameLink, info: RoomInfo, o
       <button class="primary" type="button" data-punch="body" aria-label="Body jab (K)">Body</button>
       <button type="button" data-guard="high" aria-label="High guard (hold Space)">High guard</button>
       <button type="button" data-guard="low" aria-label="Low guard (hold L)">Low guard</button>
-      <button type="button" data-slip="left" aria-label="Slip left (A)">Slip ◀</button>
-      <button type="button" data-slip="right" aria-label="Slip right (D)">Slip ▶</button>
+      <button type="button" data-slip="left" aria-label="Slip left (hold A)">Slip ◀</button>
+      <button type="button" data-slip="right" aria-label="Slip right (hold D)">Slip ▶</button>
     </div>
   `;
   root.replaceChildren(view);
@@ -113,10 +113,21 @@ export function startBoxing(root: HTMLElement, conn: GameLink, info: RoomInfo, o
     else held.delete(g);
     guard(down ? g : held.has("high") ? "high" : held.has("low") ? "low" : null);
   };
-  const slip = (side: Side) => {
-    if (!canBox()) return;
+  // the slip is a held lean, like the guard (playtest 4): the last lean asked for
+  let slipNow: Side | null = null;
+  const slip = (side: Side | null) => {
+    if (side === slipNow) return;
+    if (side !== null && !canBox()) return;
+    slipNow = side;
     conn.send({ t: "slip", side });
-    canvas.dataset.slips = String(Number(canvas.dataset.slips ?? 0) + 1);
+    if (side) canvas.dataset.slips = String(Number(canvas.dataset.slips ?? 0) + 1);
+  };
+  // a held key or button wins until let go, then falls back to the other if still held
+  const leaning = new Set<Side>();
+  const lean = (side: Side, down: boolean) => {
+    if (down) leaning.add(side);
+    else leaning.delete(side);
+    slip(down ? side : leaning.has("left") ? "left" : leaning.has("right") ? "right" : null);
   };
 
   const onKeyDown = (e: KeyboardEvent) => {
@@ -127,17 +138,23 @@ export function startBoxing(root: HTMLElement, conn: GameLink, info: RoomInfo, o
       if (!e.repeat) hold(g, true);
       return;
     }
-    const target = PUNCH_KEYS[e.code];
     const side = SLIP_KEYS[e.code];
-    if (!target && !side) return;
+    if (side) {
+      e.preventDefault();
+      if (!e.repeat) lean(side, true);
+      return;
+    }
+    const target = PUNCH_KEYS[e.code];
+    if (!target) return;
     e.preventDefault();
     if (e.repeat) return;
-    if (target) punch(target);
-    else slip(side);
+    punch(target);
   };
   const onKeyUp = (e: KeyboardEvent) => {
     const g = GUARD_KEYS[e.code];
     if (g) hold(g, false);
+    const side = SLIP_KEYS[e.code];
+    if (side) lean(side, false);
   };
   window.addEventListener("keydown", onKeyDown);
   window.addEventListener("keyup", onKeyUp);
@@ -145,13 +162,18 @@ export function startBoxing(root: HTMLElement, conn: GameLink, info: RoomInfo, o
   for (const b of view.querySelectorAll<HTMLButtonElement>(".bx-controls button")) {
     b.addEventListener("contextmenu", (e) => e.preventDefault());
     const g = b.dataset.guard as "high" | "low" | undefined;
+    const sd = b.dataset.slip as Side | undefined;
     b.addEventListener("pointerdown", (e) => {
       e.preventDefault();
       if (b.dataset.punch) punch(b.dataset.punch as Target);
-      else if (b.dataset.slip) slip(b.dataset.slip as Side);
+      else if (sd) lean(sd, true);
       else if (g) hold(g, true);
     });
-    if (g) for (const ev of ["pointerup", "pointercancel", "pointerleave"]) b.addEventListener(ev, () => hold(g, false));
+    for (const ev of ["pointerup", "pointercancel", "pointerleave"])
+      b.addEventListener(ev, () => {
+        if (g) hold(g, false);
+        if (sd) lean(sd, false);
+      });
   }
 
   // ---- the camera: the same punch and guard as the keys ----
@@ -166,8 +188,10 @@ export function startBoxing(root: HTMLElement, conn: GameLink, info: RoomInfo, o
       if (held.size === 0) guard(g);
     },
     slip: (side) => {
+      // a held key or button outranks the camera
+      if (leaning.size > 0) return;
       slip(side);
-      canvas.dataset.camSlip = String(Number(canvas.dataset.camSlip ?? 0) + 1);
+      if (side) canvas.dataset.camSlip = String(Number(canvas.dataset.camSlip ?? 0) + 1);
     },
     pause: (p) => {
       if (info.practice) conn.send({ t: "pause", paused: p });
@@ -229,7 +253,7 @@ export function startBoxing(root: HTMLElement, conn: GameLink, info: RoomInfo, o
     else if (s.phase === "over") {
       statusEl.textContent =
         s.result === "draw" ? "A draw." : s.winner === info.seat ? (s.result === "ko" ? "Knockout! You win." : "You win on points.") : `${label((s.winner ?? 0) as Seat)} wins${s.result === "ko" ? " by knockout" : " on points"}.`;
-    } else if (s.phase === "round") statusEl.textContent = info.seat === null ? "Boxing" : "J head · K body · hold Space high guard, L low · A/D slip";
+    } else if (s.phase === "round") statusEl.textContent = info.seat === null ? "Boxing" : "J head · K body · hold Space high guard, L low · hold A/D to slip";
   };
 
   const unsubscribe = conn.on((msg: ServerMsg) => {
@@ -248,7 +272,7 @@ export function startBoxing(root: HTMLElement, conn: GameLink, info: RoomInfo, o
       snap = next;
       canvas.dataset.g0 = next.boxers[0].guard ?? "none";
       canvas.dataset.g1 = next.boxers[1].guard ?? "none";
-      canvas.dataset.slip0 = next.boxers[0].slip?.side ?? "none";
+      canvas.dataset.slip0 = next.boxers[0].slip ?? "none";
       canvas.dataset.phase = next.phase;
       canvas.dataset.round = String(next.round);
       canvas.dataset.h0 = String(next.boxers[0].health);
@@ -306,7 +330,7 @@ export function startBoxing(root: HTMLElement, conn: GameLink, info: RoomInfo, o
       else jab = { hand: r.hand, target: r.target, t: Math.max(1, t) };
     }
     const ko = s.phase === "over" && s.result === "ko" && b.health <= 0;
-    return { look: looks[seat], guard: b.guard, slip: b.slip?.side ?? null, jab, hit: hits[seat], ko, seat };
+    return { look: looks[seat], guard: b.guard, slip: b.slip, jab, hit: hits[seat], ko, seat };
   };
   const returning: Array<{ hand: Hand; target: Target; landsTick: number } | null> = [null, null];
 

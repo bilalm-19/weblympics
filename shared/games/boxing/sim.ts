@@ -3,13 +3,14 @@
 //
 // Pure and deterministic (seed + input stream). The server owns every hit: a
 // client only sends `punch` (which hand, head or body, its own timestamp),
-// `guard` (high, low or none) and `slip` (left or right), never damage, a hit
+// `guard` (high, low or none) and `slip` (left, right or none), never damage, a hit
 // or a health. A jab has a short wind-up: it lands JAB_WINDUP_MS after it is
 // thrown, and only on that tick does the sim look at the other boxer's guard
 // and slip (`judge`). So a guard raised or a slip started when you see the
 // jab coming still saves you, and nothing a client claims decides a hit. A
-// slip is an event: the sim starts its window and ends it itself, so holding
-// a lean buys nothing. The round clock is the sim's own ticks, so a room that
+// slip is a held lean, like the guard (user, playtest 4: "it doesn't stay
+// slipped"): a boxer leans for as long as they choose, head jabs miss the
+// whole time, and they can't punch while leaning. The round clock is the sim's own ticks, so a room that
 // stops stepping (the reconnect pause) freezes it. The seed only drives the
 // bot.
 
@@ -38,12 +39,6 @@ export const JAB_WINDUP_TICKS = ticks(JAB_WINDUP_MS);
 /** A hand can throw again this long after its punch lands. */
 export const RECOVER_MS = 150;
 export const RECOVER_TICKS = ticks(RECOVER_MS);
-/** How long a slip lasts; the sim ends it. */
-export const SLIP_MS = 400;
-export const SLIP_TICKS = ticks(SLIP_MS);
-/** From a slip's start to when the next one may start. */
-export const SLIP_COOLDOWN_MS = 1000;
-export const SLIP_COOLDOWN_TICKS = ticks(SLIP_COOLDOWN_MS);
 /** The punch cap: punches a second the server counts per boxer, both hands together... */
 export const MAX_PUNCH_RATE = 4;
 /** ...with this many allowed together (a one-two) before it bites. */
@@ -79,18 +74,11 @@ export interface Punch {
   landsTick: number;
 }
 
-/** A slip in progress: the boxer is leaning to `side` until the tick `until` (exclusive). */
-export interface Slip {
-  side: Side;
-  until: number;
-}
-
 export interface Boxer {
   health: number;
   guard: Guard;
-  slip: Slip | null;
-  /** Tick from which a new slip may start. */
-  slipReadyAt: number;
+  /** Leaning to this side right now (a slip), or null when upright. */
+  slip: Side | null;
   /** Each hand's jab in the air, or null. */
   punches: Record<Hand, Punch | null>;
   /** Tick from which each hand may throw again. */
@@ -154,12 +142,12 @@ export type BoxingSnapshot = Omit<BoxingState, "rng" | "boxers"> & { boxers: [Bo
 export type BoxingInput =
   | { t: "punch"; seat: Seat; hand: Hand; target: Target; /** the client's own clock, ms */ at: number }
   | { t: "guard"; seat: Seat; guard: Guard }
-  | { t: "slip"; seat: Seat; side: Side };
+  | { t: "slip"; seat: Seat; side: Side | null };
 
 export type BoxingEvent =
   | { type: "throw"; seat: Seat; hand: Hand; target: Target }
   | { type: "hit"; seat: Seat; hand: Hand; target: Target; outcome: Outcome; damage: number }
-  | { type: "slip"; seat: Seat; side: Side }
+  | { type: "slip"; seat: Seat; side: Side | null }
   | { type: "round"; round: number; damage: [number, number] }
   | { type: "bout"; winner: Seat | null; result: Result; dealt: [number, number] };
 
@@ -170,7 +158,6 @@ function freshBoxer(): Boxer {
     health: HEALTH,
     guard: null,
     slip: null,
-    slipReadyAt: 0,
     punches: { left: null, right: null },
     readyAt: { left: 0, right: 0 },
     dealt: 0,
@@ -223,7 +210,6 @@ export function createState(seed: number, options: StateOptions = {}): BoxingSta
 
 const cloneBoxer = (b: Boxer): Boxer => ({
   ...b,
-  slip: b.slip && { ...b.slip },
   punches: { left: b.punches.left && { ...b.punches.left }, right: b.punches.right && { ...b.punches.right } },
   readyAt: { ...b.readyAt },
 });
@@ -284,23 +270,21 @@ export function throwPunch(s: BoxingState, input: Extract<BoxingInput, { t: "pun
   return "ok";
 }
 
-/** Why a slip did or didn't start. */
-export type SlipResult = "ok" | "not-round" | "slipping" | "cooling";
+/** Why a lean did or didn't change. */
+export type SlipResult = "ok" | "not-round" | "same";
 
 /**
- * Starts a slip, in place, or says why not: only in a round, never while one
- * is on, and not before `slipReadyAt` (counted from the last slip's start).
- * The sim ends it SLIP_TICKS later. A guard may stay up (user, playtest 4: a
- * boxer leans with their hands up, and the camera reads it that way): head
- * jabs miss while slipping, body jabs still meet the guard as usual.
+ * Leans to a side or comes back upright (null), in place, or says why not:
+ * only in a round. The lean lasts until the boxer sends another (user,
+ * playtest 4: it follows the player and protects from head jabs the whole
+ * time). A guard may stay up (playtest 4: a boxer leans with their hands up):
+ * while leaning a head jab misses and a body jab meets the guard as usual.
  */
-export function startSlip(s: BoxingState, input: Extract<BoxingInput, { t: "slip" }>): SlipResult {
+export function setSlip(s: BoxingState, input: Extract<BoxingInput, { t: "slip" }>): SlipResult {
   const b = s.boxers[input.seat];
   if (s.phase !== "round") return "not-round";
-  if (b.slip !== null) return "slipping";
-  if (s.tick < b.slipReadyAt) return "cooling";
-  b.slip = { side: input.side, until: s.tick + SLIP_TICKS };
-  b.slipReadyAt = s.tick + SLIP_COOLDOWN_TICKS;
+  if (b.slip === input.side) return "same";
+  b.slip = input.side;
   return "ok";
 }
 
@@ -380,14 +364,12 @@ export function step(s: BoxingState, inputs: readonly BoxingInput[]): BoxingEven
   }
   for (const b of s.boxers) {
     b.tokens = Math.min(PUNCH_BURST, b.tokens + MAX_PUNCH_RATE / 60);
-    // the sim ends a slip, never the client
-    if (b.slip && s.tick >= b.slip.until) b.slip = null;
   }
   // inputs in order, so "guard down, then jab" in one tick throws the jab
   for (const input of inputs) {
     if (input.t === "guard") setGuard(s.boxers[input.seat], input.guard);
     else if (input.t === "slip") {
-      if (startSlip(s, input) === "ok") ev.push({ type: "slip", seat: input.seat, side: input.side });
+      if (setSlip(s, input) === "ok") ev.push({ type: "slip", seat: input.seat, side: input.side });
     } else if (throwPunch(s, input) === "ok") ev.push({ type: "throw", seat: input.seat, hand: input.hand, target: input.target });
   }
   land(s, ev);
@@ -396,7 +378,7 @@ export function step(s: BoxingState, inputs: readonly BoxingInput[]): BoxingEven
     return ev;
   }
   if (s.phaseTick >= ROUND_TICKS) {
-    // the bell: punches still in the air don't count, and a slip ends
+    // the bell: punches still in the air don't count, and a lean ends
     for (const b of s.boxers) {
       b.punches = { left: null, right: null };
       b.slip = null;
@@ -409,7 +391,6 @@ export function step(s: BoxingState, inputs: readonly BoxingInput[]): BoxingEven
       s.phaseTick = 0;
       for (const b of s.boxers) {
         b.readyAt = { left: 0, right: 0 };
-        b.slipReadyAt = 0;
       }
     }
   }

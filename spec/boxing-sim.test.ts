@@ -17,10 +17,6 @@ import {
   RECOVER_TICKS,
   ROUNDS,
   ROUND_TICKS,
-  SLIP_COOLDOWN_MS,
-  SLIP_COOLDOWN_TICKS,
-  SLIP_MS,
-  SLIP_TICKS,
   TICK_MS,
   createState,
   damageFor,
@@ -34,7 +30,7 @@ import { isRated } from "../server/schema.ts";
 
 const punch = (s: BoxingState, seat: Seat, target: Target = "head", hand: Hand = "right"): BoxingInput => ({ t: "punch", seat, hand, target, at: s.tick * TICK_MS });
 const guard = (seat: Seat, g: Guard): BoxingInput => ({ t: "guard", seat, guard: g });
-const slip = (seat: Seat, side: Side = "left"): BoxingInput => ({ t: "slip", seat, side });
+const slip = (seat: Seat, side: Side | null = "left"): BoxingInput => ({ t: "slip", seat, side });
 const idle = (s: BoxingState, n: number) => {
   const ev: BoxingEvent[] = [];
   for (let i = 0; i < n; i++) ev.push(...step(s, []));
@@ -47,14 +43,10 @@ describe("boxing jabs", () => {
     expect(boxing.formats).toEqual(["bout", "unlimited"]);
   });
 
-  it("the playtest's first numbers: jab 6, a 150 ms wind-up, a 400 ms slip, a 1 s slip cooldown, health 500", () => {
+  it("the playtest's first numbers: jab 6, a 150 ms wind-up, health 500", () => {
     expect(JAB_DAMAGE).toBe(6);
     expect(JAB_WINDUP_MS).toBe(150);
     expect(JAB_WINDUP_TICKS).toBe(9);
-    expect(SLIP_MS).toBe(400);
-    expect(SLIP_TICKS).toBe(24);
-    expect(SLIP_COOLDOWN_MS).toBe(1000);
-    expect(SLIP_COOLDOWN_TICKS).toBe(60);
     expect(HEALTH).toBe(500);
   });
 
@@ -153,11 +145,12 @@ describe("boxing jabs", () => {
     step(switched, [guard(1, "low")]);
     idle(switched, JAB_WINDUP_TICKS);
     expect(switched.boxers[1].health).toBe(HEALTH - JAB_DAMAGE);
-    // a slip that ended before the jab lands doesn't save you
+    // a lean let go before the jab lands doesn't save you
     const early = createState(1);
     step(early, [slip(1)]);
-    idle(early, SLIP_TICKS - 3);
     step(early, [punch(early, 0, "head")]);
+    idle(early, 3);
+    step(early, [slip(1, null)]);
     idle(early, JAB_WINDUP_TICKS);
     expect(early.boxers[1].slip).toBeNull();
     expect(early.boxers[1].health).toBe(HEALTH - JAB_DAMAGE);
@@ -219,47 +212,45 @@ describe("boxing jabs", () => {
 });
 
 describe("boxing slips", () => {
-  it("a slip starts a window the sim ends by itself after SLIP_TICKS; holding a lean buys nothing", () => {
+  it("a slip is a held lean (playtest 4): it lasts until the boxer comes back upright, however long", () => {
     const s = createState(1);
     const ev = step(s, [slip(0, "right")]);
     expect(ev).toContainEqual({ type: "slip", seat: 0, side: "right" });
-    expect(s.boxers[0].slip).toEqual({ side: "right", until: 1 + SLIP_TICKS });
-    expect(s.boxers[0].slipReadyAt).toBe(1 + SLIP_COOLDOWN_TICKS);
-    idle(s, SLIP_TICKS - 1);
-    expect(s.boxers[0].slip).not.toBeNull();
-    idle(s, 1);
+    expect(s.boxers[0].slip).toBe("right");
+    idle(s, 600);
+    expect(s.boxers[0].slip).toBe("right");
+    const back = step(s, [slip(0, null)]);
+    expect(back).toContainEqual({ type: "slip", seat: 0, side: null });
     expect(s.boxers[0].slip).toBeNull();
-    // sending slip again and again during the window doesn't stretch it
-    const held = createState(1);
-    step(held, [slip(0)]);
-    for (let i = 0; i < SLIP_TICKS + 5; i++) step(held, [slip(0)]);
-    expect(held.boxers[0].slip).toBeNull();
   });
 
-  it("a slip can't start while one is on, nor before slipReadyAt (1 s from the last slip's start)", () => {
+  it("a held lean protects from head jabs the whole time it is held (user, playtest 4)", () => {
+    const s = createState(1);
+    step(s, [slip(1, "left")]);
+    idle(s, 300);
+    for (let n = 0; n < 3; n++) {
+      step(s, [punch(s, 0, "head", n % 2 === 0 ? "left" : "right")]);
+      idle(s, 40);
+    }
+    expect(s.boxers[1].slipped).toBe(3);
+    expect(s.boxers[1].health).toBe(HEALTH);
+  });
+
+  it("leaning straight from one side to the other is allowed; the same side again is no event", () => {
     const s = createState(1);
     step(s, [slip(0, "left")]);
+    expect(step(s, [slip(0, "left")]).filter((e) => e.type === "slip")).toEqual([]);
     step(s, [slip(0, "right")]);
-    expect(s.boxers[0].slip?.side).toBe("left");
-    // the window ends, the cooldown hasn't
-    idle(s, SLIP_TICKS);
-    expect(s.boxers[0].slip).toBeNull();
-    const ev = step(s, [slip(0, "right")]);
-    expect(ev.filter((e) => e.type === "slip")).toEqual([]);
-    expect(s.boxers[0].slip).toBeNull();
-    while (s.tick < s.boxers[0].slipReadyAt - 1) step(s, [slip(0)]);
-    expect(s.boxers[0].slip).toBeNull();
-    step(s, [slip(0, "right")]);
-    expect(s.boxers[0].slip).toEqual({ side: "right", until: s.tick + SLIP_TICKS });
+    expect(s.boxers[0].slip).toBe("right");
   });
 
-  it("you can't punch while slipping; once the window ends you can", () => {
+  it("you can't punch while leaning; once upright you can", () => {
     const s = createState(1);
     step(s, [slip(0)]);
     step(s, [punch(s, 0)]);
     expect(s.boxers[0].thrown).toBe(0);
     expect(s.boxers[0].capped).toBe(0);
-    idle(s, SLIP_TICKS);
+    step(s, [slip(0, null)]);
     step(s, [punch(s, 0)]);
     expect(s.boxers[0].thrown).toBe(1);
   });
@@ -280,7 +271,7 @@ describe("boxing slips", () => {
     expect(judge("body", "high", true)).toBe("clean");
   });
 
-  it("no slip between rounds; the bell ends a slip and the break resets the cooldown", () => {
+  it("no leaning between rounds; the bell ends a lean", () => {
     const s = createState(1);
     idle(s, ROUND_TICKS - 3);
     step(s, [slip(0)]);
@@ -433,12 +424,11 @@ describe("boxing rounds and results", () => {
     expect(b0).not.toHaveProperty("lastAt");
     expect(b0.guard).toBeNull();
     expect(b0.punches.right).toEqual({ hand: "right", target: "body", thrownTick: 1, landsTick: 1 + JAB_WINDUP_TICKS });
-    expect(b1.slip).toEqual({ side: "right", until: 1 + SLIP_TICKS });
-    expect(b1.slipReadyAt).toBe(1 + SLIP_COOLDOWN_TICKS);
-    for (const k of ["health", "guard", "slip", "slipReadyAt", "punches", "readyAt", "dealt", "thrown", "landed", "blocked", "slipped", "capped"]) expect(b0).toHaveProperty(k);
+    expect(b1.slip).toBe("right");
+    for (const k of ["health", "guard", "slip", "punches", "readyAt", "dealt", "thrown", "landed", "blocked", "slipped", "capped"]) expect(b0).toHaveProperty(k);
     // a copy: changing the state doesn't change a snapshot already taken
-    s.boxers[1].slip!.side = "left";
-    expect(b1.slip!.side).toBe("right");
+    s.boxers[1].slip = "left";
+    expect(b1.slip).toBe("right");
   });
 });
 

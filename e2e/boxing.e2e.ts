@@ -2,7 +2,7 @@ import { expect, test } from "@playwright/test";
 import type { Page } from "@playwright/test";
 
 // Task 30 (ADR 002): boxing at both viewports. J and K jab to the head and
-// body, Space and L hold the high and low guard, A and D slip; six buttons do
+// body, Space and L hold the high and low guard, A and D held lean (slip); six buttons do
 // the same on a phone. Practice runs in the page and sends nothing.
 
 const noHorizontalScroll = (page: Page) => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth);
@@ -53,13 +53,17 @@ test("practice: punches wear the sparring partner down, in the page, nothing sen
   }
   await expect.poll(() => health(page, 1)).toBeLessThan(before);
   expect(Number(await canvas(page).getAttribute("data-sent"))).toBeGreaterThanOrEqual(8);
-  // A and D slip: the sim starts the window (the snapshot shows it) and ends it
-  await page.keyboard.press("KeyA");
+  // A and D lean while held (playtest 4: the slip stays while you lean), and let go comes back
+  await page.keyboard.down("KeyA");
   await expect(canvas(page)).toHaveAttribute("data-slip0", "left");
+  await page.waitForTimeout(1500);
+  await expect(canvas(page)).toHaveAttribute("data-slip0", "left");
+  await page.keyboard.up("KeyA");
   await expect(canvas(page)).toHaveAttribute("data-slip0", "none");
-  await page.waitForTimeout(800);
-  await page.keyboard.press("KeyD");
+  await page.keyboard.down("KeyD");
   await expect(canvas(page)).toHaveAttribute("data-slip0", "right");
+  await page.keyboard.up("KeyD");
+  await expect(canvas(page)).toHaveAttribute("data-slip0", "none");
   // hold L for the low guard; the server's snapshot carries it
   await page.keyboard.down("KeyL");
   await expect(page.locator(".boxing")).toHaveAttribute("data-guard", "low");
@@ -104,8 +108,13 @@ test("the six buttons: Head and Body jab, the guards go up while held, the slips
     await b.dispatchEvent("pointerup");
     await expect(page.locator(".boxing")).toHaveAttribute("data-guard", "none");
   }
-  await page.getByRole("button", { name: /^Slip right/ }).dispatchEvent("pointerdown");
+  const slipRight = page.getByRole("button", { name: /^Slip right/ });
+  await slipRight.dispatchEvent("pointerdown");
   await expect(canvas(page)).toHaveAttribute("data-slip0", "right");
+  await page.waitForTimeout(1000);
+  await expect(canvas(page)).toHaveAttribute("data-slip0", "right");
+  await slipRight.dispatchEvent("pointerup");
+  await expect(canvas(page)).toHaveAttribute("data-slip0", "none");
 });
 
 test("holding Space raises the high guard; the bot goes to the body, and the low guard is still yours to find", async ({ page }) => {

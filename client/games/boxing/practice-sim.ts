@@ -23,7 +23,7 @@ export class PracticeSim {
     this.queued.push({ t: "guard", seat: 0, guard });
   }
 
-  slip(side: Side): void {
+  slip(side: Side | null): void {
     this.queued.push({ t: "slip", seat: 0, side });
   }
 

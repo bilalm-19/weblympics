@@ -475,9 +475,9 @@ export function cameraBoxing(read: TrialRead | BoxRead): CameraBoxing {
 // A slip is the shoulders tilting to one side, read from the shoulder line
 // (`bodyFrame(...).tilt`, degrees, positive when leaning to the player's
 // right). Neutral is the median of the first `neutralMs` of tracking, as
-// tennis's tilt does, so how you sit doesn't matter. Past `slipAt` degrees
-// from neutral fires one slip that way; it re-arms once back within
-// `rearmAt`. FIRST GUESSES from tennis's playtested tilt (dead zone 3,
+// tennis's tilt does, so how you sit doesn't matter. A slip is a held lean
+// (playtest 4): past `slipAt` degrees from neutral you are leaning that way
+// for as long as you stay past `rearmAt`; back within it, upright. FIRST GUESSES from tennis's playtested tilt (dead zone 3,
 // full 11 degrees), to be set from a recorded lean.
 
 export interface SlipConfig {
@@ -492,16 +492,21 @@ export class SlipDetector {
   private samples: number[] = [];
   private start: number | null = null;
   neutral: number | null = null;
-  private armed = true;
+  /** The lean now: a side, or null when upright. */
+  lean: BoxHand | null = null;
   private cfg: SlipConfig;
 
   constructor(cfg: SlipConfig = DEFAULT_SLIP) {
     this.cfg = cfg;
   }
 
-  /** One frame's shoulder tilt (null when the shoulders aren't seen) at `t` ms; a slip to fire, or null. */
-  update(tilt: number | null, t: number): BoxHand | null {
-    if (tilt === null) return null;
+  /**
+   * One frame's shoulder tilt (null when the shoulders aren't seen) at `t` ms.
+   * Returns the lean when it changes (a side, or null back upright), else
+   * undefined. A lost frame keeps the lean as it was.
+   */
+  update(tilt: number | null, t: number): BoxHand | null | undefined {
+    if (tilt === null) return undefined;
     if (this.neutral === null) {
       if (this.start === null) this.start = t;
       this.samples.push(tilt);
@@ -509,18 +514,16 @@ export class SlipDetector {
         const s = [...this.samples].sort((a, b) => a - b);
         this.neutral = s[Math.floor(s.length / 2)];
       }
-      return null;
+      return undefined;
     }
     const d = tilt - this.neutral;
-    if (!this.armed) {
-      if (Math.abs(d) <= this.cfg.rearmAt) this.armed = true;
-      return null;
-    }
-    if (Math.abs(d) >= this.cfg.slipAt) {
-      this.armed = false;
-      return d > 0 ? "right" : "left";
-    }
-    return null;
+    const side: BoxHand = d > 0 ? "right" : "left";
+    let next = this.lean;
+    if (Math.abs(d) >= this.cfg.slipAt) next = side;
+    else if (this.lean !== null && (Math.abs(d) <= this.cfg.rearmAt || side !== this.lean)) next = null;
+    if (next === this.lean) return undefined;
+    this.lean = next;
+    return next;
   }
 
   /** How far from neutral now, in degrees, for the readout; null before neutral is set. */
@@ -532,6 +535,6 @@ export class SlipDetector {
     this.samples = [];
     this.start = null;
     this.neutral = null;
-    this.armed = true;
+    this.lean = null;
   }
 }

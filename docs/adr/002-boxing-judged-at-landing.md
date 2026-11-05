@@ -55,17 +55,19 @@ other boxer's guard and lean at that moment in its own sim.
   player who can't throw a hook). A jab carries its hand and target (head or
   body).
 - **Defence:** the guard is a state, `high` / `low` / none, sent when it
-  changes; one arm up is no guard (user, playtest 3). A slip is an event,
-  `slip left` or `right`: the server starts a short slip window itself and
-  ends it, so holding a lean buys nothing; the camera fires one when the
-  shoulders tilt past a threshold and re-arms when they come back.
+  changes; one arm up is no guard (user, playtest 3). A slip is a held
+  lean, also a state: `slip left`, `right` or none, sent when it changes
+  (user, 2026-11-06, playtest 4, replacing a timed 400 ms slip that came
+  back to centre while the player still leaned). The camera holds it while
+  the shoulders stay tilted past a threshold.
 - **Judged at landing:** a jab lands a short time after it is thrown (the
   number is tuned in the playtest; on camera the read comes late in the
   punch, so it is kept short). On that tick: a head jab misses if the
   defender is leaning, is blocked by a high guard; a body jab is blocked by a
   low guard. Blocked does a small share of damage; a clean jab full damage.
-- **A slip costs something:** it lasts a short window and can't be held; you
-  can't punch while leaning. (Numbers in the playtest.)
+- **What a slip costs:** you can't punch while leaning. Head jabs miss for
+  as long as you hold it (user's choice over a time limit, knowing that
+  leaning with a low guard blocks everything; revisit if bouts stall).
 - **A slip and a guard go together** (user, 2026-11-06, playtest 4): a boxer
   leans with their hands up, so a slip may start with a guard up and a guard
   change doesn't end it. While slipping, a head jab misses whatever the

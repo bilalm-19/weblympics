@@ -58,7 +58,7 @@ describe("boxing practice", () => {
     expect(sim.state.boxers[0].guard).toBeNull();
     sim.slip("right");
     sim.tick();
-    expect(sim.state.boxers[0].slip?.side).toBe("right");
+    expect(sim.state.boxers[0].slip).toBe("right");
   });
 
   it("uses the sim's own numbers", () => {

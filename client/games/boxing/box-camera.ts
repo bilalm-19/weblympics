@@ -17,8 +17,8 @@ export interface BoxCameraCallbacks {
   punch(hand: BoxHand, target: BoxTarget): void;
   /** The guard changed: high, low or none. */
   guard(guard: BoxGuard): void;
-  /** The shoulders tilted past the slip threshold: slip that way (the same message A or D sends). */
-  slip(side: BoxHand): void;
+  /** The lean changed: a side while the shoulders are tilted past the threshold, null back upright (the same message holding A or D sends). */
+  slip(side: BoxHand | null): void;
   /** The setup panel opened (true) or closed (false); practice holds the bout meanwhile. */
   pause(paused: boolean): void;
 }
@@ -84,14 +84,9 @@ export function createBoxCamera(view: HTMLElement, button: HTMLButtonElement, ch
     const hands = lm ? handMeasures(f.hands, lm, f.aspect) : null;
     const tr = lm ? detector.update({ hands, arms }, f.t) : null;
     const tilt = lm ? (bodyFrameOf(lm, f.aspect)?.tilt ?? null) : null;
-    const slipSide = slipper.update(tilt, f.t);
-    debug?.frame(f, arms, hands, tr, slipper.offset(tilt), slipSide);
-    if (slipSide) {
-      cb.slip(slipSide);
-      punchEl.textContent = `slip ${slipSide}`;
-      clearTimeout(punchTimer);
-      punchTimer = window.setTimeout(() => (punchEl.textContent = "–"), 600);
-    }
+    const leanChange = slipper.update(tilt, f.t);
+    debug?.frame(f, arms, hands, tr, slipper.offset(tilt), slipper.lean);
+    if (leanChange !== undefined) cb.slip(leanChange);
     const { guard: guardNow, jab } = tr ? cameraBoxing(tr) : { guard: guardSent, jab: null };
     if (guardNow !== guardSent) {
       guardSent = guardNow;
@@ -117,6 +112,7 @@ export function createBoxCamera(view: HTMLElement, button: HTMLButtonElement, ch
     session = null;
     tracking = false;
     detector.reset();
+    if (slipper.lean !== null) cb.slip(null);
     slipper.reset();
     if (guardSent !== null) cb.guard(null);
     guardSent = null;
@@ -147,7 +143,7 @@ export function createBoxCamera(view: HTMLElement, button: HTMLButtonElement, ch
       session = await startPose(video, stream, onFrame, () => {}, { hands: true, poseEvery: 3 });
       button.textContent = "Stop camera";
       read.hidden = false;
-      panel.innerHTML = `<h2>Ready to box</h2><p role="status">Hands up by your face to guard. Jab: punch straight at the screen. Lean your shoulders to one side to slip. Sit still for a second first, so it learns your centre. Keep your shoulders in view.</p><div class="row"><button class="primary" data-step="close">Start boxing</button></div>`;
+      panel.innerHTML = `<h2>Ready to box</h2><p role="status">Hands up by your face to guard. Jab: punch straight at the screen. Lean your shoulders to one side and hold it to slip; straighten up to come back. Sit still for a second first, so it learns your centre. Keep your shoulders in view.</p><div class="row"><button class="primary" data-step="close">Start boxing</button></div>`;
       panel.querySelector("[data-step=close]")?.addEventListener("click", close);
       (panel.querySelector("[data-step=close]") as HTMLElement | null)?.focus();
     } catch (err) {
@@ -213,7 +209,7 @@ type HandSample = { size: number; height: number; across: number };
 function createDebugReadout(
   dock: HTMLElement,
 ): {
-  frame(f: CameraFrame, m: Record<BoxHand, ArmMeasures | null>, hm: Record<BoxHand, HandMeasures | null> | null, tr: TrialRead | null, tilt: number | null, slip: BoxHand | null): void;
+  frame(f: CameraFrame, m: Record<BoxHand, ArmMeasures | null>, hm: Record<BoxHand, HandMeasures | null> | null, tr: TrialRead | null, tilt: number | null, lean: BoxHand | null): void;
 } | null {
   if (!new URLSearchParams(location.search).has("debug")) return null;
   const el = document.createElement("pre");
@@ -301,13 +297,14 @@ function createDebugReadout(
   // the text is redrawn 5 times a second, not every frame (it was choppy)
   let drawnAt = -Infinity;
   let liveTilt: number | null = null;
+  let liveLean: BoxHand | null = null;
   const liveHand = (hand: BoxHand, h: HandMeasures | null | undefined) =>
     `${hand.padEnd(5)} HAND size ${n(h?.size ?? null)} (x${n(grow[hand])} rest)  height ${n(h?.height ?? null)}  across ${n(h?.across ?? null)}`;
   const live = (hand: BoxHand, m: ArmMeasures | null) =>
     `${hand.padEnd(5)} size ${n(m?.size ?? null)}  elbow3d ${n(m?.elbow3d ?? null, 0)}  depth ${n(m?.forward ?? null)}  reach ${n(m?.reach ?? null)}  height ${n(m ? -m.down : null)}`;
 
   return {
-    frame(f, m, hm, tr, tilt, slip) {
+    frame(f, m, hm, tr, tilt, lean) {
       if (lastT) fps = 0.9 * fps + 0.1 * (1000 / Math.max(1, f.t - lastT));
       lastT = f.t;
       grow = tr?.grow ?? { left: null, right: null };
@@ -316,15 +313,13 @@ function createDebugReadout(
         lastPunchAt = now0();
         if (rec && now0() >= rec.startsAt && now0() < rec.endsAt) rec.punches.push(lastPunch);
       }
-      if (slip) {
-        lastPunch = `slip ${slip}`;
-        lastPunchAt = now0();
-        if (rec && now0() >= rec.startsAt && now0() < rec.endsAt) rec.punches.push(lastPunch);
-      }
+      if (lean && lean !== liveLean && rec && now0() >= rec.startsAt && now0() < rec.endsAt) rec.punches.push(`lean ${lean}`);
+      liveLean = lean;
       liveTilt = tilt;
       const showPunch = now0() - lastPunchAt < 700;
-      verdict.textContent = showPunch ? lastPunch.toUpperCase() : tr?.guard ? `${tr.guard.toUpperCase()} GUARD` : "–";
-      verdict.dataset.kind = showPunch ? "punch" : tr?.guard ? "guard" : "none";
+      const leanWord = lean ? ` · LEAN ${lean.toUpperCase()}` : "";
+      verdict.textContent = showPunch ? lastPunch.toUpperCase() : (tr?.guard ? `${tr.guard.toUpperCase()} GUARD` : "–") + leanWord;
+      verdict.dataset.kind = showPunch ? "punch" : tr?.guard || lean ? "guard" : "none";
       const now = performance.now();
       let head = status;
       if (rec) {
@@ -351,7 +346,7 @@ function createDebugReadout(
       const done = MOVES.map((name, i) => `${results.has(i + 1) ? "✓" : " "} ${i + 1} ${name}`).join("   ");
       if (now - drawnAt < 200) return;
       drawnAt = now;
-      el.textContent = [`fps ${fps.toFixed(0)}   ${head}`, live("left", m.left), live("right", m.right), liveHand("left", hm?.left), liveHand("right", hm?.right), `tilt from neutral ${liveTilt === null ? "(sit still: learning your centre)" : `${liveTilt.toFixed(1)} deg`}  slip at ±${DEFAULT_SLIP.slipAt}`, "", done, "", table()].join("\n");
+      el.textContent = [`fps ${fps.toFixed(0)}   ${head}`, live("left", m.left), live("right", m.right), liveHand("left", hm?.left), liveHand("right", hm?.right), `tilt from neutral ${liveTilt === null ? "(sit still: learning your centre)" : `${liveTilt.toFixed(1)} deg`}  lean at ±${DEFAULT_SLIP.slipAt}, upright within ±${DEFAULT_SLIP.rearmAt}`, "", done, "", table()].join("\n");
     },
   };
 }

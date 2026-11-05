@@ -82,18 +82,16 @@ export function botInputs(s: BoxingState, seat: Seat): BoxingInput[] {
   const foe = s.boxers[other(seat)];
   const out: BoxingInput[] = [];
   const d = botDefence(s, seat);
+  // a slip is a held lean (playtest 4): the bot leans while it sees a head
+  // jab coming and straightens up once nothing is, like a person letting go
   if (d === "slip") {
-    if (me.slip !== null) return out;
-    // a slip may start with a guard up (playtest 4); only the cooldown stops it
-    if (s.tick >= me.slipReadyAt) {
+    if (me.slip === null) {
       const side: Side = noise(s, s.tick * 7 + 3) < 0.5 ? "left" : "right";
       out.push({ t: "slip", seat, side });
-      return out;
     }
-    // can't slip yet (too soon after the last): guard high instead
-    if (me.guard !== "high") out.push({ t: "guard", seat, guard: "high" });
     return out;
   }
+  if (me.slip !== null) out.push({ t: "slip", seat, side: null });
   const guard = botWantsGuard(s, seat);
   if (guard !== me.guard) out.push({ t: "guard", seat, guard });
   if (guard !== null || me.slip !== null) return out;

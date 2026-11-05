@@ -152,34 +152,43 @@ describe("the camera panel uses the trial detector for everyone (playtest 4)", (
   });
 });
 
-describe("camera slip: a shoulder lean (playtest 4)", () => {
-  // tilt in degrees, + to the player's right; frames at 24 fps
+describe("camera slip: a held shoulder lean (playtest 4)", () => {
+  // tilt in degrees, + to the player's right; frames at 24 fps. Returns each
+  // change of lean (a side, or null back upright), in order.
   const feed = (d: InstanceType<typeof SlipDetector>, tilts: number[], t0 = 0) => {
-    const out: Array<"left" | "right"> = [];
+    const out: Array<"left" | "right" | null> = [];
     tilts.forEach((tilt, i) => {
       const r = d.update(tilt, t0 + (i * 1000) / 24);
-      if (r) out.push(r);
+      if (r !== undefined) out.push(r);
     });
     return out;
   };
   const still = (deg: number, n: number) => Array.from({ length: n }, () => deg);
 
-  it("learns the neutral from the first second, so sitting a little tilted isn't a slip", () => {
+  it("learns the neutral from the first second, so sitting a little tilted isn't a lean", () => {
     const d = new SlipDetector();
-    // sits 6 degrees tilted the whole time: no slip
     expect(feed(d, still(6, 72))).toEqual([]);
     expect(d.neutral).toBeCloseTo(6, 5);
   });
 
-  it("a lean past 8 degrees from neutral is one slip that way; it re-arms back within 4", () => {
+  it("past 8 degrees you lean that way and stay leaned while you hold it; back within 4 you're upright", () => {
     const d = new SlipDetector();
-    const r = feed(d, [...still(0, 30), ...still(10, 12), ...still(0, 6), ...still(-10, 12), ...still(0, 6)]);
-    expect(r).toEqual(["right", "left"]);
+    const r = feed(d, [...still(0, 30), ...still(10, 72), ...still(6, 12), ...still(2, 6)]);
+    expect(r).toEqual(["right", null]);
   });
 
-  it("holding a lean is one slip, not many", () => {
+  it("between 4 and 8 degrees keeps whatever you were doing (no flicker at the edge)", () => {
     const d = new SlipDetector();
-    expect(feed(d, [...still(0, 30), ...still(12, 72)])).toEqual(["right"]);
+    expect(feed(d, [...still(0, 30), ...still(6, 24)])).toEqual([]);
+    expect(d.lean).toBeNull();
+    feed(d, still(10, 3), 5000);
+    expect(feed(d, still(6, 24), 6000)).toEqual([]);
+    expect(d.lean).toBe("right");
+  });
+
+  it("swinging straight from one side to the other switches the lean", () => {
+    const d = new SlipDetector();
+    expect(feed(d, [...still(0, 30), ...still(10, 6), ...still(-10, 6)])).toEqual(["right", "left"]);
   });
 
   it("a small sway (within 8 degrees) is nothing", () => {
@@ -188,17 +197,18 @@ describe("camera slip: a shoulder lean (playtest 4)", () => {
     expect(feed(d, [...still(0, 30), ...sway])).toEqual([]);
   });
 
-  it("lost shoulders (null) neither slip nor reset the neutral", () => {
+  it("lost shoulders (null) keep the lean as it was and don't reset the neutral", () => {
     const d = new SlipDetector();
-    feed(d, still(0, 30));
-    expect(d.update(null, 2000)).toBeNull();
+    feed(d, [...still(0, 30), ...still(10, 3)]);
+    expect(d.update(null, 5000)).toBeUndefined();
+    expect(d.lean).toBe("right");
     expect(d.neutral).toBe(0);
   });
 
-  it("the camera panel sends a slip from the shoulder lean", async () => {
+  it("the camera panel sends the lean and its end", async () => {
     const { readFileSync } = await import("node:fs");
     const src = readFileSync(new URL("../client/games/boxing/box-camera.ts", import.meta.url), "utf8");
     expect(src).toMatch(/new SlipDetector\(/);
-    expect(src).toMatch(/cb\.slip\(/);
+    expect(src).toMatch(/cb\.slip\(leanChange\)/);
   });
 });
