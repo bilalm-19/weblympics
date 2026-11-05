@@ -33,7 +33,7 @@ In archery: hold an imaginary bow. Your front hand aims, pulling the other back 
 
 In track: run on the spot (arms or knees), or alternate A and D. Only footsteps are sent; the server turns their rhythm into speed and ignores the same foot twice or faster-than-human steps.
 
-In boxing: hands up by your face to guard, punch at the screen for a jab, sweep across for a hook (or J, K, Space). The server lands each punch after its wind-up and checks your guard then, so a guard raised in time still saves you.
+In boxing you jab to the head or body and defend with a high guard, a low guard or a slip. The server judges each jab when it lands, so defending in time still saves you.
 
 Tennis movement uses your shoulders rather than stepping sideways, so you stay in frame and need little space.
 

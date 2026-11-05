@@ -31,13 +31,14 @@ lazily and only when a player enters a game. Video never leaves the browser.
   steps to cadence to speed, the cadence cap, finish times; an `obstacles`
   list, empty for the sprint), `bot.ts` (target cadence plus noise),
   `index.ts` (adapter). Boxing (task 30) is `shared/games/boxing/`:
-  `sim.ts` (punches in the air with a wind-up, the guard at landing,
-  health, the per-hand recovery and the punch cap, rounds, KO, decision,
-  draw), `bot.ts` (guards after a seeded reaction delay, mixes jabs and
-  hooks), `index.ts` (adapter); its pure camera maths is
+  `sim.ts` (jabs in the air with a wind-up, `judge` of guard and slip at
+  landing, the slip window and cooldown, health, the per-hand recovery and
+  the punch cap, rounds, KO, decision, draw), `bot.ts` (guards the right
+  height or slips after a seeded reaction delay, jabs head or body),
+  `index.ts` (adapter); its pure camera maths is
   `client/input/camera/box-pose.ts`. Its client is `client/games/boxing/`:
-  `view.ts` (a flat 2D ring on one canvas, bout board, round call, J/K/Space
-  and three buttons), `box-camera.ts` (its camera panel; the pure maths is
+  `view.ts` (a flat 2D ring on one canvas, bout board, round call,
+  J/K/Space/L/A/D and six buttons), `box-camera.ts` (its camera panel; the pure maths is
   `box-pose.ts`), `practice.ts` + `practice-sim.ts` (in-page practice vs
   the bot), `boxing.css`; it reuses tennis's ready panel.
   `shared/look.ts`
@@ -269,37 +270,41 @@ lazily and only when a player enters a game. Video never leaves the browser.
   is a step; stand back), measured in shoulder widths from a stand-still
   calibration. "elbows" is the provisional default until a real-webcam
   playtest picks one.
-- Boxing is being reworked (user, 2026-11-05; `docs/adr/002-boxing-judged-at-landing.md`):
-  jabs only, to the head or body; a high guard blocks head jabs, a low guard
-  body jabs, one arm up is no guard; a slip (lean) makes a head jab miss;
-  the server judges guard and lean on the landing tick; a 3D ring. Until each
-  piece lands, the rule below is what the code does. Camera numbers come from
-  recordings (`docs/camera-playtest.md`), never guesses.
-- Boxing (task 30; `spec/boxing-*.test.ts`): clients send only `punch`
-  (jab or hook, which hand, their own timestamp) and `guard` (up or down),
-  never damage, a hit or a health. A jab lands 200 ms after it is thrown, a
-  hook 350 ms; on landing the server checks the other's guard on that tick
-  (guarded 20% damage, open full), so a guard raised in time still saves
-  you. Health 500 (100 ended bot bouts in about 15 s, so the rounds never
-  happened; `spec/boxing-sim.test.ts` holds bouts to well over a round), jab 6,
-  hook 14. A hand can't throw again until its punch
-  lands plus 150 ms; the guard up stops punching; a punch cap (4 a second
-  per boxer, burst of 2, by the punch's own timestamp and by the server's
-  clock) so flailing buys nothing. Three rounds of 30 s with a 5 s break;
-  punches in the air at the bell don't count; a knockout ends it at once;
-  after three rounds the most damage dealt wins and an exact tie is a draw
-  (`finished()` gives `winner: null`, recorded with `draw`, rated between
-  two people). The round clock is the sim's ticks, so the reconnect pause
-  freezes it. Formats: "bout" (rated between two people) and "unlimited"
-  (bout after bout, counts bouts won and knockouts, unrated). Practice vs
-  bot is never rated. Camera (`spec/boxing-box-pose.test.ts`): a wrist
-  moving fast toward the camera in front of its shoulder is a jab, one
-  sweeping fast across the body at shoulder height is a hook, both wrists
-  by the face is the guard; in shoulder widths, from the shoulder line, so
-  there is nothing to calibrate (`client/games/boxing/box-camera.ts`: a
-  safety panel, then it tracks; the camera sends the same `punch` and `guard`
-  messages a key does, never a hit). Keys: J jab, K hook, hold Space to
-  guard; three buttons on a phone.
+- Boxing's design is `docs/adr/002-boxing-judged-at-landing.md` (user,
+  2026-11-05). Still to come from it: the 3D ring and a camera slip. Camera
+  numbers come from recordings (`docs/camera-playtest.md`), never guesses.
+- Boxing (task 30; `spec/boxing-*.test.ts`): jabs only. Clients send
+  exactly `punch` {hand, target "head"|"body", their own timestamp},
+  `guard` {"high"|"low"|null} and `slip` {side}; anything else, or any
+  extra field, is dropped whole (`asInput`, `parseClientMsg`). A jab lands
+  150 ms after it is thrown and is judged on that tick: a head jab on a
+  slipping boxer is "slipped" (no damage), a head jab on a high guard or a
+  body jab on a low guard is "blocked" (20%, rounded), anything else is
+  "clean"; the slip doesn't help against a body jab. So a guard or slip
+  started in time still saves you. A slip is an event: the server starts a
+  400 ms window and ends it, the next may start 1 s after the last one
+  started; no slip with a guard up, raising a guard ends a slip, no
+  punching while slipping or guarding. Health 500 (100 ended bot bouts in
+  about 15 s; `spec/boxing-sim.test.ts` holds bouts to well over a round),
+  jab 6; these numbers are guesses for the playtest. A hand can't throw
+  again until its jab lands plus 150 ms; a punch cap (4 a second per
+  boxer, burst of 2, by the punch's own timestamp and by the server's
+  clock) so flailing buys nothing. The bot guards the height of the jab it
+  sees after a reaction delay, sometimes slips a head jab, jabs more to the
+  body against a high guard, and stays beatable. Three rounds of 30 s with
+  a 5 s break; jabs in the air at the bell don't count; a knockout ends it
+  at once; after three rounds the most damage dealt wins and an exact tie
+  is a draw (`finished()` gives `winner: null`, recorded with `draw`, rated
+  between two people). The round clock is the sim's ticks, so the
+  reconnect pause freezes it. Formats: "bout" (rated between two people)
+  and "unlimited" (bout after bout, counts bouts won and knockouts,
+  unrated). Practice vs bot is never rated. Camera
+  (`spec/boxing-box-pose.test.ts`, `cameraBoxing` in `box-pose.ts`): it
+  sends the same messages a key does, never a hit. With `?debug` the trial
+  detector's guard height and jab target go through; otherwise the old
+  tracker's jab is a head jab and its guard the high guard; hooks are
+  dropped; no camera slip yet. Keys: J head jab, K body jab, hold Space
+  high guard, hold L low guard, A/D slip; six buttons on a phone.
 - Camera is used for gameplay only. Every camera action has a keyboard/mouse
   equivalent, and the lobby and room work with no camera at all.
 - Webcam is the default (task 15, `e2e/webcam-default.e2e.ts`): a seated
