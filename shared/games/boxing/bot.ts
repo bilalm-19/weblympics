@@ -84,12 +84,13 @@ export function botInputs(s: BoxingState, seat: Seat): BoxingInput[] {
   const d = botDefence(s, seat);
   if (d === "slip") {
     if (me.slip !== null) return out;
-    if (me.guard === null && s.tick >= me.slipReadyAt) {
+    // a slip may start with a guard up (playtest 4); only the cooldown stops it
+    if (s.tick >= me.slipReadyAt) {
       const side: Side = noise(s, s.tick * 7 + 3) < 0.5 ? "left" : "right";
       out.push({ t: "slip", seat, side });
       return out;
     }
-    // can't slip (a guard up, or too soon after the last): guard high instead
+    // can't slip yet (too soon after the last): guard high instead
     if (me.guard !== "high") out.push({ t: "guard", seat, guard: "high" });
     return out;
   }

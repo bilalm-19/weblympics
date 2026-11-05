@@ -285,17 +285,18 @@ export function throwPunch(s: BoxingState, input: Extract<BoxingInput, { t: "pun
 }
 
 /** Why a slip did or didn't start. */
-export type SlipResult = "ok" | "not-round" | "guarding" | "slipping" | "cooling";
+export type SlipResult = "ok" | "not-round" | "slipping" | "cooling";
 
 /**
- * Starts a slip, in place, or says why not: only in a round, never with a
- * guard up, never while one is on, and not before `slipReadyAt` (counted from
- * the last slip's start). The sim ends it SLIP_TICKS later.
+ * Starts a slip, in place, or says why not: only in a round, never while one
+ * is on, and not before `slipReadyAt` (counted from the last slip's start).
+ * The sim ends it SLIP_TICKS later. A guard may stay up (user, playtest 4: a
+ * boxer leans with their hands up, and the camera reads it that way): head
+ * jabs miss while slipping, body jabs still meet the guard as usual.
  */
 export function startSlip(s: BoxingState, input: Extract<BoxingInput, { t: "slip" }>): SlipResult {
   const b = s.boxers[input.seat];
   if (s.phase !== "round") return "not-round";
-  if (b.guard !== null) return "guarding";
   if (b.slip !== null) return "slipping";
   if (s.tick < b.slipReadyAt) return "cooling";
   b.slip = { side: input.side, until: s.tick + SLIP_TICKS };
@@ -303,10 +304,9 @@ export function startSlip(s: BoxingState, input: Extract<BoxingInput, { t: "slip
   return "ok";
 }
 
-/** A guard change. Raising a guard ends a slip (you are back upright); dropping it leaves a slip alone. */
+/** A guard change; it leaves a slip alone (a guard and a slip go together, playtest 4). */
 function setGuard(b: Boxer, guard: Guard): void {
   b.guard = guard;
-  if (guard !== null) b.slip = null;
 }
 
 function endBout(s: BoxingState, ev: BoxingEvent[], ko: boolean): void {

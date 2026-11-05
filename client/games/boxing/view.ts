@@ -165,6 +165,10 @@ export function startBoxing(root: HTMLElement, conn: GameLink, info: RoomInfo, o
       // a held key or button outranks the camera
       if (held.size === 0) guard(g);
     },
+    slip: (side) => {
+      slip(side);
+      canvas.dataset.camSlip = String(Number(canvas.dataset.camSlip ?? 0) + 1);
+    },
     pause: (p) => {
       if (info.practice) conn.send({ t: "pause", paused: p });
     },

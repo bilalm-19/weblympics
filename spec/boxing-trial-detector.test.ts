@@ -2,7 +2,7 @@
 // user's real-webcam recordings (docs/playtest/boxing-2026-11-05-hand-model.txt).
 // Heights are above the shoulder line, sizes and reach in shoulder widths.
 import { describe, expect, it } from "vitest";
-import { TRIAL_BOX, TrialDetector, handMeasures } from "../client/input/camera/box-pose.ts";
+import { SlipDetector, TRIAL_BOX, TrialDetector, handMeasures } from "../client/input/camera/box-pose.ts";
 import type { ArmMeasures, BoxHand, HandMeasures, TrialFrame } from "../client/input/camera/box-pose.ts";
 import type { Point } from "../client/input/camera/pose.ts";
 
@@ -149,5 +149,56 @@ describe("the camera panel uses the trial detector for everyone (playtest 4)", (
     expect(src).not.toMatch(/new BoxTracker\(/);
     expect(src).toMatch(/new TrialDetector\(/);
     expect(src).toMatch(/hands: true/);
+  });
+});
+
+describe("camera slip: a shoulder lean (playtest 4)", () => {
+  // tilt in degrees, + to the player's right; frames at 24 fps
+  const feed = (d: InstanceType<typeof SlipDetector>, tilts: number[], t0 = 0) => {
+    const out: Array<"left" | "right"> = [];
+    tilts.forEach((tilt, i) => {
+      const r = d.update(tilt, t0 + (i * 1000) / 24);
+      if (r) out.push(r);
+    });
+    return out;
+  };
+  const still = (deg: number, n: number) => Array.from({ length: n }, () => deg);
+
+  it("learns the neutral from the first second, so sitting a little tilted isn't a slip", () => {
+    const d = new SlipDetector();
+    // sits 6 degrees tilted the whole time: no slip
+    expect(feed(d, still(6, 72))).toEqual([]);
+    expect(d.neutral).toBeCloseTo(6, 5);
+  });
+
+  it("a lean past 8 degrees from neutral is one slip that way; it re-arms back within 4", () => {
+    const d = new SlipDetector();
+    const r = feed(d, [...still(0, 30), ...still(10, 12), ...still(0, 6), ...still(-10, 12), ...still(0, 6)]);
+    expect(r).toEqual(["right", "left"]);
+  });
+
+  it("holding a lean is one slip, not many", () => {
+    const d = new SlipDetector();
+    expect(feed(d, [...still(0, 30), ...still(12, 72)])).toEqual(["right"]);
+  });
+
+  it("a small sway (within 8 degrees) is nothing", () => {
+    const d = new SlipDetector();
+    const sway = Array.from({ length: 96 }, (_, i) => 5 * Math.sin(i / 4));
+    expect(feed(d, [...still(0, 30), ...sway])).toEqual([]);
+  });
+
+  it("lost shoulders (null) neither slip nor reset the neutral", () => {
+    const d = new SlipDetector();
+    feed(d, still(0, 30));
+    expect(d.update(null, 2000)).toBeNull();
+    expect(d.neutral).toBe(0);
+  });
+
+  it("the camera panel sends a slip from the shoulder lean", async () => {
+    const { readFileSync } = await import("node:fs");
+    const src = readFileSync(new URL("../client/games/boxing/box-camera.ts", import.meta.url), "utf8");
+    expect(src).toMatch(/new SlipDetector\(/);
+    expect(src).toMatch(/cb\.slip\(/);
   });
 });

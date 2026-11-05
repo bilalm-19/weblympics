@@ -276,7 +276,7 @@ lazily and only when a player enters a game. Video never leaves the browser.
   calibration. "elbows" is the provisional default until a real-webcam
   playtest picks one.
 - Boxing's design is `docs/adr/002-boxing-judged-at-landing.md` (user,
-  2026-11-05). Still to come from it: a camera slip (needs a recording). Camera
+  2026-11-05). The camera slip's numbers are first guesses until a lean is recorded. Camera
   numbers come from recordings (`docs/camera-playtest.md`), never guesses.
 - Boxing (task 30; `spec/boxing-*.test.ts`): jabs only. Clients send
   exactly `punch` {hand, target "head"|"body", their own timestamp},
@@ -288,8 +288,10 @@ lazily and only when a player enters a game. Video never leaves the browser.
   "clean"; the slip doesn't help against a body jab. So a guard or slip
   started in time still saves you. A slip is an event: the server starts a
   400 ms window and ends it, the next may start 1 s after the last one
-  started; no slip with a guard up, raising a guard ends a slip, no
-  punching while slipping or guarding. Health 500 (100 ended bot bouts in
+  started; a slip may start with a guard up and a guard change leaves it
+  alone (user, playtest 4: you lean with your hands up), so while slipping
+  a head jab misses and a body jab still meets the guard; no punching while
+  slipping or guarding. Health 500 (100 ended bot bouts in
   about 15 s; `spec/boxing-sim.test.ts` holds bouts to well over a round),
   jab 6; these numbers are guesses for the playtest. A hand can't throw
   again until its jab lands plus 150 ms; a punch cap (4 a second per
@@ -310,8 +312,11 @@ lazily and only when a player enters a game. Video never leaves the browser.
   `BoxTracker` read "jabs" from depth noise in a held guard, playtest 4): the
   hand model's palm growing past its own resting size is a jab, its height
   the target; both palms up is the guard, high or low by height, one arm up
-  is none. The pose model runs every third frame (shoulders only). No hooks,
-  no camera slip yet. `?debug` adds a readout and a recorder only. Keys: J head jab, K body jab, hold Space
+  is none. A shoulder lean is a slip (`SlipDetector`): neutral is the median
+  of the first second of tracking, 8 degrees past it fires one slip that way,
+  back within 4 re-arms (first guesses from tennis's tilt). The pose model
+  runs every third frame (shoulders only). No hooks. `?debug` adds a readout
+  and a recorder only (move 9 records a lean). Keys: J head jab, K body jab, hold Space
   high guard, hold L low guard, A/D slip; six buttons on a phone.
 - Camera is used for gameplay only. Every camera action has a keyboard/mouse
   equivalent, and the lobby and room work with no camera at all.

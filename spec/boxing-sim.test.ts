@@ -264,17 +264,20 @@ describe("boxing slips", () => {
     expect(s.boxers[0].thrown).toBe(1);
   });
 
-  it("a slip can't start with a guard up; raising a guard ends a slip", () => {
+  it("a slip starts with a guard up, and a guard change leaves the slip alone (user, playtest 4)", () => {
     const s = createState(1);
     step(s, [guard(0, "high"), slip(0)]);
-    expect(s.boxers[0].slip).toBeNull();
-    // the refused slip doesn't start the cooldown
-    expect(s.boxers[0].slipReadyAt).toBe(0);
-    step(s, [guard(0, null), slip(0)]);
     expect(s.boxers[0].slip).not.toBeNull();
+    expect(s.boxers[0].guard).toBe("high");
     step(s, [guard(0, "low")]);
-    expect(s.boxers[0].slip).toBeNull();
+    expect(s.boxers[0].slip).not.toBeNull();
     expect(s.boxers[0].guard).toBe("low");
+  });
+
+  it("slipping with a high guard: a head jab misses; with a low guard a body jab is blocked", () => {
+    expect(judge("head", "high", true)).toBe("slipped");
+    expect(judge("body", "low", true)).toBe("blocked");
+    expect(judge("body", "high", true)).toBe("clean");
   });
 
   it("no slip between rounds; the bell ends a slip and the break resets the cooldown", () => {

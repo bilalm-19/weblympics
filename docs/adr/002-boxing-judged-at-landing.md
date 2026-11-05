@@ -66,6 +66,11 @@ other boxer's guard and lean at that moment in its own sim.
   low guard. Blocked does a small share of damage; a clean jab full damage.
 - **A slip costs something:** it lasts a short window and can't be held; you
   can't punch while leaning. (Numbers in the playtest.)
+- **A slip and a guard go together** (user, 2026-11-06, playtest 4): a boxer
+  leans with their hands up, so a slip may start with a guard up and a guard
+  change doesn't end it. While slipping, a head jab misses whatever the
+  guard; a body jab meets the guard as usual. On camera a slip is a shoulder
+  tilt past a threshold from your own neutral.
 - **The camera never decides:** it only turns your body into the same
   messages a key sends. The server checks rate (the punch cap) and order.
 

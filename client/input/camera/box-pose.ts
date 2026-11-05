@@ -470,3 +470,68 @@ export function cameraBoxing(read: TrialRead | BoxRead): CameraBoxing {
   }
   return { guard: read.guard ? "high" : null, jab: read.punch?.kind === "jab" ? { hand: read.punch.hand, target: "head" } : null };
 }
+
+// ---- Camera slip (task 30, playtest 4: "tilting isn't moving me") ----
+// A slip is the shoulders tilting to one side, read from the shoulder line
+// (`bodyFrame(...).tilt`, degrees, positive when leaning to the player's
+// right). Neutral is the median of the first `neutralMs` of tracking, as
+// tennis's tilt does, so how you sit doesn't matter. Past `slipAt` degrees
+// from neutral fires one slip that way; it re-arms once back within
+// `rearmAt`. FIRST GUESSES from tennis's playtested tilt (dead zone 3,
+// full 11 degrees), to be set from a recorded lean.
+
+export interface SlipConfig {
+  slipAt: number;
+  rearmAt: number;
+  neutralMs: number;
+}
+
+export const DEFAULT_SLIP: SlipConfig = { slipAt: 8, rearmAt: 4, neutralMs: 1000 };
+
+export class SlipDetector {
+  private samples: number[] = [];
+  private start: number | null = null;
+  neutral: number | null = null;
+  private armed = true;
+  private cfg: SlipConfig;
+
+  constructor(cfg: SlipConfig = DEFAULT_SLIP) {
+    this.cfg = cfg;
+  }
+
+  /** One frame's shoulder tilt (null when the shoulders aren't seen) at `t` ms; a slip to fire, or null. */
+  update(tilt: number | null, t: number): BoxHand | null {
+    if (tilt === null) return null;
+    if (this.neutral === null) {
+      if (this.start === null) this.start = t;
+      this.samples.push(tilt);
+      if (t - this.start >= this.cfg.neutralMs && this.samples.length >= 5) {
+        const s = [...this.samples].sort((a, b) => a - b);
+        this.neutral = s[Math.floor(s.length / 2)];
+      }
+      return null;
+    }
+    const d = tilt - this.neutral;
+    if (!this.armed) {
+      if (Math.abs(d) <= this.cfg.rearmAt) this.armed = true;
+      return null;
+    }
+    if (Math.abs(d) >= this.cfg.slipAt) {
+      this.armed = false;
+      return d > 0 ? "right" : "left";
+    }
+    return null;
+  }
+
+  /** How far from neutral now, in degrees, for the readout; null before neutral is set. */
+  offset(tilt: number | null): number | null {
+    return tilt === null || this.neutral === null ? null : tilt - this.neutral;
+  }
+
+  reset(): void {
+    this.samples = [];
+    this.start = null;
+    this.neutral = null;
+    this.armed = true;
+  }
+}
