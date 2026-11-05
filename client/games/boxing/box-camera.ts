@@ -124,7 +124,7 @@ export function createBoxCamera(view: HTMLElement, button: HTMLButtonElement, ch
       panel.innerHTML = `<h2>Loading pose model…</h2><p class="muted" role="status">The first time takes a few seconds.</p>`;
       setChip("Loading…", "warn");
       // the hand model only for the playtest readout until it earns its place
-      session = await startPose(video, stream, onFrame, () => {}, { hands: debug !== null });
+      session = await startPose(video, stream, onFrame, () => {}, { hands: debug !== null, poseEvery: debug ? 3 : 1 });
       button.textContent = "Stop camera";
       read.hidden = false;
       panel.innerHTML = `<h2>Ready to box</h2><p role="status">Hands up by your face to guard. Jab: punch straight at the screen. Hook: sweep a hand across your body. Keep your shoulders in view.</p><div class="row"><button class="primary" data-step="close">Start boxing</button></div>`;
@@ -275,6 +275,8 @@ function createDebugReadout(dock: HTMLElement): { frame(f: CameraFrame): TrialRe
 
   let grow: TrialRead["grow"] = { left: null, right: null };
   const now0 = () => performance.now();
+  // the text is redrawn 5 times a second, not every frame (it was choppy)
+  let drawnAt = -Infinity;
   const liveHand = (hand: BoxHand, h: HandMeasures | null | undefined) =>
     `${hand.padEnd(5)} HAND size ${n(h?.size ?? null)} (x${n(grow[hand])} rest)  height ${n(h?.height ?? null)}  across ${n(h?.across ?? null)}`;
   const live = (hand: BoxHand, m: ArmMeasures | null) =>
@@ -320,6 +322,8 @@ function createDebugReadout(dock: HTMLElement): { frame(f: CameraFrame): TrialRe
         }
       }
       const done = MOVES.map((name, i) => `${results.has(i + 1) ? "✓" : " "} ${i + 1} ${name}`).join("   ");
+      if (now - drawnAt < 200) return tr;
+      drawnAt = now;
       el.textContent = [`fps ${fps.toFixed(0)}   ${head}`, live("left", m.left), live("right", m.right), liveHand("left", hm?.left), liveHand("right", hm?.right), "", done, "", table()].join("\n");
       return tr;
     },

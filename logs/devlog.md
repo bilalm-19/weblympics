@@ -1307,3 +1307,24 @@ the format of the entries below (see CLAUDE.md, Docs).
 - **Decided by:** user (played it); Claude (the reading).
 - **Findings (user):** (1) much laggier than before; (2) keeping one arm up after going from the guard to a punch confuses it; (3) hooks still mostly don't register.
 - **Likely causes (Claude, unconfirmed):** (1) either the frame rate (the hand model runs after the pose model on every frame, and the readout rewrites a large text box each frame), or the read itself being late: a jab only counts at 1.35x the fist's size, near full extension. (2) hands are told apart by which side of the body they are on, so a fist crossing the middle swaps left and right; and with one hand left up the guard drops to none. (3) the hook rule needs the hand model to have lost the fist and the pose wrist past 0.9 from its shoulder; real hooks may not reach that.
+
+## 2026-11-05 22:36 AEDT | decision + change | Boxing: choppiness, one arm up is no guard, camera hooks off
+
+- **Decided by:** user ("whole thing is choppy, 1 arm is no guard do that, we can even remove hooks if its a problem and keep it simple"); Claude (how to cut the cost).
+- **Choppy:** the whole page, not a late read. Running the pose and hand models one after the other on every frame, and rewriting the readout's text every frame. Now: `startPose` takes an optional `poseEvery` (only boxing's debug path sets it, to 3: the hands come from the hand model and the shoulders move slowly, so the pose model runs every third frame); the readout's text is redrawn 5 times a second. Tennis, archery and track are unchanged (default 1).
+- **One arm up is no guard:** already how the trial detector worked (both palms must be up); now pinned by tests, including a jab from the guard with the other arm left up.
+- **Hooks off for the camera:** `TRIAL_BOX.hooks = false`, so the camera throws jabs only; keys and buttons still hook. The hook rule stays behind the flag with its test, in case a later recording finds a signal.
+- **Tests:** `spec/boxing-trial-detector.test.ts` 11 (hooks off, hooks on behind the flag, one arm up, the arm left up after a jab).
+
+## 2026-11-05 22:58 AEDT | decision + playtest | Boxing: jabs only for everyone; the one-arm guard is better; 22 fps
+
+- **Decided by:** user ("can just do jabs for now", "the 1 arm behaviour is better"); Claude (proposed jabs only for everyone, so a keyboard player's hook can't out-hit a camera player who can't throw one).
+- **Playtest:** with the pose model every third frame and the readout redrawn 5 times a second, the camera runs at 22 fps and the user found it fine. Keeping one arm up after a jab no longer confuses it.
+- **Decision:** boxing is jabs only, for keys, buttons, camera and bot. Not yet built. Next: the 3D ring and movement, discussed before building.
+
+## 2026-11-05 23:03 AEDT | decision | Boxing: the rework plan, ADR 002
+
+- **Decided by:** user ("lets do a only", movement is the slip, not moving around the ring; "everything sounds good, you can launch subagents"; log first); Claude (the order and the ADR).
+- **What happened:** `docs/adr/002-boxing-judged-at-landing.md` records the design: jabs only with a head or body target; high and low guards and a slip, all states the server checks on the landing tick; clients send what they did, never a hit; no lag compensation for now. `tasks/30-boxing.md` lists the rework in order (jabs only, guards, slip, 3D, the camera detector for everyone). CLAUDE.md's boxing rule notes the rework until each piece lands.
+- **Full e2e before this:** 197 passed, 1 failed: tennis's `layout.e2e.ts` "joins by invite" on desktop at load 9.5; it passed 6 of 6 alone (`--repeat-each=3`). Not boxing's code; the known load flake.
+- **How it will be built:** the sim rework (jabs, target, guards, slip, bot, keys, specs) and the 3D view by separate agents in their own worktrees, the view against the sim's agreed snapshot shape; Claude merges, runs `pnpm check` and the full e2e, and the user playtests.

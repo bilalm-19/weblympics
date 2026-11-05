@@ -269,6 +269,12 @@ lazily and only when a player enters a game. Video never leaves the browser.
   is a step; stand back), measured in shoulder widths from a stand-still
   calibration. "elbows" is the provisional default until a real-webcam
   playtest picks one.
+- Boxing is being reworked (user, 2026-11-05; `docs/adr/002-boxing-judged-at-landing.md`):
+  jabs only, to the head or body; a high guard blocks head jabs, a low guard
+  body jabs, one arm up is no guard; a slip (lean) makes a head jab miss;
+  the server judges guard and lean on the landing tick; a 3D ring. Until each
+  piece lands, the rule below is what the code does. Camera numbers come from
+  recordings (`docs/camera-playtest.md`), never guesses.
 - Boxing (task 30; `spec/boxing-*.test.ts`): clients send only `punch`
   (jab or hook, which hand, their own timestamp) and `guard` (up or down),
   never damage, a hit or a health. A jab lands 200 ms after it is thrown, a

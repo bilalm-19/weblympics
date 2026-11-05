@@ -2,7 +2,7 @@
 // user's real-webcam recordings (docs/playtest/boxing-2026-11-05-hand-model.txt).
 // Heights are above the shoulder line, sizes and reach in shoulder widths.
 import { describe, expect, it } from "vitest";
-import { TrialDetector, handMeasures } from "../client/input/camera/box-pose.ts";
+import { TRIAL_BOX, TrialDetector, handMeasures } from "../client/input/camera/box-pose.ts";
 import type { ArmMeasures, BoxHand, HandMeasures, TrialFrame } from "../client/input/camera/box-pose.ts";
 import type { Point } from "../client/input/camera/pose.ts";
 
@@ -13,8 +13,8 @@ const hand = (size: number, height: number, across: number): HandMeasures => ({ 
 const REST = { left: 0.24, right: 0.22 };
 const SIDE = { left: 0.5, right: -0.5 };
 
-function pose(opts: { height: number; grow?: Partial<Record<BoxHand, number>>; reach?: Partial<Record<BoxHand, number>>; lost?: BoxHand[] }): TrialFrame {
-  const h = (side: BoxHand) => (opts.lost?.includes(side) ? null : hand(REST[side] * (opts.grow?.[side] ?? 1), opts.height, SIDE[side]));
+function pose(opts: { height: number; heights?: Partial<Record<BoxHand, number>>; grow?: Partial<Record<BoxHand, number>>; reach?: Partial<Record<BoxHand, number>>; lost?: BoxHand[] }): TrialFrame {
+  const h = (side: BoxHand) => (opts.lost?.includes(side) ? null : hand(REST[side] * (opts.grow?.[side] ?? 1), opts.heights?.[side] ?? opts.height, SIDE[side]));
   return {
     hands: { left: h("left"), right: h("right") },
     arms: { left: arm(opts.reach?.left ?? 0.25), right: arm(opts.reach?.right ?? 0.25) },
@@ -59,15 +59,21 @@ describe("trial detector", () => {
     expect(run(d, frames).punches).toHaveLength(2);
   });
 
-  it("a hook: the pose wrist swings out past 0.9 while the hand model loses that hand", () => {
+  it("camera hooks are off (playtest 3): a wide swing with the hand lost throws nothing", () => {
     const d = new TrialDetector();
+    const frames = [...hold(pose({ height: 0.6 }), 24), ...hold(pose({ height: 0.6, reach: { left: 1.1 }, lost: ["left"] }), 3), ...hold(pose({ height: 0.6 }), 12)];
+    expect(run(d, frames).punches).toEqual([]);
+  });
+
+  it("with hooks on: the pose wrist swings out past 0.9 while the hand model loses that hand", () => {
+    const d = new TrialDetector({ ...TRIAL_BOX, hooks: true });
     const frames = [...hold(pose({ height: 0.6 }), 24), ...hold(pose({ height: 0.6, reach: { left: 1.1 }, lost: ["left"] }), 3), ...hold(pose({ height: 0.6 }), 12)];
     const p = run(d, frames).punches;
     expect(p.map((x) => [x.hand, x.kind])).toEqual([["left", "hook"]]);
   });
 
   it("a pose-model glitch in the guard (reach 1.23 with the hand model still seeing the hand) isn't a hook", () => {
-    const d = new TrialDetector();
+    const d = new TrialDetector({ ...TRIAL_BOX, hooks: true });
     const frames = [...hold(pose({ height: 0.6 }), 24), ...hold(pose({ height: 0.6, reach: { left: 1.23 } }), 3), ...hold(pose({ height: 0.6 }), 12)];
     expect(run(d, frames).punches).toEqual([]);
   });
@@ -76,6 +82,22 @@ describe("trial detector", () => {
     expect(run(new TrialDetector(), hold(pose({ height: 0.6 }), 10)).guard).toBe("high");
     expect(run(new TrialDetector(), hold(pose({ height: 0.33 }), 10)).guard).toBe("low");
     expect(run(new TrialDetector(), hold(pose({ height: 0.17 }), 10)).guard).toBe(null);
+  });
+
+  it("one arm up is no guard (user, playtest 3): one fist at the face and the other down or lost", () => {
+    expect(run(new TrialDetector(), hold(pose({ height: 0.6, heights: { left: 0.17 } }), 10)).guard).toBe(null);
+    expect(run(new TrialDetector(), hold(pose({ height: 0.6, heights: { right: 0.33 } }), 10)).guard).toBe(null);
+    expect(run(new TrialDetector(), hold(pose({ height: 0.6, lost: ["left"] }), 10)).guard).toBe(null);
+  });
+
+  it("after a jab from the guard with the other arm left up, the guard stays down until both are up again", () => {
+    const d = new TrialDetector();
+    const guard = pose({ height: 0.6 });
+    const oneUp = pose({ height: 0.6, heights: { right: 0.17 } });
+    const r1 = run(d, [...hold(guard, 24), ...hold(pose({ height: 0.6, grow: { right: 1.5 } }), 3), ...hold(oneUp, 10)]);
+    expect(r1.punches).toHaveLength(1);
+    expect(r1.guard).toBe(null);
+    expect(run(d, hold(guard, 5), 5000).guard).toBe("high");
   });
 
   it("a guard needs a few steady frames, so one stray frame doesn't drop it", () => {

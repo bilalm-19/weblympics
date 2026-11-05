@@ -81,7 +81,10 @@ export async function startPose(
   stream: MediaStream,
   onFrame: (f: CameraFrame) => void,
   onStats: (s: CameraStats) => void,
-  opts: { hands?: boolean } = {},
+  // poseEvery: run the pose model only every Nth frame and reuse its landmarks
+  // between (boxing: the hands come from the hand model, the shoulders change
+  // slowly, and running both models every frame was choppy). Default 1.
+  opts: { hands?: boolean; poseEvery?: number } = {},
 ): Promise<CameraSession> {
   let landmarker: import("@mediapipe/tasks-vision").PoseLandmarker;
   let handLandmarker: import("@mediapipe/tasks-vision").HandLandmarker | null = null;
@@ -129,6 +132,9 @@ export async function startPose(
   let windowStart = performance.now();
   let count = 0;
   let spent = 0;
+  const poseEvery = Math.max(1, Math.floor(opts.poseEvery ?? 1));
+  let frameNo = 0;
+  let lastPose: CameraFrame["landmarks"] = null;
 
   const loop = (now: number) => {
     if (stopped) return;
@@ -137,7 +143,7 @@ export async function startPose(
     lastDetect = now;
     lastVideoTime = video.currentTime;
     const t0 = performance.now();
-    const result = landmarker.detectForVideo(video, now);
+    if (frameNo++ % poseEvery === 0) lastPose = landmarker.detectForVideo(video, now).landmarks[0] ?? null;
     // the hands' 21 points each and which hand MediaPipe says it is
     const hands = handLandmarker
       ? (() => {
@@ -147,7 +153,7 @@ export async function startPose(
       : undefined;
     spent += performance.now() - t0;
     count++;
-    onFrame({ t: now, landmarks: result.landmarks[0] ?? null, aspect: video.videoWidth / video.videoHeight, hands });
+    onFrame({ t: now, landmarks: lastPose, aspect: video.videoWidth / video.videoHeight, hands });
     if (now - windowStart >= 1000) {
       onStats({ fps: (count * 1000) / (now - windowStart), detectMs: spent / count });
       windowStart = now;

@@ -316,7 +316,8 @@ export class BoxTracker {
 // - target: the palm above `headAt` is a head shot (recorded: jab to head
 //   0.57-0.61, to body 0.13-0.25). For a hook, the pose wrist above
 //   `hookHeadAt` (a GUESS: hooks to the body weren't recorded).
-// - guard: both palms seen and above `highGuardAt` is high (recorded
+// - guard (user, playtest 3: "1 arm is no guard"): both palms must be seen
+//   and up; one arm up, or either hand lost, is no guard. Both above `highGuardAt` is high (recorded
 //   0.58-0.61), both in [lowGuardAt, highGuardAt) is low (0.31-0.36);
 //   relaxed was 0.16-0.19. It must hold `guardFrames` frames to change.
 // Heights are above the shoulder line, in shoulder widths.
@@ -325,6 +326,8 @@ export type BoxTarget = "head" | "body";
 export type BoxGuard = "high" | "low" | null;
 
 export interface TrialConfig {
+  /** Off since the third playtest (user: "we can even remove hooks"): the camera throws jabs only. */
+  hooks: boolean;
   jabGrow: number;
   /** A hand re-arms below this ratio of its resting size. */
   jabRearm: number;
@@ -344,6 +347,7 @@ export interface TrialConfig {
 }
 
 export const TRIAL_BOX: TrialConfig = {
+  hooks: false,
   jabGrow: 1.35,
   jabRearm: 1.15,
   hookReach: 0.9,
@@ -407,7 +411,7 @@ export class TrialDetector {
         if (inJab && inHook && t - this.last[hand] >= c.minGapMs) this.armed[hand] = true;
       } else if (punch === null) {
         if (h && ratio !== null && ratio >= c.jabGrow) punch = { kind: "jab", hand, target: h.height >= c.headAt ? "head" : "body", t };
-        else if (out && arm) punch = { kind: "hook", hand, target: -arm.down >= c.hookHeadAt ? "head" : "body", t };
+        else if (c.hooks && out && arm) punch = { kind: "hook", hand, target: -arm.down >= c.hookHeadAt ? "head" : "body", t };
         if (punch) {
           this.armed[hand] = false;
           this.last[hand] = t;
