@@ -144,13 +144,24 @@ export interface Player {
   react(pump: number, slump: number): void;
   /** Recolours the player and swaps their hair or hat (task 18). */
   setLook(look: Look): void;
+  /**
+   * The pieces another sport poses itself (boxing, task 30): the mirrored
+   * body, the torso parts above the hips, the head with every hair or hat
+   * part, and the top and skin materials (setLook recolours them).
+   */
+  parts: { body: Group; upper: Mesh[]; head: Mesh[]; top: MeshLambertMaterial; skin: MeshLambertMaterial };
+}
+
+export interface PlayerOptions {
+  /** false builds no arms and no racket, for a sport that adds its own (boxing). Default true. */
+  arms?: boolean;
 }
 
 const DOWN = new Vector3(0, -1, 0);
 // how far toward a new camera reading the arm moves each rendered frame
 const FOLLOW_SMOOTHING = 0.45;
 
-export function makePlayer(look: Look, racketColor: number): Player {
+export function makePlayer(look: Look, racketColor: number, opts: PlayerOptions = {}): Player {
   const group = new Group();
   // everything that mirrors for a left-hander
   const body = new Group();
@@ -238,7 +249,7 @@ export function makePlayer(look: Look, racketColor: number): Player {
   offArm.add(offSleeve, offHand);
   offArm.rotation.order = "YXZ";
   offArm.rotation.z = -0.12;
-  body.add(offArm);
+  if (opts.arms !== false) body.add(offArm);
 
   // Racket arm: a shoulder pivot with the arm hanging along -y. Euler order
   // YXZ: x raises the arm forward (toward -z), then y turns it around the body
@@ -265,7 +276,7 @@ export function makePlayer(look: Look, racketColor: number): Player {
   wrist.add(roll);
   elbow.add(foreSleeve, hand, wrist);
   arm.add(upperSleeve, elbow);
-  body.add(arm);
+  if (opts.arms !== false) body.add(arm);
 
   const upperTarget = new Quaternion();
   const foreTarget = new Quaternion();
@@ -295,6 +306,7 @@ export function makePlayer(look: Look, racketColor: number): Player {
   return {
     group,
     setLook,
+    parts: { body, upper: [torso, shoulders, neck], head: headGroup, top, skin: skinMat },
     follow(pose, backhand, side) {
       body.scale.x = side;
       body.rotation.y = 0;
