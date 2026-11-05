@@ -1,8 +1,8 @@
 import { CameraError, openCamera, startPose } from "../../input/camera/camera.ts";
 import type { CameraSession } from "../../input/camera/camera.ts";
 import type { CameraFrame } from "../../input/camera/pose.ts";
-import { BoxTracker, armMeasures, boxFrame, handMeasures } from "../../input/camera/box-pose.ts";
-import type { ArmMeasures, BoxHand, BoxPunch, HandMeasures } from "../../input/camera/box-pose.ts";
+import { BoxTracker, TrialDetector, armMeasures, boxFrame, handMeasures } from "../../input/camera/box-pose.ts";
+import type { ArmMeasures, BoxHand, BoxPunch, HandMeasures, TrialRead } from "../../input/camera/box-pose.ts";
 
 // Boxing's camera (task 30): the same webcam and local pose model as the other
 // games (video never leaves the browser), read as punches and a guard by
@@ -66,18 +66,22 @@ export function createBoxCamera(view: HTMLElement, button: HTMLButtonElement, ch
 
   const onFrame = (f: CameraFrame) => {
     const frame = f.landmarks ? boxFrame(f.landmarks, f.aspect) : null;
-    debug?.frame(f);
     tracking = frame !== null;
     setChip(frame ? "Tracking" : "Can't see your shoulders", frame ? "ok" : "warn");
     video.dataset.tracking = String(tracking);
-    const r = tracker.update(frame, f.t);
+    // with ?debug the trial detector drives the bout; otherwise the old one.
+    // The sim has one guard and no target yet, so either guard is "up" and the
+    // target is only shown.
+    const trial = debug?.frame(f) ?? null;
+    const r = trial
+      ? { guard: trial.guard !== null, punch: trial.punch }
+      : tracker.update(frame, f.t);
     if (r.guard !== guardSent) {
       guardSent = r.guard;
       cb.guard(r.guard);
     }
     guardEl.dataset.on = String(r.guard);
     if (r.punch) {
-      debug?.punch(`${r.punch.hand} ${r.punch.kind}`);
       cb.punch(r.punch.kind, r.punch.hand);
       punchEl.textContent = `${r.punch.hand} ${r.punch.kind}`;
       clearTimeout(punchTimer);
@@ -179,19 +183,26 @@ export function createBoxCamera(view: HTMLElement, button: HTMLButtonElement, ch
 // for a move, a 3 s countdown, 5 s recorded, and the move's row joins a table
 // (typical = median, high = 90th percentile, so one bad frame can't skew it).
 // C copies the table as text to paste into the chat. Never shown otherwise.
-const MOVES = ["relaxed", "high guard", "low guard", "jab", "hook", "body punch", "moving, no punch"] as const;
+const MOVES = ["relaxed", "high guard", "low guard", "jab to head", "hook to head", "jab to body", "moving, no punch", "hook to body"] as const;
 const COUNTDOWN_MS = 3000;
 const RECORD_MS = 5000;
 
 type Sample = { size: number | null; e3: number | null; e2: number | null; fwd: number; reach: number; height: number };
 type HandSample = { size: number; height: number; across: number };
 
-function createDebugReadout(dock: HTMLElement): { frame(f: CameraFrame): void; punch(label: string): void } | null {
+function createDebugReadout(dock: HTMLElement): { frame(f: CameraFrame): TrialRead | null } | null {
   if (!new URLSearchParams(location.search).has("debug")) return null;
   const el = document.createElement("pre");
   el.className = "bx-debug";
   el.setAttribute("aria-hidden", "true");
-  dock.append(el);
+  // the trial detector's verdict, big, so it can be read mid-punch
+  const verdict = document.createElement("div");
+  verdict.className = "bx-verdict";
+  verdict.setAttribute("aria-hidden", "true");
+  dock.append(verdict, el);
+  const trial = new TrialDetector();
+  let lastPunch = "";
+  let lastPunchAt = -Infinity;
   let fps = 0;
   let lastT = 0;
   let status = "Press 1-7 to record a move, C to copy";
@@ -219,7 +230,7 @@ function createDebugReadout(dock: HTMLElement): { frame(f: CameraFrame): void; p
   };
   const n = (v: number | null, d = 2) => (v === null || !Number.isFinite(v) ? "–" : v.toFixed(d));
   const summarise = (move: number, r: NonNullable<typeof rec>): string => {
-    const lines = [`[${move}] ${MOVES[move - 1]}  frames ${r.frames}  punches read: ${r.punches.join(", ") || "none"}`];
+    const lines = [`[${move}] ${MOVES[move - 1]}  frames ${r.frames}  trial read ${r.punches.length}: ${r.punches.join(", ") || "none"}`];
     for (const hand of ["left", "right"] as const) {
       const xs = r.samples[hand];
       const col = <K extends keyof Sample>(k: K) => xs.map((x) => x[k]).filter((v): v is number => v !== null);
@@ -249,6 +260,7 @@ function createDebugReadout(dock: HTMLElement): { frame(f: CameraFrame): void; p
   window.addEventListener("keydown", (e) => {
     const d = Number(e.key);
     if (Number.isInteger(d) && d >= 1 && d <= MOVES.length && !rec) {
+      trial.reset();
       const now = performance.now();
       rec = { move: d, startsAt: now + COUNTDOWN_MS, endsAt: now + COUNTDOWN_MS + RECORD_MS, frames: 0, samples: { left: [], right: [] }, hands: { left: [], right: [] }, punches: [] };
       beep(440);
@@ -261,18 +273,30 @@ function createDebugReadout(dock: HTMLElement): { frame(f: CameraFrame): void; p
     }
   });
 
+  let grow: TrialRead["grow"] = { left: null, right: null };
+  const now0 = () => performance.now();
   const liveHand = (hand: BoxHand, h: HandMeasures | null | undefined) =>
-    `${hand.padEnd(5)} HAND size ${n(h?.size ?? null)}  height ${n(h?.height ?? null)}  across ${n(h?.across ?? null)}`;
+    `${hand.padEnd(5)} HAND size ${n(h?.size ?? null)} (x${n(grow[hand])} rest)  height ${n(h?.height ?? null)}  across ${n(h?.across ?? null)}`;
   const live = (hand: BoxHand, m: ArmMeasures | null) =>
     `${hand.padEnd(5)} size ${n(m?.size ?? null)}  elbow3d ${n(m?.elbow3d ?? null, 0)}  depth ${n(m?.forward ?? null)}  reach ${n(m?.reach ?? null)}  height ${n(m ? -m.down : null)}`;
 
   return {
-    frame(f) {
+    frame(f): TrialRead | null {
       if (lastT) fps = 0.9 * fps + 0.1 * (1000 / Math.max(1, f.t - lastT));
       lastT = f.t;
       const lm = f.landmarks;
       const m = { left: lm ? armMeasures(lm, f.aspect, "left") : null, right: lm ? armMeasures(lm, f.aspect, "right") : null };
       const hm = lm ? handMeasures(f.hands, lm, f.aspect) : null;
+      const tr = lm ? trial.update({ hands: hm, arms: m }, f.t) : null;
+      grow = tr?.grow ?? { left: null, right: null };
+      if (tr?.punch) {
+        lastPunch = `${tr.punch.hand} ${tr.punch.kind} · ${tr.punch.target}`;
+        lastPunchAt = now0();
+        if (rec && now0() >= rec.startsAt && now0() < rec.endsAt) rec.punches.push(lastPunch);
+      }
+      const showPunch = now0() - lastPunchAt < 700;
+      verdict.textContent = showPunch ? lastPunch.toUpperCase() : tr?.guard ? `${tr.guard.toUpperCase()} GUARD` : "–";
+      verdict.dataset.kind = showPunch ? "punch" : tr?.guard ? "guard" : "none";
       const now = performance.now();
       let head = status;
       if (rec) {
@@ -297,9 +321,7 @@ function createDebugReadout(dock: HTMLElement): { frame(f: CameraFrame): void; p
       }
       const done = MOVES.map((name, i) => `${results.has(i + 1) ? "✓" : " "} ${i + 1} ${name}`).join("   ");
       el.textContent = [`fps ${fps.toFixed(0)}   ${head}`, live("left", m.left), live("right", m.right), liveHand("left", hm?.left), liveHand("right", hm?.right), "", done, "", table()].join("\n");
-    },
-    punch(label) {
-      if (rec && performance.now() >= rec.startsAt) rec.punches.push(label);
+      return tr;
     },
   };
 }

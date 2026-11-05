@@ -1282,3 +1282,28 @@ the format of the entries below (see CLAUDE.md, Docs).
 - **What happened:** with `?debug`, boxing's camera also loads the hand model archery uses (21 points per hand). `handMeasures` in `client/input/camera/box-pose.ts` gives each hand's palm size (mean of wrist to index knuckle, wrist to pinky knuckle and across the knuckles, in shoulder widths), its height above the shoulders and its position across. Hands are assigned left or right by which side of the shoulders' middle they are on, not by MediaPipe's handedness label (mirroring or a closed fist can flip it) and not by the pose wrists (lost with the hands by the face). The recorded table gets a HAND MODEL line per hand next to the pose model's. The readout box now scrolls.
 - **Why:** the pose model's fist size moved only about 1.2x on a jab and it lost the hands in the high guard. Players without `?debug` don't load the hand model yet: only if the numbers earn it.
 - **Cost to watch:** a second model per frame; the recording's fps line will show it (it was about 25).
+
+## 2026-11-05 22:26 AEDT | playtest | Boxing: second recording, with the hand model
+
+- **Decided by:** user (recorded moves 1-7; 8, hook to body, not done); Claude (the reading). Moves renamed to say kind and target (a jab can go to the body: user's point), and "hook to body" added.
+- **Data:** `docs/playtest/boxing-2026-11-05-hand-model.txt`. About 24 fps, so the hand model costs little (19-25 fps per move).
+- **Findings:**
+  - **Guards work with the hand model.** Seen 100% in both guards (the pose model lost a hand a third of the time). Knuckle height above the shoulders: high guard 0.58-0.61, low guard 0.31-0.36, relaxed 0.16-0.19, moving 0.18-0.20. High and low are about 0.27 apart, so two guards look possible. Low vs relaxed (0.15 apart) is the tight pair.
+  - **Jab: the fist does grow, but less than hoped.** Each hand's size at rest is steady (left 0.23-0.26, right 0.21-0.24). The 90th percentile during jabs reaches 1.45-1.67x the hand's own guard size to the head and 1.38-1.5x to the body; moving without punching stays at or under 1.25x. A threshold relative to each hand's own size (about 1.35x) separates them, but the margin is thin, and a 90th percentile of a whole recording hides each punch's own peak. The hand is also lost on 9-19% of jab frames, probably at full extension.
+  - **Hook: the hand model loses the hand 75% of the time** (a sideways fist, blur). The pose wrist does see it: reach from the shoulder on screen 0.96-1.29 in hooks against 0.25-0.73 moving. So a hook would come from the pose model and a jab from the hand model.
+  - **The current detector is broken:** 13 "jabs" while relaxed, 13 in the high guard, 14 while moving. It must not stay on for players.
+- **Next (proposed):** record each punch's own peak, and show a trial detector's verdict live so the user can judge by feel.
+
+## 2026-11-05 22:30 AEDT | change | Boxing: a trial camera detector from the two recordings
+
+- **Decided by:** user ("build the trial detector"); Claude (its rules, from the recorded numbers).
+- **What it is:** a first draft of the real detector, on only with `?debug`, where it drives the practice bout in place of the old one (which fired "jabs" all the time). Players without `?debug` still get the old detector until this one is tuned.
+- **Rules** (`TrialDetector`, `TRIAL_BOX` in `client/input/camera/box-pose.ts`): jab when the hand model's palm grows past 1.35x that hand's own resting size (rest follows the hand slowly while it's in; re-arms below 1.15x); hook when the pose wrist is more than 0.9 shoulder widths from its shoulder and the hand model has lost that hand or sees it far to the side (re-arms inside 0.6); head if the palm is above 0.4 over the shoulders, else body (a hook's target uses the pose wrist above -0.15, a guess: hooks to the body weren't recorded); high guard with both palms above 0.47, low with both in 0.27-0.47; the guard must hold 3 frames to change; 250 ms between punches from one hand.
+- **Limits for now:** the sim has one guard and no target, so in the bout either guard counts as "up" and head or body is only shown. The readout shows the verdict big (orange for a punch, blue for a guard) and each recording lists what the trial detector read.
+- **Tests:** `spec/boxing-trial-detector.test.ts` (8, from the recorded shapes: relaxed and moving read nothing, jab head and body, one held jab is one punch, a hook with the hand lost, a pose glitch with the hand seen isn't a hook, the three guard heights, a stray frame doesn't drop the guard; handMeasures sides and heights).
+
+## 2026-11-05 22:33 AEDT | playtest | Boxing: trial detector, first free play
+
+- **Decided by:** user (played it); Claude (the reading).
+- **Findings (user):** (1) much laggier than before; (2) keeping one arm up after going from the guard to a punch confuses it; (3) hooks still mostly don't register.
+- **Likely causes (Claude, unconfirmed):** (1) either the frame rate (the hand model runs after the pose model on every frame, and the readout rewrites a large text box each frame), or the read itself being late: a jab only counts at 1.35x the fist's size, near full extension. (2) hands are told apart by which side of the body they are on, so a fist crossing the middle swaps left and right; and with one hand left up the guard drops to none. (3) the hook rule needs the hand model to have lost the fist and the pose wrist past 0.9 from its shoulder; real hooks may not reach that.

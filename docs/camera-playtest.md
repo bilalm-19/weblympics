@@ -34,18 +34,21 @@ moment you dropped your hands.
 2. **high guard**: both gloves in front of the face, held.
 3. **low guard**: forearms across the chest, elbows tucked, gloves below the
    chin, held.
-4. **jab**: straight punches at the screen, about 5 in the 5 s.
-5. **hook**: swinging punches from the side.
-6. **body punch**: straight punches at chest height (below the shoulders).
+4. **jab to head**: straight punches at the screen at head height.
+5. **hook to head**: swinging punches from the side at head height.
+6. **jab to body**: straight punches at chest height (below the shoulders).
+7. **moving, no punch**: sway, lean, raise and drop the guard.
+8. **hook to body**: swinging punches at chest height.
+
+A punch is two choices: its kind (jab or hook) and its target (head or body,
+from the fist's height). Punches alternate left, right, about one a second,
+each back to the guard before the next, so "in" and "out" don't blur.
 
 A player may sit at a laptop, where the frame ends around mid-chest and the
 stomach isn't seen. So every move happens between the chin and mid-chest:
 head or body is split at the shoulder line, which is always in view. If the
 high and low guards don't separate on camera, the fallback is one guard that
 blocks head shots only, with a body shot getting through any guard.
-7. **moving, no punch**: sway, lean, raise and drop the guard.
-
-Do each with the right hand, then again with the left where it matters.
 
 ## Measures (all in shoulder widths, so distance doesn't matter)
 - **size**: the hand's apparent size (wrist to index and pinky knuckles). It

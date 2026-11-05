@@ -1,0 +1,37 @@
+Boxing camera recording 2 (pose model + hand model, user, 2026-11-05). Punches alternate left/right, ~1 a second. Move 8 (hook to body) not recorded.
+fps ~24
+[1] relaxed  frames 123  punches read: right jab, right jab, right jab, right jab, right jab, right jab, right jab, right jab, left jab, right jab, right jab, left jab, left jab
+  left  seen 100% | size lo 0.12 typ 0.16 hi 0.19 | elbow3d typ 126 hi 133 | elbow2d typ 4 hi 8 | depth typ 2.52 hi 2.98 | reach typ 0.19 hi 0.31 | height lo -0.31 typ -0.19 hi -0.14
+  left  HAND MODEL seen 100% | size lo 0.25 typ 0.26 hi 0.26 | height lo 0.15 typ 0.16 hi 0.17 | across lo 0.57 typ 0.58 hi 0.60
+  right seen 100% | size lo 0.15 typ 0.18 hi 0.19 | elbow3d typ 134 hi 137 | elbow2d typ 7 hi 8 | depth typ 3.56 hi 3.76 | reach typ 0.26 hi 0.30 | height lo -0.25 typ -0.21 hi -0.18
+  right HAND MODEL seen 100% | size lo 0.21 typ 0.21 hi 0.22 | height lo 0.18 typ 0.19 hi 0.19 | across lo -0.64 typ -0.63 hi -0.62
+[2] high guard  frames 123  punches read: right jab, left jab, right jab, left jab, right jab, right jab, right jab, right jab, right jab, right jab, right jab, left jab, right jab
+  left  seen 100% | size lo 0.10 typ 0.24 hi 0.27 | elbow3d typ 128 hi 132 | elbow2d typ 3 hi 4 | depth typ 1.09 hi 2.46 | reach typ 0.21 hi 1.23 | height lo -1.23 typ -0.08 hi 0.14
+  left  HAND MODEL seen 100% | size lo 0.23 typ 0.24 hi 0.24 | height lo 0.57 typ 0.58 hi 0.59 | across lo 0.49 typ 0.50 hi 0.51
+  right seen 100% | size lo 0.20 typ 0.26 hi 0.28 | elbow3d typ 123 hi 131 | elbow2d typ 5 hi 7 | depth typ 2.91 hi 3.30 | reach typ 0.24 hi 0.28 | height lo 0.06 typ 0.23 hi 0.28
+  right HAND MODEL seen 100% | size lo 0.21 typ 0.22 hi 0.22 | height lo 0.60 typ 0.61 hi 0.62 | across lo -0.48 typ -0.46 hi -0.44
+[3] low guard  frames 108  punches read: left jab, left jab, right jab, right jab, left jab, left jab, left jab, right jab, left jab, left jab, left jab, left jab
+  left  seen 100% | size lo 0.19 typ 0.21 hi 0.24 | elbow3d typ 126 hi 129 | elbow2d typ 3 hi 6 | depth typ 2.83 hi 3.07 | reach typ 0.05 hi 0.08 | height lo -0.06 typ -0.02 hi 0.01
+  left  HAND MODEL seen 100% | size lo 0.23 typ 0.23 hi 0.24 | height lo 0.34 typ 0.36 hi 0.36 | across lo 0.36 typ 0.38 hi 0.40
+  right seen 100% | size lo 0.20 typ 0.21 hi 0.22 | elbow3d typ 128 hi 131 | elbow2d typ 3 hi 4 | depth typ 3.32 hi 3.41 | reach typ 0.05 hi 0.09 | height lo -0.03 typ 0.01 hi 0.06
+  right HAND MODEL seen 100% | size lo 0.24 typ 0.24 hi 0.25 | height lo 0.30 typ 0.31 hi 0.31 | across lo -0.46 typ -0.45 hi -0.44
+[4] jab to head  frames 93  punches read: right jab, left jab, right jab, left jab, left jab, right jab, left jab, right jab, right jab, left jab, right jab, left jab, right jab, left jab, right jab, left jab
+  left  seen 100% | size lo 0.22 typ 0.25 hi 0.27 | elbow3d typ 139 hi 143 | elbow2d typ 10 hi 13 | depth typ 3.41 hi 3.79 | reach typ 0.29 hi 0.40 | height lo 0.19 typ 0.27 hi 0.38
+  left  HAND MODEL seen 91% | size lo 0.20 typ 0.23 hi 0.40 | height lo 0.48 typ 0.57 hi 0.69 | across lo 0.31 typ 0.50 hi 0.60
+  right seen 100% | size lo 0.21 typ 0.25 hi 0.30 | elbow3d typ 136 hi 141 | elbow2d typ 22 hi 46 | depth typ 3.38 hi 3.86 | reach typ 0.34 hi 0.56 | height lo 0.11 typ 0.31 hi 0.38
+  right HAND MODEL seen 81% | size lo 0.19 typ 0.21 hi 0.32 | height lo 0.54 typ 0.61 hi 0.84 | across lo -0.67 typ -0.50 hi -0.42
+[5] hook to head  frames 96  punches read: right jab, right jab, left jab, right jab, left jab, left jab
+  left  seen 100% | size lo 0.09 typ 0.17 hi 0.27 | elbow3d typ 128 hi 154 | elbow2d typ 50 hi 172 | depth typ 2.63 hi 4.26 | reach typ 0.65 hi 1.29 | height lo -1.26 typ -0.10 hi 0.36
+  left  HAND MODEL seen 26% | size lo 0.25 typ 0.28 hi 0.31 | height lo 0.00 typ 0.08 hi 0.44 | across lo -1.14 typ 0.89 hi 1.13
+  right seen 100% | size lo 0.10 typ 0.23 hi 0.31 | elbow3d typ 133 hi 146 | elbow2d typ 54 hi 109 | depth typ 3.11 hi 3.82 | reach typ 0.68 hi 0.96 | height lo -0.54 typ -0.00 hi 0.30
+  right HAND MODEL seen 25% | size lo 0.14 typ 0.20 hi 0.23 | height lo -0.19 typ 0.01 hi 0.37 | across lo -1.37 typ -1.15 hi -1.10
+[6] jab to body  frames 94  punches read: left jab, left jab, right jab, right jab, left jab, right hook
+  left  seen 100% | size lo 0.14 typ 0.20 hi 0.26 | elbow3d typ 134 hi 141 | elbow2d typ 4 hi 74 | depth typ 3.46 hi 3.74 | reach typ 0.23 hi 0.61 | height lo -0.47 typ -0.18 hi -0.07
+  left  HAND MODEL seen 76% | size lo 0.22 typ 0.24 hi 0.33 | height lo 0.03 typ 0.13 hi 0.20 | across lo 0.23 typ 0.53 hi 0.60
+  right seen 100% | size lo 0.11 typ 0.21 hi 0.27 | elbow3d typ 135 hi 143 | elbow2d typ 39 hi 157 | depth typ 3.15 hi 3.73 | reach typ 0.59 hi 1.20 | height lo -0.76 typ -0.23 hi 0.00
+  right HAND MODEL seen 56% | size lo 0.15 typ 0.23 hi 0.33 | height lo 0.15 typ 0.25 hi 0.37 | across lo -0.74 typ -0.65 hi -0.49
+[7] moving, no punch  frames 101  punches read: right jab, left jab, right jab, left jab, left jab, right jab, left jab, left jab, right jab, left jab, right jab, right jab, left jab, right jab
+  left  seen 100% | size lo 0.19 typ 0.23 hi 0.25 | elbow3d typ 129 hi 134 | elbow2d typ 8 hi 11 | depth typ 3.30 hi 3.73 | reach typ 0.14 hi 0.25 | height lo -0.25 typ -0.08 hi 0.00
+  left  HAND MODEL seen 99% | size lo 0.24 typ 0.27 hi 0.30 | height lo 0.07 typ 0.20 hi 0.36 | across lo 0.23 typ 0.42 hi 0.56
+  right seen 100% | size lo 0.12 typ 0.23 hi 0.26 | elbow3d typ 129 hi 136 | elbow2d typ 17 hi 33 | depth typ 3.07 hi 3.54 | reach typ 0.28 hi 0.73 | height lo -0.71 typ -0.17 hi -0.02
+  right HAND MODEL seen 100% | size lo 0.21 typ 0.24 hi 0.27 | height lo 0.11 typ 0.18 hi 0.23 | across lo -0.70 typ -0.52 hi -0.25

@@ -144,3 +144,23 @@
   /* scrollable: the recorded table outgrows the box */
   pointer-events: auto;
 }
+
+/* the trial detector's verdict, only with ?debug */
+.boxing .bx-verdict {
+  padding: 0.3rem 0.6rem;
+  border-radius: 6px;
+  background: #0f1720e6;
+  color: #e2e8f0;
+  font: 700 1.4rem/1.2 system-ui, sans-serif;
+  text-align: center;
+}
+
+.boxing .bx-verdict[data-kind="punch"] {
+  background: #f59e0b;
+  color: #0f1720;
+}
+
+.boxing .bx-verdict[data-kind="guard"] {
+  background: #38bdf8;
+  color: #0f1720;
+}

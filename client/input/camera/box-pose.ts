@@ -300,3 +300,148 @@ export class BoxTracker {
     return { guard: this.guard, punch, tracking: true };
   }
 }
+
+// ---- Trial detector (task 30 playtest, docs/camera-playtest.md) ----
+// Built from two real-webcam recordings (docs/playtest/boxing-2026-11-05-*).
+// The pose model's depth fired "jabs" all the time, and it lost the hands by
+// the face; the hand model sees them. So:
+// - jab: the hand model's palm grows past `jabGrow` times that hand's own
+//   resting size (its fist nearing the camera). Recorded: up to 1.45-1.67x on
+//   jabs, at most 1.25x moving without punching.
+// - hook: the pose wrist swings wider than `hookReach` from its shoulder while
+//   the hand model has lost that hand or sees it far out to the side
+//   (recorded: the hand model loses a hooking fist 75% of the time; the pose
+//   reach is 0.96-1.29 in hooks, at most 0.73 moving). The hand-model check
+//   stops the pose model's own glitches in the guard (it once read 1.23).
+// - target: the palm above `headAt` is a head shot (recorded: jab to head
+//   0.57-0.61, to body 0.13-0.25). For a hook, the pose wrist above
+//   `hookHeadAt` (a GUESS: hooks to the body weren't recorded).
+// - guard: both palms seen and above `highGuardAt` is high (recorded
+//   0.58-0.61), both in [lowGuardAt, highGuardAt) is low (0.31-0.36);
+//   relaxed was 0.16-0.19. It must hold `guardFrames` frames to change.
+// Heights are above the shoulder line, in shoulder widths.
+
+export type BoxTarget = "head" | "body";
+export type BoxGuard = "high" | "low" | null;
+
+export interface TrialConfig {
+  jabGrow: number;
+  /** A hand re-arms below this ratio of its resting size. */
+  jabRearm: number;
+  hookReach: number;
+  /** ...and re-arms once back inside this. */
+  hookRearm: number;
+  /** A hand-model palm farther out than this (across) doesn't stop a hook. */
+  hookSideAcross: number;
+  headAt: number;
+  hookHeadAt: number;
+  highGuardAt: number;
+  lowGuardAt: number;
+  guardFrames: number;
+  minGapMs: number;
+  /** How fast a hand's resting size follows (per frame), when it isn't punching. */
+  restFollow: number;
+}
+
+export const TRIAL_BOX: TrialConfig = {
+  jabGrow: 1.35,
+  jabRearm: 1.15,
+  hookReach: 0.9,
+  hookRearm: 0.6,
+  hookSideAcross: 0.8,
+  headAt: 0.4,
+  hookHeadAt: -0.15,
+  highGuardAt: 0.47,
+  lowGuardAt: 0.27,
+  guardFrames: 3,
+  minGapMs: 250,
+  restFollow: 0.05,
+};
+
+export interface TrialPunch {
+  kind: BoxPunch;
+  hand: BoxHand;
+  target: BoxTarget;
+  t: number;
+}
+
+export interface TrialRead {
+  punch: TrialPunch | null;
+  guard: BoxGuard;
+  /** Each hand's palm size over its resting size, for the readout. */
+  grow: Record<BoxHand, number | null>;
+}
+
+export interface TrialFrame {
+  hands: Record<BoxHand, HandMeasures | null> | null;
+  arms: Record<BoxHand, ArmMeasures | null>;
+}
+
+export class TrialDetector {
+  private rest: Record<BoxHand, number | null> = { left: null, right: null };
+  private armed: Record<BoxHand, boolean> = { left: true, right: true };
+  private last: Record<BoxHand, number> = { left: -Infinity, right: -Infinity };
+  private pending: { guard: BoxGuard; frames: number } = { guard: null, frames: 0 };
+  guard: BoxGuard = null;
+  private cfg: TrialConfig;
+
+  constructor(cfg: TrialConfig = TRIAL_BOX) {
+    this.cfg = cfg;
+  }
+
+  update(f: TrialFrame, t: number): TrialRead {
+    const c = this.cfg;
+    const grow: Record<BoxHand, number | null> = { left: null, right: null };
+    let punch: TrialPunch | null = null;
+    for (const hand of ["left", "right"] as const) {
+      const h = f.hands?.[hand] ?? null;
+      const arm = f.arms[hand];
+      const rest = this.rest[hand];
+      const ratio = h && rest ? h.size / rest : null;
+      grow[hand] = ratio;
+      const out = arm !== null && arm.reach >= c.hookReach && (h === null || Math.abs(h.across) >= c.hookSideAcross);
+      // re-arm once the hand is back in
+      if (!this.armed[hand]) {
+        const inJab = ratio === null || ratio <= c.jabRearm;
+        const inHook = arm === null || arm.reach <= c.hookRearm;
+        if (inJab && inHook && t - this.last[hand] >= c.minGapMs) this.armed[hand] = true;
+      } else if (punch === null) {
+        if (h && ratio !== null && ratio >= c.jabGrow) punch = { kind: "jab", hand, target: h.height >= c.headAt ? "head" : "body", t };
+        else if (out && arm) punch = { kind: "hook", hand, target: -arm.down >= c.hookHeadAt ? "head" : "body", t };
+        if (punch) {
+          this.armed[hand] = false;
+          this.last[hand] = t;
+        }
+      }
+      // the resting size follows the hand only while it is in
+      if (h && this.armed[hand] && (rest === null || h.size / rest < c.jabRearm)) {
+        this.rest[hand] = rest === null ? h.size : rest + (h.size - rest) * c.restFollow;
+      }
+    }
+    const l = f.hands?.left ?? null;
+    const r = f.hands?.right ?? null;
+    let seenGuard: BoxGuard = null;
+    if (l && r && !punch) {
+      const lo = Math.min(l.height, r.height);
+      if (lo >= c.highGuardAt) seenGuard = "high";
+      else if (lo >= c.lowGuardAt && Math.max(l.height, r.height) < c.highGuardAt) seenGuard = "low";
+    }
+    if (punch) {
+      // a punch takes that hand off the guard at once
+      this.guard = null;
+      this.pending = { guard: null, frames: 0 };
+    } else if (seenGuard === this.pending.guard) {
+      this.pending.frames++;
+      if (this.pending.frames >= c.guardFrames) this.guard = seenGuard;
+    } else this.pending = { guard: seenGuard, frames: 1 };
+    return { punch, guard: this.guard, grow };
+  }
+
+  reset(): void {
+    this.rest = { left: null, right: null };
+    this.armed = { left: true, right: true };
+    this.last = { left: -Infinity, right: -Infinity };
+    this.pending = { guard: null, frames: 0 };
+    this.guard = null;
+  }
+}
