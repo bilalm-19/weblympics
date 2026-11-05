@@ -32,14 +32,16 @@ test("the leaderboard opens from the home screen: a tab per sport, keyboard, fit
   expect(box.y + box.height).toBeLessThanOrEqual(v.height);
   expect(await noHorizontalScroll(page)).toBe(true);
 
-  // one tab per registered sport (tennis, archery, track): arrows move between them and wrap
-  await expect(tabs).toHaveCount(3);
+  // one tab per registered sport (tennis, archery, track, boxing...): arrows move between them and wrap.
+  // The count follows the registry, so adding a game doesn't break this.
+  const n = await tabs.count();
+  expect(n).toBeGreaterThanOrEqual(3);
   await tabs.first().focus();
-  await page.keyboard.press("ArrowRight");
-  await expect(tabs.nth(1)).toBeFocused();
-  await expect(tabs.nth(1)).toHaveAttribute("aria-selected", "true");
-  await page.keyboard.press("ArrowRight");
-  await expect(tabs.nth(2)).toBeFocused();
+  for (let i = 1; i < n; i++) {
+    await page.keyboard.press("ArrowRight");
+    await expect(tabs.nth(i)).toBeFocused();
+    await expect(tabs.nth(i)).toHaveAttribute("aria-selected", "true");
+  }
   await page.keyboard.press("ArrowRight");
   await expect(tabs.first()).toBeFocused();
   await page.keyboard.press("Escape");

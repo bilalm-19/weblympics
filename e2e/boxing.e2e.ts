@@ -100,3 +100,55 @@ test("a room offers boxing's own formats", async ({ page }) => {
   await expect(page.locator(".ready-panel")).toContainText(/unlimited/i);
   expect(await noHorizontalScroll(page)).toBe(true);
 });
+
+test("camera: the panel offers a keyboard way out, the fake webcam starts, and keys still box", async ({ page }) => {
+  test.setTimeout(120_000);
+  await openBoxing(page);
+  await page.getByRole("button", { name: "Practice", exact: true }).click();
+  // practice holds the bout while the setup is open
+  await page.getByRole("button", { name: "Camera", exact: true }).click();
+  const panel = page.getByRole("dialog", { name: /camera setup/i });
+  await expect(panel.getByRole("heading", { name: /box with your camera/i })).toBeVisible();
+  await expect(panel.getByRole("button", { name: /use keyboard instead/i })).toBeVisible();
+  const b = (await panel.boundingBox())!;
+  const v = page.viewportSize()!;
+  expect(b.x).toBeGreaterThanOrEqual(0);
+  expect(b.x + b.width).toBeLessThanOrEqual(v.width);
+  expect(b.y + b.height).toBeLessThanOrEqual(v.height);
+  await panel.getByRole("button", { name: /start camera/i }).click();
+
+  const video = page.locator("video.selfview");
+  await expect.poll(() => video.evaluate((x: HTMLVideoElement) => x.videoWidth), { timeout: 10_000 }).toBeGreaterThan(0);
+  // the fake webcam has no person: the pose model loads, then the panel says it is ready
+  await expect(panel.getByRole("heading", { name: /ready to box/i })).toBeVisible({ timeout: 40_000 });
+  await panel.getByRole("button", { name: /start boxing/i }).click();
+  await expect(panel).toBeHidden();
+  await expect(page.locator(".tracking")).toBeVisible();
+  await expect(page.locator(".bx-read")).toBeVisible();
+  expect(await noHorizontalScroll(page)).toBe(true);
+
+  // with the camera on, J, K and the guard still work. The pose model on a
+  // software-rendered page starves the in-page sim's timer, so allow longer.
+  await expect(canvas(page)).toHaveAttribute("data-phase", "round", { timeout: 30_000 });
+  const before = Number(await canvas(page).getAttribute("data-sent") ?? 0);
+  for (let i = 0; i < 4; i++) {
+    await page.keyboard.press(i % 2 ? "KeyK" : "KeyJ");
+    await page.waitForTimeout(500);
+  }
+  await expect.poll(async () => Number(await canvas(page).getAttribute("data-sent") ?? 0), { timeout: 20_000 }).toBeGreaterThan(before);
+  // turning the camera off puts the button back
+  await page.getByRole("button", { name: "Stop camera" }).click();
+  await expect(page.getByRole("button", { name: "Camera", exact: true })).toBeVisible();
+});
+
+test("camera: 'Use keyboard instead' closes the panel and the bout carries on", async ({ page }) => {
+  await openBoxing(page);
+  await page.getByRole("button", { name: "Practice", exact: true }).click();
+  await page.getByRole("button", { name: "Camera", exact: true }).click();
+  const panel = page.getByRole("dialog", { name: /camera setup/i });
+  await panel.getByRole("button", { name: /use keyboard instead/i }).click();
+  await expect(panel).toBeHidden();
+  await expect(canvas(page)).toHaveAttribute("data-phase", "round");
+  await page.keyboard.press("KeyJ");
+  await expect.poll(async () => Number(await canvas(page).getAttribute("data-sent") ?? 0)).toBeGreaterThanOrEqual(1);
+});

@@ -4,6 +4,8 @@ import { describe, expect, it } from "vitest";
 import { BoxTracker, DEFAULT_BOX, NOSE, boxFrame } from "../client/input/camera/box-pose.ts";
 import type { BoxPunchEvent } from "../client/input/camera/box-pose.ts";
 import { LM } from "../client/input/camera/pose.ts";
+import { PracticeSim } from "../client/games/boxing/practice-sim.ts";
+import { HEALTH } from "../shared/games/boxing/sim.ts";
 import type { Point } from "../client/input/camera/pose.ts";
 
 const ASPECT = 16 / 9;
@@ -182,5 +184,32 @@ describe("boxing camera: the guard", () => {
     lost[LM.leftShoulder].visibility = 0;
     expect(boxFrame(lost, ASPECT)).toBeNull();
     expect(tr.update(null, 33)).toEqual({ guard: true, punch: null, tracking: false });
+  });
+});
+
+// The camera panel (client/games/boxing/box-camera.ts) sends a tracker's read
+// as the same punch and guard messages a key sends. So a camera jab must land
+// on the sparring partner through the practice sim, and a raised guard must
+// reach the sim as a guard.
+describe("the camera's reads reach the sim like keys do", () => {
+  it("a jab read from the body becomes a punch in the practice sim and costs the partner health", () => {
+    const tr = new BoxTracker();
+    const { punches } = play(tr, [hold("left", LEFT_REST, 400), { hand: "left", from: LEFT_REST, to: { across: 0.4, down: 0.6, forward: 1.2 }, ms: 120 }]);
+    expect(punches).toHaveLength(1);
+    const sim = new PracticeSim(5);
+    sim.punch(punches[0].kind, punches[0].hand, 0);
+    for (let i = 0; i < 60; i++) sim.tick();
+    expect(sim.state.boxers[0].thrown).toBe(1);
+    expect(sim.state.boxers[1].health).toBeLessThan(HEALTH);
+  });
+
+  it("both hands up by the face is a guard read, and the sim raises it", () => {
+    const tr = new BoxTracker();
+    const { guards } = play(tr, [{ hand: "left", from: LEFT_REST, to: LEFT_GUARD, ms: 300 }, { hand: "right", from: RIGHT_REST, to: RIGHT_GUARD, ms: 300 }]);
+    expect(guards.at(-1)).toBe(true);
+    const sim = new PracticeSim(6);
+    sim.guard(guards.at(-1)!);
+    sim.tick();
+    expect(sim.state.boxers[0].guard).toBe(true);
   });
 });

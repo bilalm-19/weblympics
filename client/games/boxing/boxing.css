@@ -84,3 +84,44 @@
 .boxing[data-guard="true"] .bx-controls [data-guard] {
   outline: 3px solid #7dd3fc;
 }
+
+/* the camera's live read: the guard and the last punch it saw */
+.boxing .bx-read {
+  display: flex;
+  justify-content: center;
+  gap: 0.5rem;
+  margin-top: 0.3rem;
+  font-size: 0.8rem;
+}
+
+.boxing .bx-read[hidden] {
+  display: none;
+}
+
+.boxing .bx-read span {
+  min-width: 4.2rem;
+  padding: 0.1rem 0.5rem;
+  border-radius: 999px;
+  background: #0f1720aa;
+  color: #fff;
+  text-align: center;
+}
+
+.boxing .bx-read [data-read="guard"][data-on="true"] {
+  background: #38bdf8;
+  color: #0f1720;
+}
+
+/* On a phone the HUD wraps to three rows with the camera on, and the preview
+   must sit below it, not over the status line. */
+@media (max-width: 700px) {
+  .boxing .cam-dock {
+    top: 15rem;
+    width: min(220px, 56vw);
+  }
+
+  /* the buttons already say what to press; the hint would sit under the preview */
+  .boxing:has(.selfview:not([hidden])) .status {
+    visibility: hidden;
+  }
+}

@@ -1,6 +1,6 @@
 # 30 Boxing
 
-Status: sim, server, camera maths built; a first playable view (flat 2D ring, keys and buttons, practice and rooms) added 2026-11-05; health raised 100 to 500 after bots KO'd each other in ~15 s. Still open: the 3D scene (waits on 28), wiring box-pose.ts to a camera panel, a real-webcam playtest. A "maybe": dropped if not solid by Sat 7 Nov night.
+Status: sim, server, camera maths built; a first playable view (flat 2D ring, keys and buttons, practice and rooms) added 2026-11-05; health raised 100 to 500 after bots KO'd each other in ~15 s. Camera added the same day (`box-camera.ts`; the fake webcam has no person, so the e2e covers the panel and keys, not the punches). Still open: the 3D scene (waits on 28) and a real-webcam playtest of the thresholds. A "maybe": dropped if not solid by Sat 7 Nov night.
 Model: Opus
 Waits on: 28 (shared character, podium)
 

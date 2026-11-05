@@ -4,14 +4,16 @@ import type { BoxerSnapshot, BoxingSnapshot, Hand, PunchKind, Seat } from "../..
 import type { LobbyView, RoomFormat, RoomInfo, ServerMsg } from "../../../shared/protocol.ts";
 import type { GameLink } from "../../net/link.ts";
 import { createReadyPanel } from "../tennis/ready-panel.ts";
+import { createBoxCamera } from "./box-camera.ts";
 import "./boxing.css";
 
 // The boxing view (task 30), first version: a flat 2D ring on one canvas, so
 // the rules can be felt before the 3D scene (a later task) exists. You punch
 // with J (jab) and K (hook), or the buttons; hold Space (or the Guard button)
-// to guard. The server lands every punch after its wind-up and checks the
-// guard then; this only draws what it says. No camera yet (task 30's
-// box-pose.ts is not wired in).
+// to guard, or the camera (box-camera.ts: a fast hand at the screen is a jab,
+// a sweep across the body a hook, both hands by the face the guard). The
+// server lands every punch after its wind-up and checks the guard then; this
+// only draws what it says.
 
 const FORMATS: readonly RoomFormat[] = ["bout", "unlimited"];
 const SEAT_CSS = ["#2f7fe0", "#e0453a"] as const;
@@ -44,6 +46,8 @@ export function startBoxing(root: HTMLElement, conn: GameLink, info: RoomInfo, o
       </div>
       <div>
         <span class="muted code"></span>
+        <span class="tracking" role="status" hidden></span>
+        <button data-action="camera" hidden>Camera</button>
         <button data-action="copy">Copy invite</button>
         <button data-action="leave">Leave</button>
       </div>
@@ -129,6 +133,23 @@ export function startBoxing(root: HTMLElement, conn: GameLink, info: RoomInfo, o
   for (const ev of ["pointerup", "pointercancel", "pointerleave"]) guardButton.addEventListener(ev, () => guard(false));
   guardButton.addEventListener("contextmenu", (e) => e.preventDefault());
 
+  // ---- the camera: the same punch and guard as the keys ----
+  const cameraButton = view.querySelector("[data-action=camera]") as HTMLButtonElement;
+  cameraButton.hidden = info.seat === null;
+  const boxCam = createBoxCamera(view, cameraButton, view.querySelector(".tracking") as HTMLElement, {
+    punch: (kind, hand) => {
+      if (!canBox()) return;
+      nextHand = hand === "left" ? "right" : "left";
+      conn.send({ t: "punch", kind, hand, at: performance.now() });
+      canvas.dataset.sent = String(Number(canvas.dataset.sent ?? 0) + 1);
+      canvas.dataset.camPunch = String(Number(canvas.dataset.camPunch ?? 0) + 1);
+    },
+    guard,
+    pause: (p) => {
+      if (info.practice) conn.send({ t: "pause", paused: p });
+    },
+  });
+
   // ---- the room's ready panel (the host's format and rated option, ready-up) ----
   const readyPanel = createReadyPanel(
     view,
@@ -138,11 +159,12 @@ export function startBoxing(root: HTMLElement, conn: GameLink, info: RoomInfo, o
       ready: (ready) => conn.send({ t: "ready", ready }),
       format: (format) => conn.send({ t: "format", format }),
       rated: (rated) => conn.send({ t: "rated", rated }),
-      openCamera: () => {},
+      openCamera: () => cameraButton.click(),
     },
     FORMATS,
   );
   readyPanel.camera("off");
+  const camTimer = window.setInterval(() => readyPanel.camera(boxCam.state()), 500);
 
   let callTimer = 0;
   const call = (text: string, ms = 1400) => {
@@ -349,10 +371,12 @@ export function startBoxing(root: HTMLElement, conn: GameLink, info: RoomInfo, o
   return () => {
     cancelAnimationFrame(raf);
     clearTimeout(callTimer);
+    clearInterval(camTimer);
     readyPanel.dispose();
     unsubscribe();
     window.removeEventListener("keydown", onKeyDown);
     window.removeEventListener("keyup", onKeyUp);
+    boxCam.dispose();
     disposeSpectating();
     observer.disconnect();
   };

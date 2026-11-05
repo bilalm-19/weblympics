@@ -37,7 +37,8 @@ lazily and only when a player enters a game. Video never leaves the browser.
   hooks), `index.ts` (adapter); its pure camera maths is
   `client/input/camera/box-pose.ts`. Its client is `client/games/boxing/`:
   `view.ts` (a flat 2D ring on one canvas, bout board, round call, J/K/Space
-  and three buttons), `practice.ts` + `practice-sim.ts` (in-page practice vs
+  and three buttons), `box-camera.ts` (its camera panel; the pure maths is
+  `box-pose.ts`), `practice.ts` + `practice-sim.ts` (in-page practice vs
   the bot), `boxing.css`; it reuses tennis's ready panel.
   `shared/look.ts`
   is the fixed palette and hat/hair list for a player's look (task 18).
@@ -219,8 +220,8 @@ lazily and only when a player enters a game. Video never leaves the browser.
 - Game logic stays deterministic (seed + input stream) so it can be tested.
 - Tennis, archery (task 22) and track (tasks 26-27, one game with two
   events: the sprint is playable, hurdles is task 27) are the games; boxing
-  (task 30, a "maybe") is playable on keys and buttons in a flat 2D ring (its
-  3D scene and camera wiring wait on task 28). Add another only when I ask. Each lives in `shared/games/<name>/` and registers in the registry, so
+  (task 30, a "maybe") is playable on keys, buttons or the camera in a flat 2D ring (its
+  3D scene waits on task 28). Add another only when I ask. Each lives in `shared/games/<name>/` and registers in the registry, so
   rooms, lobby and reconnect stay game-agnostic. A game's specs are named
   `spec/<name>-*.test.ts` and `e2e/<name>-*.e2e.ts`.
 - Video never leaves the browser. The game page's CSP `connect-src` allows
@@ -288,8 +289,11 @@ lazily and only when a player enters a game. Video never leaves the browser.
   bot is never rated. Camera (`spec/boxing-box-pose.test.ts`): a wrist
   moving fast toward the camera in front of its shoulder is a jab, one
   sweeping fast across the body at shoulder height is a hook, both wrists
-  by the face is the guard; in shoulder widths (not wired to a view yet).
-  Keys: J jab, K hook, hold Space to guard; three buttons on a phone.
+  by the face is the guard; in shoulder widths, from the shoulder line, so
+  there is nothing to calibrate (`client/games/boxing/box-camera.ts`: a
+  safety panel, then it tracks; the camera sends the same `punch` and `guard`
+  messages a key does, never a hit). Keys: J jab, K hook, hold Space to
+  guard; three buttons on a phone.
 - Camera is used for gameplay only. Every camera action has a keyboard/mouse
   equivalent, and the lobby and room work with no camera at all.
 - Webcam is the default (task 15, `e2e/webcam-default.e2e.ts`): a seated
