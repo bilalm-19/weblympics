@@ -74,16 +74,25 @@ export function createBoxingScene(canvas: HTMLCanvasElement): BoxingScene {
   observer.observe(container);
   resize();
 
+  const ko = { me: false, foe: false };
   const placeCamera = (spectator: boolean) => {
     if (spectator) {
-      // side-on, far enough back that both boxers fit across a narrow screen
-      // raised a little and off the middle rope tie; a portrait screen
-      // widens the view rather than backing into the crowd
-      const wide = aspect >= 1;
-      camera.fov = wide ? 42 : 80;
-      // portrait stands just inside the ropes, so no post or rope is in front
-      camera.position.set(wide ? 4.2 : 2.6, HEAD + (wide ? 0.55 : 0.2), wide ? 0.9 : 0.25);
-      camera.lookAt(0, RING_Y + (wide ? 1.15 : 1.25), 0);
+      // side-on: centred between the boxers, shifted toward one lying on
+      // the canvas so their whole length stays in frame. A portrait screen
+      // backs off past the ropes and looks down over the top one, so a
+      // knocked-down boxer still fits across its narrow width.
+      const z = (ko.me ? 0.7 : 0) - (ko.foe ? 0.7 : 0);
+      if (aspect >= 1) {
+        camera.fov = 42;
+        camera.position.set(4.2, HEAD + 0.55, 0.9 + z);
+        camera.lookAt(0, RING_Y + 1.15, z);
+      } else {
+        // the fallen boxer's head lies about 1.8 m behind their feet
+        const zp = z * 1.5;
+        camera.fov = 70;
+        camera.position.set(5.2, HEAD + 0.9, zp);
+        camera.lookAt(0, RING_Y + 1.0, zp);
+      }
     } else {
       const c = firstPersonCamera(aspect);
       camera.fov = c.fov;
@@ -123,6 +132,8 @@ export function createBoxingScene(canvas: HTMLCanvasElement): BoxingScene {
         }
         boxer.update(b, step);
       });
+      ko.me = v.me.ko;
+      ko.foe = v.foe.ko;
       placeCamera(v.spectator);
       canvas.dataset.foeHead = foe.headWorld(tmp).project(camera).toArray().map((n) => n.toFixed(2)).join(",");
       renderer.render(scene, camera);
