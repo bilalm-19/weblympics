@@ -1,6 +1,6 @@
 # 20 Court and stadium graphics
 
-Status: queued
+Status: done (2026-10-21, session C; see the devlog)
 Model: Opus (visual judgment; look at screenshots at both viewports)
 Session: C
 
@@ -23,8 +23,8 @@ and no heavy assets.
   saw. Nothing may clip the ball, the players or the HUD.
 
 ## Done when
-- [ ] Before/after screenshots at both viewports are saved in `docs/` and
+- [x] Before/after screenshots at both viewports are saved in `docs/` and
       linked from the devlog.
-- [ ] Draw calls and triangles recorded; frame-rate e2e tests still pass.
-- [ ] The crowd groups are addressable by side for task 19.
-- [ ] No new assets or third-party code; CLAUDE.md layout updated.
+- [x] Draw calls and triangles recorded; frame-rate e2e tests still pass.
+- [x] The crowd groups are addressable by side for task 19.
+- [x] No new assets or third-party code; CLAUDE.md layout updated.

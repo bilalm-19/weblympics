@@ -6,5 +6,7 @@ export default defineConfig({
   test: {
     include: ["spec/**/*.test.ts"],
     globalSetup: ["./spec/global-setup.ts"],
+    // a database per worker, so imports of server/db.ts never share a file
+    setupFiles: ["./spec/worker-data.ts"],
   },
 });

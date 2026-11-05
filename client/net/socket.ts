@@ -1,59 +1,32 @@
 import type { ClientMsg, ServerMsg } from "../../shared/protocol.ts";
+import type { Look } from "../../shared/look.ts";
+import { fetchMe } from "./account.ts";
 
-const TOKEN_KEY = "tennis-token";
-// which demo account (if any) is currently signed in; kept separate from
-// TOKEN_KEY so "play as guest" can restore the original identity rather than
-// losing it
-const DEMO_KEY = "tennis-demo";
 const MAX_QUEUE = 20;
-
-function loadToken(): string | undefined {
-  try {
-    return localStorage.getItem(TOKEN_KEY) ?? undefined;
-  } catch {
-    return undefined;
-  }
-}
-
-function saveToken(token: string): void {
-  try {
-    localStorage.setItem(TOKEN_KEY, token);
-  } catch {
-    // storage unavailable: the player just gets a fresh identity next visit
-  }
-}
-
-function loadDemo(): 1 | 2 | undefined {
-  try {
-    const v = localStorage.getItem(DEMO_KEY);
-    return v === "1" ? 1 : v === "2" ? 2 : undefined;
-  } catch {
-    return undefined;
-  }
-}
-
-function saveDemo(demo: 1 | 2 | undefined): void {
-  try {
-    if (demo) localStorage.setItem(DEMO_KEY, String(demo));
-    else localStorage.removeItem(DEMO_KEY);
-  } catch {
-    // storage unavailable: sign-in just won't survive a reload
-  }
-}
 
 export class Connection {
   name = "";
   matches = 0;
-  /** the signed-in demo account, or null for the browser's own guest identity */
-  demo: 1 | 2 | null = null;
+  /** Signed in with a passkey, or as a demo account; false for a guest. */
+  account = false;
+  /** Which of the two locked demo accounts, if one. */
+  demo = false;
+  /** The account's saved look (task 18); null for a guest or the default. */
+  look: Look | null = null;
   roomCode: string | null = null;
+  /** Task 24: the room was joined by its watch link, so a reconnect watches again rather than taking a free seat. */
+  roomWatch = false;
   private ws: WebSocket | null = null;
   private open = false;
   private queue: ClientMsg[] = [];
   private handlers = new Set<(msg: ServerMsg) => void>();
 
   constructor() {
-    this.connect();
+    // who this is lives in HttpOnly cookies (task 17); /api/me makes sure a
+    // first visit has its guest cookie before the socket opens
+    void fetchMe()
+      .catch(() => null)
+      .then(() => this.connect());
   }
 
   on(handler: (msg: ServerMsg) => void): () => void {
@@ -62,19 +35,24 @@ export class Connection {
   }
 
   send(msg: ClientMsg): void {
+    if (msg.t === "join") this.roomWatch = msg.watch === true;
+    else if (msg.t === "create") this.roomWatch = false;
     if (this.open && this.ws) this.ws.send(JSON.stringify(msg));
     else if (this.queue.length < MAX_QUEUE) this.queue.push(msg);
   }
 
-  /** Switch identity on the already-open connection; the server replies with a fresh `welcome`. */
-  signInDemo(n: 1 | 2): void {
-    saveDemo(n);
-    this.send({ t: "hello", demo: n });
-  }
-
-  playAsGuest(): void {
-    saveDemo(undefined);
-    this.send({ t: "hello", token: loadToken() });
+  /**
+   * After signing in or out the cookies say someone else: open a new socket
+   * so the server reads them again. It replies with a fresh `welcome`.
+   */
+  reconnect(): void {
+    const old = this.ws;
+    this.open = false;
+    if (old) {
+      old.onclose = null;
+      old.close();
+    }
+    this.connect();
   }
 
   private connect(): void {
@@ -82,23 +60,23 @@ export class Connection {
     const ws = new WebSocket(`${scheme}://${location.host}/ws`);
     this.ws = ws;
 
-    ws.onopen = () => ws.send(JSON.stringify({ t: "hello", token: loadToken(), demo: loadDemo() } satisfies ClientMsg));
+    ws.onopen = () => ws.send(JSON.stringify({ t: "hello" } satisfies ClientMsg));
 
     ws.onmessage = (event) => {
+      if (this.ws !== ws) return;
       const msg = JSON.parse(String(event.data)) as ServerMsg;
       if (msg.t === "ping") {
         ws.send(JSON.stringify({ t: "pong", id: msg.id } satisfies ClientMsg));
         return;
       }
       if (msg.t === "welcome") {
-        // a demo account's token isn't this browser's own identity: keep the
-        // guest token intact so "play as guest" has something to return to
-        if (!loadDemo()) saveToken(msg.token);
         this.name = msg.name;
         this.matches = msg.matches;
-        this.demo = loadDemo() ?? null;
+        this.account = msg.account;
+        this.demo = msg.demo;
+        this.look = msg.look ?? null;
         this.open = true;
-        if (this.roomCode) ws.send(JSON.stringify({ t: "join", room: this.roomCode } satisfies ClientMsg));
+        if (this.roomCode) ws.send(JSON.stringify((this.roomWatch ? { t: "join", room: this.roomCode, watch: true } : { t: "join", room: this.roomCode }) satisfies ClientMsg));
         for (const queued of this.queue.splice(0)) ws.send(JSON.stringify(queued));
       }
       if (msg.t === "room") this.roomCode = msg.room;
@@ -106,6 +84,7 @@ export class Connection {
     };
 
     ws.onclose = () => {
+      if (this.ws !== ws) return;
       this.open = false;
       setTimeout(() => this.connect(), 1000);
     };

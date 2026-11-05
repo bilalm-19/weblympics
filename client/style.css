@@ -3,7 +3,13 @@
   --panel: #1b2733;
   --text: #e6edf3;
   --muted: #9fb0c0;
-  --accent: #ffd23f;
+  /* the Weblympics colours (task 14, client/ui/brand.ts) */
+  --ring-blue: #0081c8;
+  --ring-yellow: #fcb131;
+  --ring-black: #1d1d1f;
+  --ring-green: #00a651;
+  --ring-red: #ee334e;
+  --accent: var(--ring-yellow);
   --accent-text: #1a1400;
   color-scheme: dark;
 }
@@ -91,7 +97,7 @@ a:focus-visible {
   left: 0;
   padding: 0.35rem 1.6rem 0.4rem 1rem;
   border-radius: 0 0 22px 0;
-  background: linear-gradient(180deg, #5a6b7b, #44515f);
+  background: linear-gradient(180deg, #0070ad, #005f93);
   color: #fff;
   font-weight: 600;
   font-size: 0.95rem;
@@ -137,17 +143,87 @@ a:focus-visible {
   letter-spacing: 0.08em;
 }
 
-.menu h1 {
-  margin: 0.75rem 0 0;
-  font-size: clamp(2.4rem, 7vw, 3.6rem);
+/* The logo (task 14): five loose rings in a wave over the word, each letter
+   in one of the ring colours with a dark ink outline and a white rim, so
+   yellow and light blue still read on the pale sky (contrast in the devlog). */
+.menu .logo {
+  margin: 0.25rem 0 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0;
+  font-size: clamp(2.6rem, 8vw, 3.6rem);
   font-weight: 700;
-  line-height: 1.05;
+  line-height: 1;
   text-align: center;
+}
+
+.logo-rings {
+  width: clamp(6.5rem, 20vw, 8rem);
+  height: auto;
+  overflow: visible;
+  margin-bottom: -0.1rem;
+}
+
+.logo-ring {
+  fill: none;
+  stroke-width: 5;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+.logo-word {
+  display: inline-flex;
   letter-spacing: 0.01em;
-  color: var(--ink);
+}
+
+.logo-letter {
+  display: inline-block;
+  color: var(--c);
+  -webkit-text-stroke: 0.09em var(--ink);
+  paint-order: stroke fill;
   text-shadow:
-    0 2px 0 #fff,
-    0 4px 10px #4a90d040;
+    0 0.06em 0 #fff,
+    0 0.12em 0.18em #12385e40;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .logo-letter {
+    /* backwards, not both: once landed, a letter is plain static text again
+       (a held final frame kept a stale compositor layer, seen in captures) */
+    animation: logo-bounce-in 0.7s cubic-bezier(0.3, 1.6, 0.5, 1) backwards;
+    animation-delay: calc(var(--i) * 60ms - var(--since, 0ms));
+  }
+
+  .logo-ring {
+    animation: logo-float 4.8s ease-in-out infinite;
+    animation-delay: calc(var(--i) * -0.96s);
+  }
+}
+
+@keyframes logo-bounce-in {
+  0% {
+    opacity: 0;
+    transform: translateY(-0.9em) scale(0.6);
+  }
+  60% {
+    opacity: 1;
+    transform: translateY(0.08em) scale(1.08, 0.92);
+  }
+  100% {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes logo-float {
+  0%,
+  100% {
+    transform: translateY(0) rotate(0deg);
+  }
+  50% {
+    transform: translateY(-4px) rotate(8deg);
+  }
 }
 
 /* Framed preview: thin bright frame, rounded corners, soft drop shadow */
@@ -243,9 +319,9 @@ a:focus-visible {
 }
 
 .menu .pill--primary {
-  --pill-top: #fff3c4;
-  --pill-bottom: #ffc93d;
-  --pill-edge: #d99a00;
+  --pill-top: #ffeec8;
+  --pill-bottom: var(--ring-yellow);
+  --pill-edge: #d48a00;
   color: #4d2c00;
   box-shadow:
     inset 0 0 0 2px #fffbe8,
@@ -256,8 +332,35 @@ a:focus-visible {
 .menu .pill--blue {
   --pill-top: #e3f3ff;
   --pill-bottom: #8cceff;
-  --pill-edge: #3a8fd0;
+  --pill-edge: var(--ring-blue);
   color: #06263f;
+  box-shadow:
+    inset 0 0 0 2px var(--rim),
+    0 3px 0 #2f86c0,
+    0 6px 12px -8px #12385e80;
+}
+
+/* the other two ring colours, light enough to keep dark text at AA */
+.menu .pill--green {
+  --pill-top: #e6f8ee;
+  --pill-bottom: #7fd8a6;
+  --pill-edge: var(--ring-green);
+  color: #003a1c;
+  box-shadow:
+    inset 0 0 0 2px var(--rim),
+    0 3px 0 #1f9a5a,
+    0 6px 12px -8px #003a1c80;
+}
+
+.menu .pill--red {
+  --pill-top: #fff0f2;
+  --pill-bottom: #ffb3c0;
+  --pill-edge: var(--ring-red);
+  color: #5a0016;
+  box-shadow:
+    inset 0 0 0 2px var(--rim),
+    0 3px 0 #d0485f,
+    0 6px 12px -8px #5a001680;
 }
 
 .menu .pill--small {
@@ -294,7 +397,7 @@ a:focus-visible {
 .menu .sport[aria-pressed="true"] {
   --pill-top: #f2fbff;
   --pill-bottom: #a8dcff;
-  --pill-edge: #2f86d0;
+  --pill-edge: var(--ring-blue);
   box-shadow:
     inset 0 0 0 2px var(--rim),
     0 0 0 3px #7cc4ff80,
@@ -303,7 +406,7 @@ a:focus-visible {
 }
 
 .menu .sport.is-pointed {
-  border-color: #2f86d0;
+  border-color: var(--ring-blue);
 }
 
 .menu .sport[aria-disabled="true"] {
@@ -371,6 +474,29 @@ a:focus-visible {
   transform: translate(0, 0) rotate(-14deg);
 }
 
+/* Task 23: on the home screen the mouse cursor is that same chunky arrow
+   (POINTER in menu.ts, our own drawing), so it shows as the mouse moves. Only
+   for a mouse (a fine pointer that hovers): touch shows no cursor, and the
+   game's own canvas keeps the normal one. The tip is the hotspot (6 3).
+   A plain CSS cursor: nothing follows the mouse in script, so it never lags
+   and never animates, reduced motion or not. */
+@media (hover: hover) and (pointer: fine) {
+  .menu,
+  .menu .pill,
+  .menu a,
+  .menu .sport[aria-disabled="true"] {
+    cursor:
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32'%3E%3Cpath d='M6 3 L6 25 L11.5 20 L15.5 29 L20 27 L16 18.5 L24 18.5 Z' fill='%23fff' stroke='%231769b8' stroke-width='2.4' stroke-linejoin='round'/%3E%3C/svg%3E")
+        6 3,
+      default;
+  }
+
+  /* typing a room code keeps the text cursor */
+  .menu input {
+    cursor: text;
+  }
+}
+
 .menu .error {
   margin: 0;
   color: #b3122e;
@@ -400,6 +526,14 @@ a:focus-visible {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 0.6rem;
+}
+
+/* "Create a room" is the big button across the row (user, 2026-11-05);
+   vs the bot and training or practice are the smaller pair under it */
+.menu .options-row > .pill--primary {
+  grid-column: 1 / -1;
+  min-height: 60px;
+  font-size: 1.3rem;
 }
 
 .options-row .join {
@@ -472,11 +606,240 @@ a:focus-visible {
   color: var(--muted);
 }
 
-.identity-row {
+/* The profile button, top right (user, 2026-11-05): a round picture of
+   your own character (client/ui/profile-menu.ts), your name beside it on
+   desktop. It opens the panel with sign in, the demo accounts and the
+   ways to the profile and the leaderboard. */
+.menu-corner {
+  position: absolute;
+  top: 0.6rem;
+  right: 0.75rem;
   display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
+  align-items: center;
+  font-family: system-ui, sans-serif;
+  color: var(--ink-soft);
+}
+
+.menu-connecting {
+  margin: 0;
+  font-size: 0.9rem;
+}
+
+.menu .pm-button {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  min-height: 52px;
+  padding: 3px 1.1rem 3px 3px;
+  border: 2px solid var(--pill-edge);
+  border-radius: 999px;
+  background: linear-gradient(180deg, var(--pill-top), var(--pill-bottom));
+  color: var(--ink);
+  font-family: "Fredoka", ui-rounded, system-ui, sans-serif;
+  font-size: 1.05rem;
+  font-weight: 600;
+  box-shadow:
+    inset 0 0 0 2px var(--rim),
+    0 3px 0 #9fbcd4;
+}
+
+.menu .pm-button[aria-expanded="true"] {
+  border-color: var(--ring-blue);
+}
+
+.menu .pm-button:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 3px;
+}
+
+.pm-avatar {
+  display: block;
+  flex: 0 0 auto;
+  width: 44px;
+  height: 44px;
+  overflow: hidden;
+  border-radius: 50%;
+  border: 2px solid #fff;
+  background: linear-gradient(180deg, #a8dcff, #e3f3ff);
+  box-shadow: 0 0 0 1px var(--pill-edge);
+}
+
+.pm-avatar .look-svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.pm-name {
+  max-width: 12rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The panel: a popover under the button on desktop, a bottom sheet on a phone */
+.menu dialog.pm-panel {
+  position: fixed;
+  inset: 4.4rem 0.75rem auto auto;
+  width: min(22rem, calc(100vw - 1.5rem));
+  max-height: calc(100dvh - 5.4rem);
+  margin: 0;
+  padding: 0;
+  overflow: auto;
+  border: 2px solid var(--pill-edge);
+  border-radius: 20px;
+  background: #f7fbff;
+  color: var(--ink);
+  font-family: system-ui, sans-serif;
+  box-shadow: 0 18px 48px #0b2a4a55;
+}
+
+.menu dialog.pm-panel::backdrop {
+  background: #0b1a2a33;
+}
+
+.pm-box {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 1rem;
+}
+
+.pm-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+}
+
+.pm-figure {
+  flex: 0 0 auto;
+  width: 5rem;
+  padding: 0.2rem;
+  border-radius: 14px;
+  background: linear-gradient(180deg, #cfe8fa, #eaf5fd);
+}
+
+.pm-figure .look-svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.pm-who {
+  flex: 1;
+  min-width: 0;
+}
+
+.pm-who h2 {
+  margin: 0.2rem 0 0;
+  font-family: "Fredoka", ui-rounded, system-ui, sans-serif;
+  font-size: 1.35rem;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+
+.pm-who p,
+.pm-note,
+.pm-status {
+  margin: 0.15rem 0 0;
+  color: var(--ink-soft);
+  font-size: 0.92rem;
+}
+
+.pm-status:empty {
+  display: none;
+}
+
+.pm-close {
+  flex: 0 0 auto;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0;
+  border-radius: 999px;
+  background: #e3eef8;
+  color: var(--ink);
+  font-size: 1.6rem;
+  line-height: 1;
+}
+
+.pm-actions {
+  display: flex;
+  flex-direction: column;
   gap: 0.5rem;
+}
+
+.pm-btn {
+  min-height: 44px;
+  padding: 0 1rem;
+  border: 2px solid var(--pill-edge);
+  border-radius: 999px;
+  background: linear-gradient(180deg, #ffffff, #dcebf7);
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.pm-btn--primary {
+  border-color: #d48a00;
+  background: linear-gradient(180deg, #ffeec8, var(--ring-yellow));
+  color: #4d2c00;
+}
+
+.pm-btn:disabled {
+  opacity: 0.55;
+  cursor: progress;
+}
+
+.pm-panel button:focus-visible,
+.pm-devtools summary:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 2px;
+}
+
+/* Task 17: the demo accounts sit behind a closed "Dev tools" control */
+.pm-devtools summary {
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 0.5rem;
+  border-radius: 999px;
+  color: var(--ink-soft);
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.pm-devtools[open] .pm-actions {
+  margin-top: 0.25rem;
+}
+
+/* Phone: the button is the round picture only (its name is its label), and
+   the panel is a sheet along the bottom edge */
+@media (max-width: 560px) {
+  .menu-corner {
+    top: 0.4rem;
+    right: 0.5rem;
+  }
+
+  .menu .pm-button {
+    padding: 2px;
+    min-height: 0;
+  }
+
+  .pm-name {
+    display: none;
+  }
+
+  .menu dialog.pm-panel {
+    inset: auto 0 0 0;
+    width: 100%;
+    max-width: none;
+    max-height: 85dvh;
+    border-width: 2px 0 0;
+    border-radius: 22px 22px 0 0;
+  }
+
+  .pm-box {
+    padding-bottom: calc(1rem + env(safe-area-inset-bottom));
+  }
 }
 
 /* Desktop: two equal columns under the title. Sports on the left as one
@@ -519,6 +882,12 @@ a:focus-visible {
     font-size: 1.3rem;
   }
 
+  /* wider than tall so the logo, preview, sports (archery is playable, so its
+     button takes a full row), options and the footer all fit one 1080p screen */
+  .thumb-frame {
+    aspect-ratio: 2.6 / 1;
+  }
+
   .menu .sport[aria-disabled="true"] {
     flex-direction: row;
     gap: 0.75rem;
@@ -534,10 +903,6 @@ a:focus-visible {
 
   .sport-soon {
     margin-left: auto;
-  }
-
-  .options-row > .pill--primary {
-    grid-column: 1 / -1;
   }
 
   .options-row > .pill {
@@ -630,10 +995,9 @@ a:focus-visible {
     margin-top: 0;
   }
 
-  .identity-row .pill {
-    flex: 1 1 0;
-    padding: 0 0.5rem;
-    font-size: 0.85rem;
+  .menu .options-row > .pill--primary {
+    min-height: 56px;
+    font-size: 1.15rem;
   }
 }
 
@@ -648,416 +1012,343 @@ a:focus-visible {
   }
 }
 
-/* Decorative Mii-style figures crossing the tennis preview, built the
-   same way as client/games/tennis/character.ts (round head, tapered torso,
-   bright top, dark trousers, oval racket) but as flat CSS shapes. One shared
-   10s cycle: the runner crosses, then (almost immediately after) the server
-   walks in, tosses, hits and runs on. All percentages below are positions on
-   that same cycle, so the arm/ball/leg animations stay in sync with the
-   body's position without any JS timing. Positions are in cqi (the preview
-   frame is the container), so they cross the frame, not the window. */
-.thumb-sprites {
-  position: absolute;
-  inset: 0;
-  overflow: hidden;
-  pointer-events: none;
+/* Thumbnail loops (task 23): each sport's preview is a short seamless loop
+   drawn inside its own SVG (menu.ts), so it lines up with the picture at any
+   frame shape. Transforms on SVG groups only: no layout shift, cheap. One
+   still frame under reduced motion; paused while the tab is hidden
+   (menu.ts toggles .is-paused). */
+.loop * {
+  transform-box: view-box;
 }
 
-.sprite {
-  position: absolute;
-  bottom: 7%;
-  left: 0;
-  width: 54px;
-  height: 86px;
-  animation: menu-cross-runner 10s linear infinite;
+/* Tennis: a rally. The near player (blue) and the far one (red) take turns;
+   the ball arcs between their rackets on one 2.4 s cycle. */
+.loop-ball {
+  animation: rally-ball 2.4s linear infinite;
 }
 
-.sprite--server {
-  animation-name: menu-cross-server;
+.loop-ball-shadow {
+  animation: rally-shadow 2.4s linear infinite;
 }
 
-.sprite-shadow {
-  position: absolute;
-  bottom: -4px;
-  left: 50%;
-  width: 38px;
-  height: 11px;
-  margin-left: -19px;
-  border-radius: 50%;
-  background: #00000030;
+.loop-near-arm {
+  transform-origin: 215px 132px;
+  animation: rally-near-swing 2.4s ease-in-out infinite;
 }
 
-.sprite-body {
-  position: absolute;
-  inset: 0;
-  animation: menu-jog-bob 0.4s ease-in-out infinite;
+.loop-far-arm {
+  transform-origin: 154px 75.6px;
+  animation: rally-far-swing 2.4s ease-in-out infinite;
 }
 
-.sprite--server .sprite-body {
-  animation: none;
+.loop-near {
+  animation: rally-near-step 2.4s ease-in-out infinite;
 }
 
-.sprite--runner {
-  --shirt: #ff5d5d;
-  --hair: #3d2b1f;
+.loop-far {
+  animation: rally-far-step 2.4s ease-in-out infinite;
 }
 
-.sprite--server {
-  --shirt: #5d8bff;
-  --hair: #241a12;
+/* Positions in the 320x180 view box, matching figure() in menu.ts: the near
+   racket meets the ball at about (224,126), the far one at (160,72); the ball
+   bounces once on each side (far court at y 98, near court at y 150). The
+   net is at y 128 across, so the ball passes over it high. */
+@keyframes rally-ball {
+  0% {
+    transform: translate(224px, 126px) scale(1);
+  }
+  14% {
+    transform: translate(204px, 74px) scale(0.85);
+  }
+  30% {
+    transform: translate(180px, 98px) scale(0.7);
+  }
+  40% {
+    transform: translate(170px, 78px) scale(0.64);
+  }
+  50% {
+    transform: translate(160px, 72px) scale(0.6);
+  }
+  64% {
+    transform: translate(184px, 70px) scale(0.75);
+  }
+  82% {
+    transform: translate(214px, 150px) scale(0.95);
+  }
+  92% {
+    transform: translate(220px, 134px) scale(1);
+  }
+  100% {
+    transform: translate(224px, 126px) scale(1);
+  }
 }
 
-.sprite-leg {
-  position: absolute;
-  bottom: 6px;
-  width: 10px;
-  height: 34px;
-  border-radius: 5px;
-  background: linear-gradient(#2b303b 0 80%, #4b5160 80% 100%);
-  transform-origin: top center;
+@keyframes rally-shadow {
+  0% {
+    transform: translate(222px, 160px) scale(1);
+    opacity: 0.25;
+  }
+  30% {
+    transform: translate(180px, 99px) scale(0.7);
+    opacity: 0.35;
+  }
+  50% {
+    transform: translate(160px, 98px) scale(0.6);
+    opacity: 0.2;
+  }
+  82% {
+    transform: translate(214px, 151px) scale(0.95);
+    opacity: 0.35;
+  }
+  100% {
+    transform: translate(222px, 160px) scale(1);
+    opacity: 0.25;
+  }
 }
 
-.sprite-leg--l {
-  left: 16px;
-  animation: menu-limb-swing 0.4s ease-in-out infinite;
+@keyframes rally-near-swing {
+  0% {
+    transform: rotate(-70deg);
+  }
+  8% {
+    transform: rotate(40deg);
+  }
+  30%,
+  80% {
+    transform: rotate(0deg);
+  }
+  92% {
+    transform: rotate(-80deg);
+  }
+  100% {
+    transform: rotate(-70deg);
+  }
 }
 
-.sprite-leg--r {
-  left: 28px;
-  animation: menu-limb-swing 0.4s ease-in-out infinite reverse;
+@keyframes rally-far-swing {
+  0%,
+  30% {
+    transform: rotate(0deg);
+  }
+  44% {
+    transform: rotate(70deg);
+  }
+  50% {
+    transform: rotate(60deg);
+  }
+  58% {
+    transform: rotate(-40deg);
+  }
+  80%,
+  100% {
+    transform: rotate(0deg);
+  }
 }
 
-.sprite--server .sprite-leg--l {
-  animation: menu-server-leg-l 10s linear infinite;
+@keyframes rally-near-step {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  45% {
+    transform: translateX(-10px);
+  }
 }
 
-.sprite--server .sprite-leg--r {
-  animation: menu-server-leg-r 10s linear infinite;
+@keyframes rally-far-step {
+  0%,
+  100% {
+    transform: translateX(10px);
+  }
+  45% {
+    transform: translateX(0);
+  }
 }
 
-.sprite-torso {
-  position: absolute;
-  left: 12px;
-  bottom: 34px;
-  width: 30px;
-  height: 34px;
-  /* tapered, like the capsule torso in character.ts */
-  clip-path: polygon(14% 100%, 86% 100%, 100% 10%, 78% 0%, 22% 0%, 0% 10%);
-  background: var(--shirt);
+/* Bowling: the ball rolls down the lane into the pins, which tumble, then reset. */
+.loop-bowl {
+  animation: bowl-roll 3s ease-in infinite;
 }
 
-.sprite-head {
-  position: absolute;
-  left: 13px;
-  bottom: 68px;
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  background: #f3cfae;
+.loop-pins {
+  transform-origin: 160px 70px;
+  animation: bowl-pins 3s ease-out infinite;
 }
 
-/* two eye dots, drawn with one box-shadow so a single pseudo-element does both */
-.sprite-head::before {
-  content: "";
-  position: absolute;
-  top: 11px;
-  left: 8px;
-  width: 2.5px;
-  height: 3px;
-  border-radius: 50%;
-  background: #2a1d14;
-  box-shadow: 10px 0 0 #2a1d14;
+@keyframes bowl-roll {
+  0%,
+  10% {
+    transform: translate(0, 0) scale(1);
+    opacity: 1;
+  }
+  55% {
+    transform: translate(0, -100px) scale(0.45);
+    opacity: 1;
+  }
+  62%,
+  100% {
+    transform: translate(0, -104px) scale(0.42);
+    opacity: 0;
+  }
 }
 
-.sprite-head::after {
-  content: "";
-  position: absolute;
-  bottom: 6px;
-  left: 10px;
-  width: 7px;
-  height: 3px;
-  border: 0 solid transparent;
-  border-bottom: 1.5px solid #8a5a3a;
-  border-radius: 0 0 50% 50%;
+@keyframes bowl-pins {
+  0%,
+  52% {
+    transform: none;
+    opacity: 1;
+  }
+  60% {
+    transform: translateY(-4px) rotate(-6deg) scale(1.04);
+  }
+  72% {
+    transform: translateY(6px) rotate(8deg) scale(0.96);
+    opacity: 0.25;
+  }
+  86% {
+    opacity: 0;
+    transform: none;
+  }
+  100% {
+    opacity: 1;
+    transform: none;
+  }
 }
 
-.sprite-hair {
-  position: absolute;
-  top: -3px;
-  left: 0;
-  width: 28px;
-  height: 13px;
-  border-radius: 50% 50% 0 0;
-  background: var(--hair);
+/* Archery: an arrow flies in from the left and thuds into the target, which shivers. */
+.loop-arrow {
+  animation: arrow-fly 2.8s cubic-bezier(0.3, 0.1, 0.4, 1) infinite;
 }
 
-.sprite-arm {
-  position: absolute;
-  top: 10px;
-  width: 8px;
-  height: 25px;
-  border-radius: 4px;
-  background: linear-gradient(var(--shirt) 0 72%, #f3cfae 72% 100%);
-  transform-origin: top center;
+.loop-target {
+  transform-origin: 170px 92px;
+  animation: target-thud 2.8s ease-out infinite;
 }
 
-.sprite-arm--off {
-  left: 5px;
-  transform: rotate(10deg);
-  animation: menu-limb-swing 0.4s ease-in-out infinite reverse;
+@keyframes arrow-fly {
+  0%,
+  8% {
+    transform: translate(-150px, 30px);
+    opacity: 0;
+  }
+  12% {
+    opacity: 1;
+  }
+  40%,
+  88% {
+    transform: translate(0, 0);
+    opacity: 1;
+  }
+  100% {
+    transform: translate(0, 0);
+    opacity: 0;
+  }
 }
 
-.sprite-arm--main {
-  left: 41px;
-  transform: rotate(-10deg);
-  animation: menu-limb-swing 0.4s ease-in-out infinite;
+@keyframes target-thud {
+  0%,
+  40% {
+    transform: none;
+  }
+  44% {
+    transform: translateX(2px) rotate(1.2deg);
+  }
+  48% {
+    transform: translateX(-1.5px) rotate(-0.8deg);
+  }
+  54%,
+  100% {
+    transform: none;
+  }
 }
 
-.sprite--server .sprite-arm--off {
-  animation: menu-serve-toss 10s linear infinite;
+/* Track: the two runners bob as they run on the spot. */
+.loop-runner-a {
+  animation: runner-bob 0.6s ease-in-out infinite;
 }
 
-.sprite--server .sprite-arm--main {
-  animation: menu-serve-swing 10s linear infinite;
+.loop-runner-b {
+  animation: runner-bob 0.6s ease-in-out -0.3s infinite;
 }
 
-.sprite-racket {
-  position: absolute;
-  bottom: -20px;
-  left: 50%;
-  width: 16px;
-  height: 22px;
-  margin-left: -8px;
-  border: 2px solid #e4e7eb;
-  border-radius: 50%;
-  /* strings crosshatch, like the canvas texture in character.ts */
-  background:
-    repeating-linear-gradient(0deg, transparent 0 3px, #ffffffb3 3px 3.6px),
-    repeating-linear-gradient(90deg, transparent 0 3px, #ffffffb3 3px 3.6px),
-    #ffffff30;
+@keyframes runner-bob {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-5px);
+  }
 }
 
-.sprite-racket::before {
-  /* throat + grip, connecting the hand to the head */
-  content: "";
-  position: absolute;
-  top: -7px;
-  left: 50%;
-  width: 3px;
-  height: 8px;
-  margin-left: -1.5px;
-  background: #22252c;
+/* Mystery tiles: the question marks bob and the sparkles twinkle. */
+.loop-mystery {
+  transform-origin: 160px 90px;
+  animation: mystery-bob 2.6s ease-in-out infinite;
 }
 
-.sprite-ball {
-  position: absolute;
-  left: 40px;
-  bottom: 58px;
-  width: 11px;
-  height: 11px;
-  border-radius: 50%;
-  background: #ff9f1c;
-  opacity: 0;
-  animation: menu-serve-ball 10s linear infinite;
+.loop-spark {
+  transform-origin: center;
+  transform-box: fill-box;
+  animation: spark 2.6s ease-in-out infinite;
 }
 
-/* body: bob + lean while jogging, same rhythm for both figures */
-@keyframes menu-jog-bob {
+.loop-spark:nth-of-type(2) {
+  animation-delay: -0.9s;
+}
+
+.loop-spark:nth-of-type(3) {
+  animation-delay: -1.7s;
+}
+
+@keyframes mystery-bob {
   0%,
   100% {
     transform: translateY(0) rotate(-3deg);
   }
   50% {
-    transform: translateY(-6px) rotate(3deg);
+    transform: translateY(-8px) rotate(3deg);
   }
 }
 
-/* legs/arms: generic alternating swing, reused with delay/reverse */
-@keyframes menu-limb-swing {
+@keyframes spark {
   0%,
   100% {
-    transform: rotate(22deg);
-  }
-  50% {
-    transform: rotate(-22deg);
-  }
-}
-
-/* positions: hold off-left, cross, hold off-right, on one shared 10s cycle.
-   The runner's cross and the server's walk-in overlap by a couple of
-   percent so there's almost never an empty stretch of court. */
-@keyframes menu-cross-runner {
-  0%,
-  2% {
-    transform: translateX(-15cqi);
-  }
-  38% {
-    transform: translateX(115cqi);
-  }
-  100% {
-    transform: translateX(115cqi);
-  }
-}
-
-@keyframes menu-cross-server {
-  0%,
-  36% {
-    transform: translateX(-15cqi);
-  }
-  44% {
-    transform: translateX(10cqi);
-  }
-  68% {
-    transform: translateX(10cqi);
-  }
-  94% {
-    transform: translateX(115cqi);
-  }
-  100% {
-    transform: translateX(115cqi);
-  }
-}
-
-@keyframes menu-server-leg-l {
-  0%,
-  36% {
-    transform: rotate(0deg);
-  }
-  38% {
-    transform: rotate(20deg);
-  }
-  40% {
-    transform: rotate(-20deg);
-  }
-  42%,
-  70% {
-    transform: rotate(0deg);
-  }
-  72% {
-    transform: rotate(-20deg);
-  }
-  74% {
-    transform: rotate(20deg);
-  }
-  76%,
-  100% {
-    transform: rotate(0deg);
-  }
-}
-
-@keyframes menu-server-leg-r {
-  0%,
-  36% {
-    transform: rotate(0deg);
-  }
-  38% {
-    transform: rotate(-20deg);
-  }
-  40% {
-    transform: rotate(20deg);
-  }
-  42%,
-  70% {
-    transform: rotate(0deg);
-  }
-  72% {
-    transform: rotate(20deg);
-  }
-  74% {
-    transform: rotate(-20deg);
-  }
-  76%,
-  100% {
-    transform: rotate(0deg);
-  }
-}
-
-/* serve: the off hand tosses the ball up and releases it, the racket arm
-   draws back into a trophy position then snaps through to strike and
-   follows through, like a real service motion. */
-@keyframes menu-serve-toss {
-  0%,
-  44% {
-    transform: rotate(10deg);
-  }
-  50% {
-    transform: rotate(-150deg);
-  }
-  54% {
-    transform: rotate(-160deg);
-  }
-  60% {
-    transform: rotate(-60deg);
-  }
-  66%,
-  100% {
-    transform: rotate(10deg);
-  }
-}
-
-@keyframes menu-serve-swing {
-  0%,
-  44% {
-    transform: rotate(-8deg);
-  }
-  48% {
-    transform: rotate(60deg);
-  }
-  /* trophy position: racket drawn up and back */
-  53% {
-    transform: rotate(175deg);
-  }
-  /* explosive forward swing to contact */
-  57% {
-    transform: rotate(-35deg);
-  }
-  61% {
-    transform: rotate(-60deg);
-  }
-  68%,
-  100% {
-    transform: rotate(-8deg);
-  }
-}
-
-@keyframes menu-serve-ball {
-  0%,
-  46% {
+    transform: scale(0.3);
     opacity: 0;
-    transform: translate(0, 0) scale(1);
   }
   50% {
+    transform: scale(1);
     opacity: 1;
-    transform: translate(-6px, -22px) scale(1);
-  }
-  54% {
-    opacity: 1;
-    transform: translate(-2px, -34px) scale(1);
-  }
-  57% {
-    opacity: 1;
-    transform: translate(10px, -20px) scale(0.95);
-  }
-  64%,
-  100% {
-    opacity: 0;
-    transform: translate(85px, 15px) scale(0.5);
   }
 }
 
-/* On a phone the preview is small, so an 86px figure would fill half of it;
-   mobile (and reduced motion) keeps the static court. */
-@media (prefers-reduced-motion: reduce), (max-width: 560px) {
-  .sprite,
-  .sprite-body,
-  .sprite-leg,
-  .sprite-arm,
-  .sprite-ball {
+/* paused while the tab is hidden (menu.ts) */
+.thumb-frame.is-paused .loop * {
+  animation-play-state: paused;
+}
+
+/* one still frame: each loop is drawn mid-rally, no motion */
+@media (prefers-reduced-motion: reduce) {
+  .loop * {
     animation: none !important;
   }
 
-  .sprite {
-    display: none;
+  .loop-ball {
+    transform: translate(204px, 74px) scale(0.85);
+  }
+
+  .loop-ball-shadow {
+    transform: translate(204px, 130px) scale(0.85);
+    opacity: 0.25;
+  }
+
+  .loop-far {
+    transform: translateX(10px);
+  }
+
+  .loop-spark {
+    opacity: 1;
   }
 }
 
@@ -1105,7 +1396,10 @@ a:focus-visible {
   align-items: center;
   padding: 0.2rem 0.55rem;
   border-radius: 8px;
-  background: #0f1720d9;
+  /* a thin strip of the five ring colours along the top (task 14) */
+  background:
+    linear-gradient(90deg, var(--ring-blue) 0 20%, var(--ring-yellow) 20% 40%, var(--ring-black) 40% 60%, var(--ring-green) 60% 80%, var(--ring-red) 80%) top / 100% 3px no-repeat,
+    #0f1720d9;
   font-size: 0.95rem;
   line-height: 1.35;
   font-variant-numeric: tabular-nums;
@@ -1147,13 +1441,12 @@ a:focus-visible {
   font-weight: 700;
 }
 
-/* format on the first row, the call on the second, right of the numbers */
+/* the format on the first row, right of the numbers (the call is the banner, call-banner.css) */
 .score .sb-foot {
   display: contents;
 }
 
-.score .sb-format,
-.score .sb-call {
+.score .sb-format {
   grid-column: 6;
   padding-left: 0.2rem;
   overflow: hidden;
@@ -1165,13 +1458,6 @@ a:focus-visible {
   grid-row: 1;
   font-size: 0.75rem;
   color: var(--muted);
-}
-
-.score .sb-call {
-  grid-row: 2;
-  color: var(--accent);
-  font-weight: 700;
-  font-size: 0.85rem;
 }
 
 .score .sb-pulse {

@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import type { Locator, Page } from "@playwright/test";
+import { useKeyboard } from "./flow.ts";
 
 // Task 5: training mode. Runs at both viewports with Chrome's fake webcam
 // (nobody in it, so the camera starts but tracks nothing; keys stand in for
@@ -112,13 +113,17 @@ test("training with keys: every step completes from real key presses, feedback i
   test.setTimeout(240_000);
   const net = traffic(page);
   await page.goto("/");
-  await expect(page.getByText(/playing as/i)).toBeVisible();
+  await expect(page.locator(".pm-button")).toBeVisible();
   const train = page.getByRole("button", { name: "Train" });
   await insideViewport(page, train);
   // what the page itself sent while loading (hello and the like); training adds nothing
   const framesBefore = net.frames.length;
   const requestsBefore = net.requests.length;
   await train.click();
+  // webcam by default (task 15): the camera setup opens first; this run plays on keys
+  const setup = page.getByRole("dialog", { name: /camera setup/i });
+  await expect(setup.getByRole("heading", { name: /before you start/i })).toBeVisible();
+  await useKeyboard(page);
 
   const coach = page.locator(".coach");
   const canvas = page.locator("canvas");
@@ -130,7 +135,7 @@ test("training with keys: every step completes from real key presses, feedback i
   await expect.poll(async () => Number(await canvas.getAttribute("data-frames"))).toBeGreaterThan(5);
   await coachClear(page);
 
-  await coach.getByRole("button", { name: /keys only/i }).click();
+  // "Use keyboard instead" counted as Keys only: Start is ready
   await coach.getByRole("button", { name: "Start" }).click();
 
   // 1: any swing
@@ -241,11 +246,11 @@ test("training with the camera: safety notice and hand choice first, the camera 
   test.setTimeout(120_000);
   const net = traffic(page);
   await page.goto("/");
-  await expect(page.getByText(/playing as/i)).toBeVisible();
+  await expect(page.locator(".pm-button")).toBeVisible();
   const framesBefore = net.frames.length;
   await page.getByRole("button", { name: "Train" }).click();
   const coach = page.locator(".coach");
-  await coach.getByRole("button", { name: /set up camera/i }).click();
+  // the camera setup opens by itself (task 15: webcam by default)
 
   const panel = page.getByRole("dialog", { name: /camera setup/i });
   await expect(panel.getByRole("heading", { name: /before you start/i })).toBeVisible();
@@ -292,12 +297,13 @@ test("training with the camera: safety notice and hand choice first, the camera 
 
 test("Train is a Tennis option on the home screen, and Skip training goes straight back", async ({ page }) => {
   await page.goto("/");
-  await expect(page.getByText(/playing as/i)).toBeVisible();
+  await expect(page.locator(".pm-button")).toBeVisible();
   const options = page.locator(".options");
   await expect(options.getByRole("button", { name: "Train" })).toBeVisible();
   expect(await noHorizontalScroll(page)).toBe(true);
   await options.getByRole("button", { name: "Train" }).click();
   await expect(page).toHaveURL(/#\/train$/);
+  await useKeyboard(page);
   const coach = page.locator(".coach");
   // no room, so no ready panel
   await expect(page.locator(".ready-panel")).toBeHidden();
@@ -312,6 +318,7 @@ test("Train is a Tennis option on the home screen, and Skip training goes straig
   await coach.getByRole("button", { name: /go to the lobby/i }).click();
   await expect(page.getByRole("button", { name: /practice vs bot/i })).toBeVisible();
   await page.getByRole("button", { name: "Train" }).click();
+  await useKeyboard(page);
   await page.locator(".coach").getByRole("button", { name: "Skip training" }).click();
   await expect(page.getByRole("button", { name: /practice vs bot/i })).toBeVisible();
   await expect(page.locator("canvas")).toHaveCount(0);
@@ -323,6 +330,7 @@ test("training waits: centred and paused, no ball and auto-move until Start, the
   const sent: string[] = [];
   page.on("websocket", (ws) => ws.on("framesent", (f) => sent.push(String(f.payload))));
   await page.goto("/#/train");
+  await useKeyboard(page);
   const coach = page.locator(".coach");
   const canvas = page.locator("canvas");
   await expect(coach).toBeVisible();
@@ -361,14 +369,14 @@ test("training waits: centred and paused, no ball and auto-move until Start, the
   expect(sent.filter((m) => m.includes('"mode"') && m.includes("tilt"))).toEqual([]);
 });
 
-test("Set up camera opens a panel you can actually use (nothing dims or covers it), and Start waits for the camera", async ({ page }) => {
+test("the camera setup opens first, as a panel you can actually use (nothing dims or covers it), and Start waits for the camera", async ({ page }) => {
   await page.goto("/#/train");
   const coach = page.locator(".coach");
   await expect(coach).toHaveAttribute("data-lesson", "start");
-  // before the camera is set up (or Keys only is chosen), Start can't be pressed
-  await expect(coach.getByRole("button", { name: "Start" })).toBeDisabled();
-
-  await coach.getByRole("button", { name: /set up camera/i }).click();
+  // webcam by default (task 15): the setup is open over the coach from the start
+  await expect(coach).toBeHidden();
+  // before the camera is set up (or the keyboard is chosen), Start can't be pressed
+  await expect(coach.locator('[data-coach="start"]')).toBeDisabled();
   const panel = page.getByRole("dialog", { name: /camera setup/i });
   await expect(panel.getByRole("heading", { name: /before you start/i })).toBeVisible();
   // the panel is the thing on top at its own centre, so a real click lands on it
@@ -391,11 +399,17 @@ test("Set up camera opens a panel you can actually use (nothing dims or covers i
   await expect(coach.getByRole("button", { name: "Start" })).toBeEnabled();
 });
 
-test("Keys only is the no-camera way through: it does what the camera step does, and never requires a camera", async ({ page }) => {
+test("Use keyboard instead is the no-camera way through: it does what the camera step does, and never requires a camera", async ({ page }) => {
   await page.goto("/#/train");
   const coach = page.locator(".coach");
-  await expect(coach.getByRole("button", { name: "Start" })).toBeDisabled();
-  await coach.getByRole("button", { name: /keys only/i }).click();
+  await useKeyboard(page);
+  await expect(coach).toBeVisible();
+  await expect(coach.getByRole("button", { name: "Start" })).toBeEnabled();
+  // the camera can still be set up from the coach, and Escape closes it again the keyboard way
+  await coach.getByRole("button", { name: /set up camera/i }).click();
+  await expect(page.getByRole("dialog", { name: /camera setup/i })).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(coach).toBeVisible();
   await expect(coach.getByRole("button", { name: "Start" })).toBeEnabled();
   await coach.getByRole("button", { name: "Start" }).click();
   await expect(coach).toHaveAttribute("data-lesson", "swing");
@@ -403,6 +417,7 @@ test("Keys only is the no-camera way through: it does what the camera step does,
 
 test("every step opens centred with the machine held, and goes to the side only on Ready; each is short", async ({ page }) => {
   await page.goto("/#/train");
+  await useKeyboard(page);
   const coach = page.locator(".coach");
   const canvas = page.locator("canvas");
   await coach.getByRole("button", { name: /keys only/i }).click();
@@ -443,6 +458,7 @@ test("every step opens centred with the machine held, and goes to the side only 
 test("the timing step enforces what it asks for: an on-time hit when early is asked does not count, and says why", async ({ page }) => {
   test.setTimeout(120_000);
   await page.goto("/#/train");
+  await useKeyboard(page);
   const coach = page.locator(".coach");
   await coach.getByRole("button", { name: /keys only/i }).click();
   await coach.getByRole("button", { name: "Start" }).click();
@@ -464,5 +480,44 @@ test("the timing step enforces what it asks for: an on-time hit when early is as
   // it did not move the step on: early is still what is asked
   await expect(coach.locator(".coach-progress")).toContainText(/swing early/i);
   await expect(coach).toHaveAttribute("data-done", "false");
+});
+
+test("hit the spot (task 21): endless from the training screen, a result after each return, a streak, Exit; nothing sent", async ({ page }) => {
+  test.setTimeout(120_000);
+  // listening from before the page opens its socket, or its frames would never be seen
+  const net = traffic(page);
+  await page.goto("/");
+  await expect(page.locator(".pm-button")).toBeVisible();
+  // what the page itself sent while loading (hello); the mode adds nothing
+  const framesBefore = net.frames.length;
+  await page.getByRole("button", { name: "Train" }).click();
+  // the webcam is the default (task 15): take the keyboard way past its setup
+  await useKeyboard(page);
+  const coach = page.locator(".coach");
+  const canvas = page.locator("canvas");
+  // offered on the training screen, beside the lessons; no camera needed
+  await coach.getByRole("button", { name: "Hit the spot" }).click();
+  await expect(coach).toHaveAttribute("data-lesson", "spot");
+  await expect(coach.getByRole("heading", { name: "Hit the spot" })).toBeVisible();
+  await expect(coach.locator(".coach-progress")).toHaveText(/Streak 0 · Best \d+/);
+  // a spot is drawn on the machine's half
+  await expect.poll(async () => (await canvas.getAttribute("data-spot")) ?? "").toMatch(/^-?\d+\.\d+,-\d+\.\d+$/);
+  await coach.getByRole("button", { name: "Start" }).click();
+  await expect(coach).toHaveAttribute("data-stage", "play");
+  await page.waitForTimeout(500);
+  await coachClear(page);
+
+  // swing on time at the next ball: a result in words comes back once it lands (or goes by)
+  await swingIn(page, "ontime");
+  await expect(coach).toHaveAttribute("data-result", /^(bullseye|on|near|wide|out|net|none)$/, { timeout: 15_000 });
+  await expect(coach.locator(".coach-feedback")).toHaveText(/Bullseye|On the spot|Close|Wide|Out|Into the net|No return/);
+  // unlimited: the balls keep coming after that
+  await canvas.evaluate((c) => (c.dataset.trainFeed = ""));
+  await expect.poll(async () => (await canvas.getAttribute("data-train-feed")) ?? "", { timeout: 15_000 }).not.toBe("");
+
+  // the mode sent nothing over the socket (pings excepted, which the link answers by itself)
+  expect(net.frames.slice(framesBefore).filter((f) => !f.includes('"pong"'))).toEqual([]);
+  await coach.getByRole("button", { name: "Exit" }).click();
+  await expect(page.getByRole("button", { name: /practice vs bot/i })).toBeVisible();
 });
 

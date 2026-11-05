@@ -1,3 +1,4 @@
+import { addSpectating } from "../../ui/spectate.ts";
 import {
   BufferGeometry,
   CircleGeometry,
@@ -361,6 +362,8 @@ export function startArchery(root: HTMLElement, conn: GameLink, info: RoomInfo, 
     {
       ready: (ready) => conn.send({ t: "ready", ready }),
       format: (format) => conn.send({ t: "format", format }),
+      // task 7: the host's rated option is the room's, not tennis's
+      rated: (rated) => conn.send({ t: "rated", rated }),
       openCamera: () => cameraButton.click(),
     },
     FORMATS,
@@ -499,6 +502,8 @@ export function startArchery(root: HTMLElement, conn: GameLink, info: RoomInfo, 
   });
 
   view.querySelector("[data-action=leave]")?.addEventListener("click", onLeave);
+  // task 24: watch link for players; the Watching badge and count for spectators
+  const disposeSpectating = opts.local ? () => {} : addSpectating(view, conn, info);
   view.querySelector("[data-action=copy]")?.addEventListener("click", (e) => {
     const button = e.currentTarget as HTMLButtonElement;
     navigator.clipboard
@@ -606,6 +611,7 @@ export function startArchery(root: HTMLElement, conn: GameLink, info: RoomInfo, 
     window.removeEventListener("keydown", keydown);
     window.removeEventListener("keyup", keyup);
     bowCam.dispose();
+    disposeSpectating();
     observer.disconnect();
     renderer.dispose();
   };

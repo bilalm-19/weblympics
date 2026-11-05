@@ -4,6 +4,8 @@ import { COURT, createState, predictContact, seatZ, step } from "../../../shared
 import type { Hand, Level, Miss, MoveMode, SwingKind, TennisEvent, TennisInput, TennisState } from "../../../shared/games/tennis/sim.ts";
 import { LESSONS, TARGETS, TARGET_RADIUS, lessonProgress, wantedShot } from "./lessons.ts";
 import type { LessonId, LessonRecord, ShotReport } from "./lessons.ts";
+import { afterBall, closeness, newSpotState, spotTarget } from "./spot.ts";
+import type { Closeness, Landing, Spot, SpotState } from "./spot.ts";
 import { litTiming, windowPosition } from "./trajectory-aid.ts";
 
 // Training (task 5): the shared tennis sim run in the page, with a ball
@@ -22,7 +24,9 @@ export type TrainingEvent =
   | { type: "progress"; lesson: LessonId; done: boolean; text: string }
   // crossX: where the ball will cross the player's baseline, if it gets there
   | { type: "feed"; x: number; crossX: number | null }
-  | { type: "target"; index: number };
+  | { type: "target"; index: number }
+  // hit-the-spot (task 21): the spot showing, the streak, and how close the last ball came (null when it opens)
+  | { type: "spot"; target: Spot; state: SpotState; result: { kind: Closeness; distance: number | null } | null };
 
 export interface SwingRequest {
   dirX: number;
@@ -49,6 +53,10 @@ export class TrainingSim {
   // your last hit, until it lands
   private flying: { report: ShotReport; since: number } | null = null;
   private target = 0;
+  // hit-the-spot mode (task 21): null in the lessons
+  private spotState: SpotState | null = null;
+  // a fed ball that hasn't been returned or settled yet
+  private spotOpen = false;
 
   /**
    * `startPaused`: the machine waits until the player is ready (the training
@@ -92,8 +100,40 @@ export class TrainingSim {
     return this.lesson === "targets" ? TARGETS[this.target] : null;
   }
 
+  /** The spot mode's state, or null in the lessons. */
+  get spot(): { target: Spot; state: SpotState } | null {
+    return this.spotState ? { target: this.spotTarget(), state: { ...this.spotState } } : null;
+  }
+
+  private spotTarget(): Spot {
+    return spotTarget(this.seed ^ 0x5f0751, this.spotState?.n ?? 0);
+  }
+
+  /**
+   * Hit-the-spot (task 21): endless mixed feeds, a spot on the machine's half,
+   * a streak. `best` is the best streak kept in the browser. Leaves the
+   * lessons; setLesson leaves this mode.
+   */
+  startSpot(best = 0): TrainingEvent[] {
+    this.setLesson("swing");
+    this.drill = "mixed";
+    this.spotState = newSpotState(best);
+    this.spotOpen = false;
+    return [{ type: "spot", target: this.spotTarget(), state: { ...this.spotState }, result: null }];
+  }
+
+  private settleSpot(landing: Landing | null, out: TrainingEvent[]): void {
+    if (!this.spotState) return;
+    this.spotOpen = false;
+    const result = closeness(landing, this.spotTarget());
+    this.spotState = afterBall(this.spotState, result.kind);
+    out.push({ type: "spot", target: this.spotTarget(), state: { ...this.spotState }, result });
+  }
+
   /** Start step `id` afresh: its drill, an empty record. */
   setLesson(id: LessonId, out: TrainingEvent[] = []): TrainingEvent[] {
+    this.spotState = null;
+    this.spotOpen = false;
     this.lesson = id;
     this.drill = LESSONS.find((l) => l.id === id)?.drill ?? "mixed";
     if (!DRILLS.includes(this.drill)) this.drill = "mixed";
@@ -150,6 +190,7 @@ export class TrainingSim {
     s.shots = 1;
     s.pending = null;
     s.movement[0].manual = false;
+    if (this.spotState) this.spotOpen = true;
     out.push({ type: "feed", x: f.x, crossX: predictContact(s, 0)?.ball.x ?? null });
   }
 
@@ -199,6 +240,8 @@ export class TrainingSim {
           };
           this.record.shots.push(report);
           this.flying = { report, since: s.tick };
+          // returned: settled when it lands, not when the rally ends
+          this.spotOpen = false;
           out.push({ type: "shot", report: { ...report } });
         } else {
           out.push({ type: "miss", miss: e.outcome, kind: swung.kind });
@@ -219,6 +262,7 @@ export class TrainingSim {
         this.flying = null;
         changed = true;
         out.push({ type: "landed", report: { ...fly.report } });
+        this.settleSpot(fly.report.landing, out);
         const t = this.currentTarget();
         const l = fly.report.landing;
         if (t && l.in && Math.hypot(l.x - t.x, l.z - t.z) <= TARGET_RADIUS) {
@@ -229,9 +273,12 @@ export class TrainingSim {
       } else if (s.phase === "serve") {
         // the rally ended some other way before it touched down
         this.flying = null;
+        this.settleSpot(null, out);
       }
     }
-    if (changed) out.push(this.progress());
+    // a fed ball that went by unreturned (missed, or never swung at)
+    if (this.spotOpen && s.phase === "serve") this.settleSpot(null, out);
+    if (changed && !this.spotState) out.push(this.progress());
     return { events, training: out };
   }
 }

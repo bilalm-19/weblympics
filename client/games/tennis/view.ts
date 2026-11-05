@@ -1,3 +1,4 @@
+import { addSpectating } from "../../ui/spectate.ts";
 import {
   CircleGeometry,
   Mesh,
@@ -17,9 +18,13 @@ import { createCameraInput } from "../../input/camera/index.ts";
 import { shownAim } from "../../input/camera/pose.ts";
 import { createPlayInput } from "../../input/keyboard.ts";
 import type { GameLink } from "../../net/link.ts";
+import { DEFAULT_LOOKS } from "../../../shared/look.ts";
 import { makePlayer } from "./character.ts";
 import { createReadyPanel } from "./ready-panel.ts";
 import { createScoreBar } from "./score-bar.ts";
+import { createCallBanner } from "./call-banner.ts";
+import { pointCall, reactions } from "./point-call.ts";
+import { createReactionFx } from "./reaction-fx.ts";
 import { createTrajectoryAid } from "./aid.ts";
 import { createShotFx } from "./shot-fx.ts";
 import { buildStadium } from "./stadium.ts";
@@ -71,6 +76,17 @@ export interface ViewOptions {
   startMoveMode?: "auto" | "tilt";
   /** While this returns true, un-pausing is ignored (training's setup holds the machine until Start). */
   holdPause?(): boolean;
+  /**
+   * How the camera starts (task 15: webcam by default). "setup" (default for a
+   * seated player): the setup panel opens first, with "Use keyboard instead".
+   * "resume": start the camera straight away with the saved choices (coming
+   * from the setup's "Train first"). Spectators never get either.
+   */
+  cameraStart?: "setup" | "resume";
+  /** The player chose the keyboard, or the camera failed: training counts that as Keys only. */
+  onKeyboard?(): void;
+  /** Offered after the camera setup: go to training now (practice only). */
+  onTrain?(): void;
 }
 
 export function startTennis(root: HTMLElement, conn: GameLink, info: RoomInfo, onLeave: () => void, opts: ViewOptions = {}): () => void {
@@ -119,8 +135,9 @@ export function startTennis(root: HTMLElement, conn: GameLink, info: RoomInfo, o
   const ball = new Mesh(new SphereGeometry(0.2, 14, 10), new MeshLambertMaterial({ color: 0xffd426, emissive: 0x4a3a00 }));
   const shadow = new Mesh(new CircleGeometry(0.22, 12), new MeshBasicMaterial({ color: 0x000000, opacity: 0.35, transparent: true }));
   shadow.rotation.x = -Math.PI / 2;
-  // a clearly different top for each seat
-  const players = [makePlayer(0x2f7fe0, 0x4a2c1a, 0x2a6fd6), makePlayer(0xe0453a, 0x1d1b1a, 0xe08a1a)] as const;
+  // each seat starts in its default look (a different top per seat); a
+  // signed-in player's own look arrives with the room state (task 18)
+  const players = [makePlayer(DEFAULT_LOOKS[0], 0x2a6fd6), makePlayer(DEFAULT_LOOKS[1], 0xe08a1a)] as const;
   players[0].group.position.z = seatZ(0) + 0.8;
   players[1].group.position.z = seatZ(1) - 0.8;
   players[1].group.rotation.y = Math.PI;
@@ -135,6 +152,9 @@ export function startTennis(root: HTMLElement, conn: GameLink, info: RoomInfo, o
   reticle.visible = false;
   scene.add(reticle);
   const fx = createShotFx(scene);
+  // task 16: the reactions to a point, over each player, from the snapshot alone
+  const motion = matchMedia("(prefers-reduced-motion: reduce)");
+  const reactFx = createReactionFx(players, () => motion.matches);
   const aid = createTrajectoryAid(view, scene, canvas);
   opts.onScene?.(scene);
   let bounceMarks = 0;
@@ -324,6 +344,8 @@ export function startTennis(root: HTMLElement, conn: GameLink, info: RoomInfo, o
       conn.send({ t: "pause", paused: p });
       updateHud();
     },
+    declined: () => opts.onKeyboard?.(),
+    train: opts.onTrain,
   }, opts.startMoveMode);
   opts.onCamera?.(cameraInput);
   // The server applies the movement mode to this seat; it starts each new
@@ -346,6 +368,7 @@ export function startTennis(root: HTMLElement, conn: GameLink, info: RoomInfo, o
   let lobby: LobbyView | null = null;
   const readyPanel = createReadyPanel(view, info.seat, info.room, {
     ready: (ready) => conn.send({ t: "ready", ready }),
+    rated: (rated) => conn.send({ t: "rated", rated }),
     format: (format) => conn.send({ t: "format", format }),
     openCamera: () => cameraButton.click(),
   });
@@ -353,9 +376,23 @@ export function startTennis(root: HTMLElement, conn: GameLink, info: RoomInfo, o
   // "camera OK" in the panel: on and tracking you (aim is only set while tracking)
   const camTimer = window.setInterval(() => readyPanel.camera(!cameraInput.on() ? "off" : cameraInput.aim() !== null ? "ok" : "on"), 500);
 
+  // the umpire's call across the top (task 16); training keeps no score, so none
+  const banner = opts.local ? null : createCallBanner(view);
+  // the call from the last snapshot to this one: the banner and the reactions, on every screen
+  const callPoint = (prev: TennisSnapshot | null, next: TennisSnapshot): boolean => {
+    if (opts.local) return false;
+    const c = pointCall(prev, next, label);
+    if (!c) return false;
+    banner?.show(c);
+    const now = performance.now();
+    for (const r of reactions(c)) reactFx.react(r.seat, r.reaction, r.weight, now);
+    return true;
+  };
+  let called = false;
   const updateHud = () => {
     if (!snap) return;
-    scoreBar.update(snap, label);
+    scoreBar.update(snap, label, called);
+    called = false;
     const l = lobby;
     view.dataset.phase = l?.phase ?? "";
     if (l?.phase === "paused" && l.hold) {
@@ -383,6 +420,8 @@ export function startTennis(root: HTMLElement, conn: GameLink, info: RoomInfo, o
         measureStroke(hitter, kind, 1);
         // a serve is neither stroke
         if (next.shots > 1) showShot(hitter, kind, null);
+        // task 24: a watcher hears every hit (a player hears their own as they swing)
+        if (info.seat === null && !opts.local) hitSound(1);
       }
       // the server recorded a touchdown (in or out): mark it
       const lb = next.lastBounce;
@@ -390,6 +429,7 @@ export function startTennis(root: HTMLElement, conn: GameLink, info: RoomInfo, o
         fx.bounce(performance.now(), lb.x, lb.z, lb.in);
         canvas.dataset.bounces = String(++bounceMarks);
       }
+      called = callPoint(snap, next);
       snap = next;
       snapAt = performance.now();
       shown = null;
@@ -402,6 +442,11 @@ export function startTennis(root: HTMLElement, conn: GameLink, info: RoomInfo, o
     } else if (msg.t === "lobby") {
       const { t: _t, ...v } = msg;
       lobby = v;
+      v.seats.forEach((s, i) => {
+        players[i].setLook(s?.look ?? DEFAULT_LOOKS[i]);
+        // what each character is wearing, for the e2e
+        canvas.dataset[`look${i}`] = String(players[i].group.userData.look);
+      });
       readyPanel.update(v);
       updateHud();
     } else if (msg.t === "swing" && DEAD_OR_WRONG.has(msg.outcome) && ownShot && performance.now() - ownShot.at < LABEL_MS && info.seat !== null) {
@@ -428,6 +473,8 @@ export function startTennis(root: HTMLElement, conn: GameLink, info: RoomInfo, o
     button.addEventListener("contextmenu", (e) => e.preventDefault());
   }
   view.querySelector("[data-action=leave]")?.addEventListener("click", onLeave);
+  // task 24: watch link for players; the Watching badge and count for spectators
+  const disposeSpectating = opts.local ? () => {} : addSpectating(view, conn, info);
   view.querySelector("[data-action=copy]")?.addEventListener("click", (e) => {
     const button = e.currentTarget as HTMLButtonElement;
     navigator.clipboard
@@ -435,6 +482,15 @@ export function startTennis(root: HTMLElement, conn: GameLink, info: RoomInfo, o
       .then(() => (button.textContent = "Copied"))
       .catch(() => (button.textContent = "Copy failed"));
   });
+
+  // Webcam by default (task 15): a seated player gets the camera setup first
+  // (opened last, once the HUD it pauses is built);
+  // "Use keyboard instead", Escape or a refused permission all leave a
+  // playable game on keys and buttons.
+  if (info.seat !== null) {
+    if (opts.cameraStart === "resume") cameraInput.resume();
+    else cameraInput.openSetup();
+  }
 
   let frames = 0;
   let raf = 0;
@@ -463,6 +519,11 @@ export function startTennis(root: HTMLElement, conn: GameLink, info: RoomInfo, o
           const aim = seat === info.seat ? (cameraInput.aim() ?? input.aim() * worldSign) : 0;
           p.pose(null, grip === "backhand", grip ? (cameraInput.hand() === "right" ? 1 : -1) : side, aim);
         }
+      }
+      const react = reactFx.update(now);
+      for (const seat of [0, 1] as const) {
+        players[seat].react(react[seat].pump, react[seat].slump);
+        canvas.dataset[`react${seat}`] = reactFx.state(seat);
       }
       // camera aiming by timing: the aid's three arcs stand in for the reticle and arc
       const threeArcs = aid.update(
@@ -530,6 +591,9 @@ export function startTennis(root: HTMLElement, conn: GameLink, info: RoomInfo, o
     cancelAnimationFrame(raf);
     clearTimeout(strokeTimer);
     scoreBar.dispose();
+    disposeSpectating();
+    banner?.dispose();
+    reactFx.dispose();
     readyPanel.dispose();
     clearInterval(camTimer);
     clearTimeout(shotTimer);

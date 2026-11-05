@@ -7,7 +7,10 @@ import { startTennis } from "./games/tennis/view.ts";
 import { startTrackPractice } from "./games/track/practice.ts";
 import { startTrack } from "./games/track/view.ts";
 import { Connection } from "./net/socket.ts";
+import { addPasskey, signIn, signInDemo, signOut } from "./net/account.ts";
 import { renderMenu } from "./ui/menu.ts";
+import { openLeaderboard } from "./ui/leaderboard.ts";
+import { openProfile } from "./ui/profile.ts";
 
 const root = document.getElementById("app") as HTMLElement;
 const conn = new Connection();
@@ -27,21 +30,37 @@ function showMenu(): void {
   conn.roomCode = null;
   renderMenu(
     root,
-    conn.name,
-    conn.matches,
-    conn.demo,
+    { name: conn.name, matches: conn.matches, account: conn.account, demo: conn.demo, look: conn.look },
     error,
     {
       onTrain: (s) => (s === "archery" ? practiseArchery() : s === "track" ? practiseTrack() : train()),
       onPractice: (s) => conn.send({ t: "create", game: s, practice: true }),
       onCreate: (s) => conn.send({ t: "create", game: s, practice: false }),
       onJoin: (code) => conn.send({ t: "join", room: code }),
-      onSignInDemo: (n) => conn.signInDemo(n),
-      onPlayAsGuest: () => conn.playAsGuest(),
+      // who you are changed: a new socket, whose welcome draws the menu (and its avatar) again
+      onProfile: () => openProfile({ onIdentityChange: () => conn.reconnect() }),
+      onLeaderboard: openLeaderboard,
+      onPasskey: async (kind) => {
+        await (kind === "create" ? addPasskey() : signIn());
+        conn.reconnect();
+      },
+      onSignInDemo: async (n) => {
+        await signInDemo(n);
+        conn.reconnect();
+      },
+      onSignOut: async () => {
+        await signOut();
+        conn.reconnect();
+      },
       onSelect: (s) => (sport = s),
     },
     sport,
   );
+}
+
+function showError(e: unknown): void {
+  error = e instanceof Error ? e.message : "Something went wrong.";
+  if (currentRoom === null && !training) showMenu();
 }
 
 function leave(): void {
@@ -52,8 +71,9 @@ function leave(): void {
 }
 
 // Training runs in the page against a ball machine: it sends nothing to the
-// server, so leaving it needs no "leave" either.
-function train(): void {
+// server, so leaving it needs no "leave" either. `resumeCamera`: coming from
+// the camera setup's "Train first", so the camera starts again at once.
+function train(resumeCamera = false): void {
   disposeGame?.();
   training = true;
   error = null;
@@ -61,7 +81,7 @@ function train(): void {
   disposeGame = startTraining(root, () => {
     history.replaceState(null, "", location.pathname);
     showMenu();
-  });
+  }, resumeCamera);
 }
 
 // Archery practice (task 22): in the page too, nothing sent to the server.
@@ -95,10 +115,25 @@ function enterRoom(info: RoomInfo): void {
   currentRoom = info.room;
   training = false;
   error = null;
-  history.replaceState(null, "", `#/room/${info.room}`);
+  // task 24: a watcher keeps the watch link in the address bar, so a reload watches again
+  history.replaceState(null, "", info.seat === null && conn.roomWatch ? `#/watch/${info.room}` : `#/room/${info.room}`);
   sport = info.game;
-  const start = info.game === "archery" ? startArchery : info.game === "track" ? startTrack : startTennis;
-  disposeGame = start(root, conn, info, leave);
+  if (info.game === "archery") {
+    disposeGame = startArchery(root, conn, info, leave);
+  } else if (info.game === "track") {
+    disposeGame = startTrack(root, conn, info, leave);
+  } else {
+    // practice offers training once the camera is set up (a room may have
+    // someone waiting, so it doesn't): leave the bot and train with the camera on
+    const onTrain = info.practice
+      ? () => {
+          conn.send({ t: "leave" });
+          currentRoom = null;
+          train(true);
+        }
+      : undefined;
+    disposeGame = startTennis(root, conn, info, leave, { onTrain });
+  }
 }
 
 conn.on((msg) => {
@@ -112,12 +147,19 @@ conn.on((msg) => {
     showMenu();
   } else if (msg.t === "error") {
     error = msg.message;
-    if (currentRoom === null && !training) showMenu();
+    if (currentRoom === null && !training) {
+      // a link that didn't get in (no such room, or full of watchers) leaves the address bar
+      if (/^#\/(room|watch)\//.test(location.hash)) history.replaceState(null, "", location.pathname);
+      showMenu();
+    }
   }
 });
 
 const invite = location.hash.match(/^#\/room\/([A-Za-z]{4})$/);
 if (invite) conn.send({ t: "join", room: invite[1].toUpperCase() });
+// task 24: the watch link always spectates, even when a seat is free
+const watchLink = location.hash.match(/^#\/watch\/([A-Za-z]{4})$/);
+if (watchLink) conn.send({ t: "join", room: watchLink[1].toUpperCase(), watch: true });
 if (location.hash === "#/train") train();
 else if (location.hash === "#/archery/practice") practiseArchery();
 else if (location.hash === "#/track/practice") practiseTrack();

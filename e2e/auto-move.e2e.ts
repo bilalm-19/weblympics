@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import type { Locator, Page } from "@playwright/test";
+import { skipCheck, useKeyboard } from "./flow.ts";
 
 // Task 2: auto-move. The movement-mode toggle sits under the camera preview
 // (in .cam-dock), says auto by default, is remembered per viewer, and the
@@ -22,6 +23,7 @@ async function practice(page: Page): Promise<Seen> {
   });
   await page.goto("/");
   await page.getByRole("button", { name: /practice vs bot/i }).click();
+  await useKeyboard(page);
   await expect(page.locator("canvas")).toBeVisible();
   return seen;
 }
@@ -32,8 +34,7 @@ async function startCamera(page: Page): Promise<void> {
   await panel.getByRole("button", { name: "Got it" }).click();
   await panel.getByRole("button", { name: /start camera/i }).click();
   await expect(panel.getByRole("heading", { name: /can we see you/i })).toBeVisible({ timeout: 40_000 });
-  await panel.getByRole("button", { name: "Skip check" }).click();
-  await expect(panel).toBeHidden();
+  await skipCheck(page);
 }
 
 async function insideViewport(page: Page, locator: Locator): Promise<void> {
@@ -107,6 +108,7 @@ test("the movement toggle under the preview: auto by default, switches to lean, 
   await page.getByRole("button", { name: /leave/i }).click();
   seen.sent.length = 0;
   await page.getByRole("button", { name: /practice vs bot/i }).click();
+  await useKeyboard(page);
   await expect.poll(() => seen.sent.filter((m) => m.t === "mode").map((m) => m.mode)).toEqual(["tilt"]);
   await expect.poll(() => seen.modes.at(-1)).toBe("tilt");
 });

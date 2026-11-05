@@ -1,6 +1,7 @@
 # 23 Home screen polish: pointer and looping thumbnails
 
-Status: queued
+Status: built (2026-10-21, session C; see the devlog). Open: the user to
+confirm the marked interpretation, that the page cursor itself is the arrow.
 Model: Opus (visual judgment; look at it at both viewports)
 Session: C, after 14 (same files: `client/ui/menu.ts`, `client/style.css`)
 
@@ -43,10 +44,10 @@ still queued.
   tab is hidden.
 
 ## Done when
-- [ ] Cursor arrow shows on the home screen with the mouse, not on touch.
-- [ ] Each sport's thumbnail loops; reduced motion shows a still (e2e checks the
+- [x] Cursor arrow shows on the home screen with the mouse, not on touch.
+- [x] Each sport's thumbnail loops; reduced motion shows a still (e2e checks the
       media query).
-- [ ] Both viewports: no horizontal scroll, nothing clipped; screenshots in
+- [x] Both viewports: no horizontal scroll, nothing clipped; screenshots in
       `docs/`.
-- [ ] Home screen still has no Three.js import (`spec` or build check).
-- [ ] e2e passes at both viewports.
+- [x] Home screen still has no Three.js import (`spec` or build check).
+- [x] e2e passes at both viewports.

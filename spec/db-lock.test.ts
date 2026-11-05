@@ -41,3 +41,11 @@ describe("database lock", () => {
     db.close();
   });
 });
+
+describe("each spec worker has its own database", () => {
+  it("DATA_DIR is a fresh per-worker directory, not the shared ./data", () => {
+    // spec/worker-data.ts runs before every test file in this worker
+    expect(process.env.DATA_DIR).toBeDefined();
+    expect(process.env.DATA_DIR).toContain("spec-worker-");
+  });
+});

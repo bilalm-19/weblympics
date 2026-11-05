@@ -3,6 +3,8 @@
 // whose player dropped mid-match. Pure, with the clock passed in, so every
 // rule is tested without waiting (spec/lobby.test.ts). rooms.ts drives it.
 
+import { DEFAULT_LOOKS } from "../shared/look.ts";
+import type { Look } from "../shared/look.ts";
 import type { LobbyView, Phase, RoomFormat } from "../shared/protocol.ts";
 
 export type Seat = 0 | 1;
@@ -21,6 +23,16 @@ export interface SeatInfo {
   ready: boolean;
   connected: boolean;
   bot: boolean;
+  /** A signed-in account (task 17), not a guest. */
+  account: boolean;
+  /** The account's saved look (task 18); null shows the seat's default. */
+  look: Look | null;
+}
+
+/** Who is sitting down, beyond their token and name. */
+export interface Sitter {
+  account?: boolean;
+  look?: Look | null;
 }
 
 export type Tick = "start" | "resume" | "close" | null;
@@ -31,6 +43,8 @@ const other = (s: Seat): Seat => (s === 0 ? 1 : 0);
 export class Lobby {
   readonly practice: boolean;
   format: RoomFormat;
+  /** Task 7: the host's "rated" option (off by default). */
+  rated = false;
   seats: [SeatInfo | null, SeatInfo | null] = [null, null];
   host: Seat | null = null;
   /** A match has started and not ended (it may be paused or counting down to resume). */
@@ -45,7 +59,7 @@ export class Lobby {
     this.format = format;
     this.timing = { countdownMs: COUNTDOWN_MS, graceMs: GRACE_MS, ...timing };
     // the bot is always ready
-    if (practice) this.seats[BOT_SEAT] = { token: "", name: "Bot", ready: true, connected: true, bot: true };
+    if (practice) this.seats[BOT_SEAT] = { token: "", name: "Bot", ready: true, connected: true, bot: true, account: false, look: null };
   }
 
   phase(): Phase {
@@ -69,23 +83,31 @@ export class Lobby {
    * is never given to anyone else.
    */
   seatFor(token: string): Seat | null {
-    for (const s of [0, 1] as const) if (this.held[s] !== null && this.seats[s]?.token === token) return s;
+    const held = this.heldSeatOf(token);
+    if (held !== null) return held;
     for (const s of [0, 1] as const) if (this.seats[s] === null) return s;
     return null;
   }
 
+  /** The seat held for `token` after a drop, else null (task 24: a watch link still reclaims your own held seat). */
+  heldSeatOf(token: string): Seat | null {
+    for (const s of [0, 1] as const) if (this.held[s] !== null && this.seats[s]?.token === token) return s;
+    return null;
+  }
+
   /** Puts a player in `seat` (from seatFor). Returns true if it reclaimed a held seat. */
-  sit(seat: Seat, token: string, name: string, now: number): boolean {
+  sit(seat: Seat, token: string, name: string, now: number, who: Sitter = {}): boolean {
     if (this.held[seat] !== null && this.seats[seat]?.token === token) {
       this.held[seat] = null;
       const s = this.seats[seat]!;
       s.connected = true;
+      s.look = who.look ?? s.look;
       s.ready = true;
       // the match resumes after a countdown, once nobody else is still away
       if (this.held[other(seat)] === null) this.countdownUntil = now + this.timing.countdownMs;
       return true;
     }
-    this.seats[seat] = { token, name, ready: this.practice, connected: true, bot: false };
+    this.seats[seat] = { token, name, ready: this.practice, connected: true, bot: false, account: who.account ?? false, look: who.look ?? null };
     this.host ??= seat;
     this.recount(now);
     return false;
@@ -109,6 +131,32 @@ export class Lobby {
     for (const s of this.seats) if (s && !s.bot) s.ready = false;
     this.recount(now);
     return "ok";
+  }
+
+  /** The host turns "rated" on or off before play; like the format, it clears both ready flags. */
+  setRated(seat: Seat, rated: boolean, now: number): "ok" | "same" | "not host" | "started" {
+    if (this.practice || this.host !== seat) return "not host";
+    if (this.inMatch) return "started";
+    if (rated === this.rated) return "same";
+    this.rated = rated;
+    for (const s of this.seats) if (s && !s.bot) s.ready = false;
+    this.recount(now);
+    return "ok";
+  }
+
+  /**
+   * Why a match here can't be rated right now, or null if it would be (when
+   * the host has it on and the match is finished). The server's own rule,
+   * the same one isRated() applies to the stored result.
+   */
+  ratedBlocked(): string | null {
+    if (this.practice) return "Practice against the bot is never rated.";
+    if (this.format === "unlimited") return "Unlimited has no winner, so it isn't rated.";
+    const [a, b] = this.seats;
+    if (!a || !b) return "Rated needs two signed-in players.";
+    if (!a.account || !b.account) return "A guest is playing: rated needs both players signed in.";
+    if (a.token === b.token) return "One account on both seats can't play rated.";
+    return null;
   }
 
   /**
@@ -172,10 +220,10 @@ export class Lobby {
     return seat === 1 && !s.bot && this.seats[0]?.name === s.name ? `${s.name} (2)` : s.name;
   }
 
-  view(now: number): Omit<LobbyView, "tally"> {
+  view(now: number): Omit<LobbyView, "tally" | "ratings"> {
     const seat = (n: Seat) => {
       const s = this.seats[n];
-      return s ? { name: this.name(n)!, ready: s.ready, connected: s.connected, bot: s.bot } : null;
+      return s ? { name: this.name(n)!, ready: s.ready, connected: s.connected, bot: s.bot, look: s.look ?? DEFAULT_LOOKS[n] } : null;
     };
     const secs = (until: number) => Math.max(0, Math.ceil((until - now) / 1000));
     const heldSeat = this.held[0] !== null ? 0 : this.held[1] !== null ? 1 : null;
@@ -187,6 +235,8 @@ export class Lobby {
       seats: [seat(0), seat(1)],
       countdown: this.countdownUntil === null ? null : secs(this.countdownUntil),
       hold: heldSeat === null ? null : { seat: heldSeat, name: this.name(heldSeat)!, seconds: secs(this.held[heldSeat]!) },
+      rated: this.rated,
+      ratedBlocked: this.ratedBlocked(),
     };
   }
 

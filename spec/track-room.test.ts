@@ -48,12 +48,18 @@ const last = <T extends ServerMsg["t"]>(c: Fake, t: T) => c.seen.filter((m) => m
 const lobby = (c: Fake) => last(c, "lobby") as (LobbyView & { t: "lobby" }) | undefined;
 const state = (c: Fake) => last(c, "state")!.state as TrackSnapshot;
 
-function seated(format: RoomFormat = "race") {
+/** `opts.rated`: both seats are accounts and the host (seat 0) turns the rated option on (task 7). */
+function seated(format: RoomFormat = "race", opts: { rated?: boolean } = {}) {
   const s = setup(format);
   const a = client("a");
   const b = client("b");
+  if (opts.rated) {
+    a.account = true;
+    b.account = true;
+  }
   s.room.join(a);
   s.room.join(b);
+  if (opts.rated) expect(s.room.setRated(a, true)).toBeNull();
   s.room.ready(a, true);
   s.room.ready(b, true);
   s.run(COUNTDOWN + 50);
@@ -96,22 +102,34 @@ describe("track rooms", () => {
     expect(parseClientMsg(JSON.stringify({ t: "finish", time: 1 }))).toBeNull();
   });
 
-  it("the server runs each lane from its own steps; the faster runner wins and it is rated between two people", () => {
-    const s = seated();
-    expect(state(s.a).phase).toBe("running");
+  function raceToTheLine(s: ReturnType<typeof seated>) {
     const fast = stepper(s, s.a, 125);
     const slow = stepper(s, s.b, 170);
     s.run(30_000, () => {
       fast();
       slow();
     });
+  }
+
+  it("the server runs each lane from its own steps; the faster runner wins, and it is unrated unless the host asked and both seats are accounts (task 7)", () => {
+    const s = seated();
+    expect(state(s.a).phase).toBe("running");
+    raceToTheLine(s);
     expect(s.records).toHaveLength(1);
     expect(s.records[0]).toMatchObject({ game: "track", format: "race", winner: 0, practice: false, score: [1, 0] });
-    expect(isRated(s.records[0])).toBe(true);
+    expect(isRated(s.records[0])).toBe(false);
     const snap = state(s.b);
     expect(snap.lanes[0].finish).toBeLessThan(snap.lanes[1].finish!);
     // back to the ready check for a rematch
     expect(lobby(s.a)!.phase).toBe("ready-check");
+  });
+
+  it("a race is rated when the host turns it on and both seats are accounts", () => {
+    const s = seated("race", { rated: true });
+    raceToTheLine(s);
+    expect(s.records).toHaveLength(1);
+    expect(s.records[0]).toMatchObject({ game: "track", format: "race", winner: 0, practice: false });
+    expect(isRated(s.records[0])).toBe(true);
   });
 
   it("a flood of steps from one seat is cut at the door and capped by the sim", () => {

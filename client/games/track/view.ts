@@ -1,3 +1,4 @@
+import { addSpectating } from "../../ui/spectate.ts";
 import { PerspectiveCamera, Scene, WebGLRenderer } from "three";
 import { MAX_SPEED } from "../../../shared/games/track/sim.ts";
 import type { Seat, Side, TrackSnapshot } from "../../../shared/games/track/sim.ts";
@@ -134,6 +135,8 @@ export function startTrack(root: HTMLElement, conn: GameLink, info: RoomInfo, on
     {
       ready: (ready) => conn.send({ t: "ready", ready }),
       format: (format) => conn.send({ t: "format", format }),
+      // task 7: the host's rated option is the room's, not tennis's
+      rated: (rated) => conn.send({ t: "rated", rated }),
       openCamera: () => cameraButton.click(),
     },
     FORMATS,
@@ -227,6 +230,8 @@ export function startTrack(root: HTMLElement, conn: GameLink, info: RoomInfo, on
   });
 
   view.querySelector("[data-action=leave]")?.addEventListener("click", onLeave);
+  // task 24: watch link for players; the Watching badge and count for spectators
+  const disposeSpectating = opts.local ? () => {} : addSpectating(view, conn, info);
   view.querySelector("[data-action=copy]")?.addEventListener("click", (e) => {
     const button = e.currentTarget as HTMLButtonElement;
     navigator.clipboard
@@ -280,6 +285,7 @@ export function startTrack(root: HTMLElement, conn: GameLink, info: RoomInfo, on
     unsubscribe();
     window.removeEventListener("keydown", onKey);
     runCam.dispose();
+    disposeSpectating();
     observer.disconnect();
     renderer.dispose();
   };

@@ -4,6 +4,7 @@ import "./training.css";
 import { LESSONS, MOVEMENT_OFFER, REQUIRED_LESSONS, TARGET_RADIUS, afterLesson, missFeedback, shotFeedback, trainingComplete, wrongShotNote } from "./lessons.ts";
 import type { LessonId } from "./lessons.ts";
 import { LocalLink } from "./local-link.ts";
+import { BULLSEYE_RADIUS, CLOSENESS_COLOUR, SPOT_RADIUS, resultText } from "./spot.ts";
 import { TrainingSim } from "./training-sim.ts";
 import type { TrainingEvent } from "./training-sim.ts";
 import { startTennis } from "./view.ts";
@@ -16,7 +17,7 @@ import { startTennis } from "./view.ts";
 // a finished step stays up this long before the next one starts
 const NEXT_MS = 1400;
 
-export function startTraining(root: HTMLElement, onExit: () => void): () => void {
+export function startTraining(root: HTMLElement, onExit: () => void, resumeCamera = false): () => void {
   // The machine waits (startPaused) until Start, so no ball flies while the
   // player sets up their camera, and training always starts in auto-move,
   // whatever lean was saved from an earlier session (user's playtest).
@@ -35,6 +36,10 @@ export function startTraining(root: HTMLElement, onExit: () => void): () => void
     startMoveMode: "auto",
     onCamera: (c) => (camera = c),
     holdPause: () => held,
+    // webcam by default (task 15): the camera setup opens over the coach first;
+    // "Use keyboard instead" is the same as Keys only
+    cameraStart: resumeCamera ? "resume" : "setup",
+    onKeyboard: () => chooseKeys(),
   });
   const view = root.querySelector(".game") as HTMLElement;
   view.classList.add("training");
@@ -54,7 +59,20 @@ export function startTraining(root: HTMLElement, onExit: () => void): () => void
   );
   targetMark.rotation.x = -Math.PI / 2;
   targetMark.visible = false;
-  (scene as Scene | null)?.add(landMark, targetMark);
+  // hit-the-spot (task 21): a ring with a bullseye in the middle
+  const spotMark = new Mesh(
+    new RingGeometry(SPOT_RADIUS - 0.16, SPOT_RADIUS, 40),
+    new MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.9, depthWrite: false }),
+  );
+  spotMark.rotation.x = -Math.PI / 2;
+  const bullseye = new Mesh(
+    new RingGeometry(0, BULLSEYE_RADIUS, 28),
+    new MeshBasicMaterial({ color: 0xee334e, transparent: true, opacity: 0.8, depthWrite: false }),
+  );
+  bullseye.position.z = 0.002;
+  spotMark.add(bullseye);
+  spotMark.visible = false;
+  (scene as Scene | null)?.add(landMark, targetMark, spotMark);
 
   const coach = document.createElement("section");
   coach.className = "coach";
@@ -136,6 +154,7 @@ export function startTraining(root: HTMLElement, onExit: () => void): () => void
   const idle = (lesson: string) => {
     if (current === "movement") camera?.setMoveMode("auto");
     current = null;
+    leaveSpot();
     coach.dataset.lesson = lesson;
     coach.dataset.done = "false";
     coach.dataset.stage = "present";
@@ -157,6 +176,7 @@ export function startTraining(root: HTMLElement, onExit: () => void): () => void
     const extras: [string, string, () => void][] = [];
     if (!done.has("movement")) extras.push(["Practise moving", "movement", () => begin("movement")]);
     if (!done.has("targets")) extras.push(["Try targets", "targets", () => begin("targets")]);
+    extras.push(["Hit the spot", "spot", openSpot]);
     buttons([["Go to the lobby", "lobby", onExit, true], ...extras]);
   };
 
@@ -195,8 +215,75 @@ export function startTraining(root: HTMLElement, onExit: () => void): () => void
     setTimeout(placeBelowHud, 450);
   };
 
+  // Hit the spot (task 21): endless, not a lesson step. Balls keep coming; land
+  // your return on the spot. A best streak is kept in this browser only.
+  const BEST_KEY = "spot-best";
+  const readBest = (): number => {
+    try {
+      return Math.max(0, Number(localStorage.getItem(BEST_KEY)) || 0);
+    } catch {
+      return 0;
+    }
+  };
+  const saveBest = (n: number) => {
+    try {
+      localStorage.setItem(BEST_KEY, String(n));
+    } catch {
+      // storage blocked: the best streak lasts this visit only
+    }
+  };
+  let spotOn = false;
+  const leaveSpot = () => {
+    spotOn = false;
+    spotMark.visible = false;
+    canvas.dataset.spot = "";
+  };
+  const showSpot = (e: Extract<TrainingEvent, { type: "spot" }>) => {
+    spotMark.position.set(e.target.x, 0.036, e.target.z);
+    spotMark.visible = true;
+    canvas.dataset.spot = `${e.target.x.toFixed(2)},${e.target.z.toFixed(2)}`;
+    el("coach-progress").textContent = `Streak ${e.state.streak} · Best ${e.state.best}`;
+    coach.dataset.streak = String(e.state.streak);
+    coach.dataset.best = String(e.state.best);
+    if (e.state.best > readBest()) saveBest(e.state.best);
+    if (!e.result) return;
+    coach.dataset.result = e.result.kind;
+    const good = e.result.kind === "bullseye" || e.result.kind === "on";
+    feedback(resultText(e.result), good || e.result.kind === "near" ? "hit" : "miss");
+    landMat.color.set(CLOSENESS_COLOUR[e.result.kind]);
+  };
+  const openSpot = () => {
+    clearTimeout(nextTimer);
+    if (current === "movement") camera?.setMoveMode("auto");
+    current = null;
+    spotOn = true;
+    coach.dataset.lesson = "spot";
+    coach.dataset.done = "false";
+    coach.dataset.stage = "present";
+    coach.dataset.result = "";
+    setText("Endless", "Hit the spot", "Land your returns on the ring. It moves after a hit.");
+    setWhy(undefined);
+    targetMark.visible = false;
+    landMark.visible = false;
+    canvas.dataset.trainFeed = "";
+    hold();
+    const events = sim.startSpot(readBest());
+    link.emitTraining(events);
+    const play = () => {
+      coach.dataset.stage = "play";
+      camera?.setMoveMode("auto");
+      release();
+      buttons([["Exit", "exit", onExit]]);
+    };
+    buttons([
+      ["Start", "go", play, true],
+      ["Exit", "exit", onExit],
+    ]);
+  };
+
   const begin = (id: LessonId) => {
     clearTimeout(nextTimer);
+    leaveSpot();
     // leaving the movement drill (skip or done): auto again for everything else
     if (current === "movement" && id !== "movement") camera?.setMoveMode("auto");
     current = id;
@@ -233,6 +320,10 @@ export function startTraining(root: HTMLElement, onExit: () => void): () => void
   };
 
   const onEvent = (e: TrainingEvent) => {
+    if (e.type === "spot") {
+      if (spotOn) showSpot(e);
+      return;
+    }
     if (e.type === "progress") {
       if (e.lesson !== current) return;
       el("coach-progress").textContent = e.text;
@@ -279,6 +370,11 @@ export function startTraining(root: HTMLElement, onExit: () => void): () => void
   // Start is held until the camera is set up, or the player chooses keys only
   // (the camera is never required: every camera action has a key equivalent)
   let setupDone = false;
+  const chooseKeys = () => {
+    if (setupDone) return;
+    setupDone = true;
+    showSetup();
+  };
   const ready = () => {
     if (!setupDone) return;
     // on to step 1, which opens centred with the machine still held
@@ -289,11 +385,10 @@ export function startTraining(root: HTMLElement, onExit: () => void): () => void
   const showSetup = () => {
     buttons([
       ["Set up camera", "camera", () => cameraButton.click(), !setupDone],
-      ["Keys only", "keys", () => {
-        setupDone = true;
-        showSetup();
-      }],
+      ["Keys only", "keys", chooseKeys],
       ["Start", "start", ready, setupDone],
+      // the endless mode needs no setup: keys work, and the camera stays optional
+      ["Hit the spot", "spot", openSpot],
       ["Skip training", "skip", onExit],
     ]);
     // not yet: pressing Start does nothing until the camera is set up or keys are chosen
@@ -305,7 +400,7 @@ export function startTraining(root: HTMLElement, onExit: () => void): () => void
   const watchCamera = window.setInterval(() => {
     // the camera is running (its preview is showing) and its setup panel has closed
     const video = view.querySelector(".cam-dock video") as HTMLVideoElement | null;
-    if (held && !setupDone && video && !video.hidden && !view.classList.contains("calibrating")) {
+    if (held && !setupDone && coach.dataset.lesson === "start" && video && !video.hidden && !view.classList.contains("calibrating")) {
       setupDone = true;
       showSetup();
     }
@@ -323,6 +418,7 @@ export function startTraining(root: HTMLElement, onExit: () => void): () => void
     coach.remove();
     landMark.removeFromParent();
     targetMark.removeFromParent();
+    spotMark.removeFromParent();
     stopView();
   };
 }
