@@ -32,7 +32,9 @@ describe("/stats (task 8, running app)", () => {
     expect(s.memory.limitMb).toBe(256);
     expect(s.memory.rssMb).toBeGreaterThan(10);
     expect(s.memory.rssMb).toBeLessThan(4096);
-    expect(s.memory.usedPercent).toBe(Math.round((s.memory.rssMb / 256) * 100));
+    // the server rounds the percent from exact bytes, the megabytes are rounded
+    // first, so near a rounding edge the two differ by one (seen as 47 vs 48)
+    expect(Math.abs(s.memory.usedPercent - Math.round((s.memory.rssMb / 256) * 100))).toBeLessThanOrEqual(1);
     expect(s.memory.heapUsedMb).toBeGreaterThan(0);
     expect(s.loop).toEqual({ avgMs: expect.any(Number), maxMs: expect.any(Number) });
     expect(JSON.stringify(s)).not.toMatch(/name|token|Demo/i);

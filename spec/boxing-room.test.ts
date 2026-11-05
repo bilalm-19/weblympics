@@ -49,12 +49,18 @@ const last = <T extends ServerMsg["t"]>(c: Fake, t: T) => c.seen.filter((m) => m
 const lobby = (c: Fake) => last(c, "lobby") as (LobbyView & { t: "lobby" }) | undefined;
 const state = (c: Fake) => last(c, "state")!.state as BoxingSnapshot;
 
-function seated(format: RoomFormat = "bout") {
+/** `opts.rated`: both seats are accounts and the host (seat 0) turns the rated option on (task 7). */
+function seated(format: RoomFormat = "bout", opts: { rated?: boolean } = {}) {
   const s = setup(format);
   const a = client("a");
   const b = client("b");
+  if (opts.rated) {
+    a.account = true;
+    b.account = true;
+  }
   s.room.join(a);
   s.room.join(b);
+  if (opts.rated) expect(s.room.setRated(a, true)).toBeNull();
   s.room.ready(a, true);
   s.room.ready(b, true);
   s.run(COUNTDOWN + 50);
@@ -122,8 +128,8 @@ describe("boxing rooms", () => {
     expect(state(s.b).boxers[0].thrown).toBeLessThanOrEqual(4 * 3 + 2);
   });
 
-  it("a knockout ends it, rated between two people; back to the ready check", () => {
-    const s = seated();
+  it("a knockout ends it, rated when the host asked and both are accounts; back to the ready check", () => {
+    const s = seated("bout", { rated: true });
     const hit = puncher(s, s.a);
     s.run(20_000, hit);
     expect(s.records).toHaveLength(1);
@@ -134,8 +140,8 @@ describe("boxing rooms", () => {
     expect(lobby(s.a)!.phase).toBe("ready-check");
   });
 
-  it("a draw is recorded with no winner and rated", () => {
-    const s = seated();
+  it("a draw is recorded with no winner and rated when the host asked and both are accounts", () => {
+    const s = seated("bout", { rated: true });
     s.room.box(s.a, { t: "punch", kind: "jab", hand: "left", at: 0 });
     s.room.box(s.b, { t: "punch", kind: "jab", hand: "left", at: 0 });
     s.run(3 * 30_000 + 2 * 5000 + 1000);

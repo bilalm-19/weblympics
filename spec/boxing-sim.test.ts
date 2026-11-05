@@ -188,8 +188,10 @@ describe("boxing rounds and results", () => {
     const r = g.finished();
     expect(r).toEqual({ winner: null, score: [DAMAGE.jab, DAMAGE.jab], format: "bout" });
     expect((g.snapshot() as ReturnType<typeof snapshot>).result).toBe("draw");
-    const rec = { room: "X", game: "boxing", tokens: ["a", "b"] as [string, string], score: r!.score, winner: null, draw: true, format: "bout", sets: [], practice: false };
+    const rec = { room: "X", game: "boxing", tokens: ["a", "b"] as [string, string], score: r!.score, winner: null, draw: true, format: "bout", sets: [], practice: false, ratedRequested: true, accounts: [true, true] as [boolean, boolean] };
     expect(isRated(rec)).toBe(true);
+    expect(isRated({ ...rec, ratedRequested: false })).toBe(false);
+    expect(isRated({ ...rec, accounts: [true, false] })).toBe(false);
     expect(isRated({ ...rec, practice: true })).toBe(false);
   });
 
