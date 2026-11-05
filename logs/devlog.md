@@ -1345,3 +1345,10 @@ the format of the entries below (see CLAUDE.md, Docs).
   - Camera without `?debug`: the old tracker's jab goes to the head, its guard is the high guard, its hooks are dropped; the debug trial detector's guard and target go straight through, hooks dropped. No camera slip (needs a recording first). The panel's copy no longer mentions hooks.
 - **Tests:** `spec/boxing-sim.test.ts` (every guard x target x slip, judged at landing, the slip window ending, the cooldown, no punching while slipping, no slip under a guard, the cap, asInput refusing old, malformed and extra-field inputs, the bot's guard height, its target mix, beatable, determinism, bout length), `spec/boxing-room.test.ts` (the protocol's three shapes, a slip through the room), `spec/boxing-practice.test.ts`, `spec/boxing-box-pose.test.ts` (`cameraBoxing`), `e2e/boxing.e2e.ts` (keys, the six buttons at both viewports). `pnpm check`: 43 files, 699 tests passed; `e2e/boxing`: 14 passed.
 - **Why:** the user's rework (ADR 002), so standing in one guard loses to the other target and defence is a reaction judged by the server.
+
+## 2026-11-06 00:13 AEDT | milestone | Boxing: the ADR 002 rules merged into boxing-30
+
+- **Decided by:** user (the rules, ADR 002); agent (the choices listed in its entry above); Claude (reviewed and merged).
+- **What happened:** `boxing-rules` (7f371a4, 71259b7) fast-forwarded into `boxing-30`. Claude read the shared changes: `shared/protocol.ts`, `server/room.ts` and `server/index.ts` only change boxing's three messages; the stricter "an extra field drops the whole message" applies to those three only.
+- **Verification on the merged branch:** `pnpm check` 43 files, 699 tests, exit 0; full `pnpm e2e --workers=1` at both viewports exit 0. :8999 rebuilt for the user to play the new rules in 2D.
+- **Open for the user:** the agent's own choices (no slip with a guard up, raising a guard ends a slip, the break resets the slip cooldown, an extra field drops the message) are reversible and await an OK.
