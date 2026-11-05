@@ -165,6 +165,64 @@ export function armMeasures(lm: readonly Point[], aspect: number, hand: BoxHand)
   };
 }
 
+/** One hand as the hand model (21 points) sees it, in the shoulder frame, in shoulder widths. */
+export interface HandMeasures {
+  /** Palm size: the mean of wrist to index knuckle, wrist to pinky knuckle and across the knuckles. */
+  size: number;
+  /** The palm's middle along the shoulder line; positive toward the player's left. */
+  across: number;
+  /** The palm's middle above the shoulder line (negative below). */
+  height: number;
+}
+
+// hand model landmark indices
+const H_WRIST = 0;
+const H_INDEX_MCP = 5;
+const H_MIDDLE_MCP = 9;
+const H_PINKY_MCP = 17;
+
+/**
+ * The hand model's hands, assigned to the player's left or right by which side
+ * of the shoulders' middle they are on (not MediaPipe's handedness label, which
+ * a mirrored or a closed fist can flip; and not the pose wrists, which the
+ * playtest showed are lost with the hands by the face). Two hands on one side
+ * (a hook crossing over) are split by which is farther that way. Null without
+ * shoulders.
+ */
+export function handMeasures(
+  hands: readonly { points: readonly Point[] }[] | undefined,
+  lm: readonly Point[],
+  aspect: number,
+): Record<BoxHand, HandMeasures | null> | null {
+  const frame = bodyFrame(lm, aspect);
+  if (!frame) return null;
+  const a = frame.across;
+  const d = a.x >= 0 ? { x: -a.y, y: a.x } : { x: a.y, y: -a.x };
+  const toFrame = (p: Point) => {
+    const x = (p.x * aspect - frame.mid.x) / frame.width;
+    const y = (p.y - frame.mid.y) / frame.width;
+    return { across: x * a.x + y * a.y, height: -(x * d.x + y * d.y) };
+  };
+  const dist = (p: Point, q: Point) => Math.hypot((p.x - q.x) * aspect, p.y - q.y) / frame.width;
+  const read = (pts: readonly Point[]): HandMeasures | null => {
+    const w = pts[H_WRIST];
+    const i = pts[H_INDEX_MCP];
+    const m = pts[H_MIDDLE_MCP];
+    const k = pts[H_PINKY_MCP];
+    if (!w || !i || !m || !k) return null;
+    return { size: (dist(w, i) + dist(w, k) + dist(i, k)) / 3, ...toFrame(m) };
+  };
+  const seenHands = (hands ?? []).map((h) => read(h.points)).filter((h): h is HandMeasures => h !== null);
+  const out: Record<BoxHand, HandMeasures | null> = { left: null, right: null };
+  if (seenHands.length === 1) out[seenHands[0].across >= 0 ? "left" : "right"] = seenHands[0];
+  else if (seenHands.length >= 2) {
+    const [lo, hi] = [...seenHands].sort((p, q) => p.across - q.across);
+    out.right = lo;
+    out.left = hi;
+  }
+  return out;
+}
+
 export interface BoxPunchEvent {
   kind: BoxPunch;
   hand: BoxHand;

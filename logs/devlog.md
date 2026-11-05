@@ -1258,3 +1258,27 @@ the format of the entries below (see CLAUDE.md, Docs).
 
 - **Decided by:** user (pointed out a seated player's stomach isn't seen); Claude (the change).
 - **What happened:** head or body is split at the shoulder line, not the stomach; the low guard is forearms across the chest with gloves below the chin; a body punch is aimed at chest height. If the two guards don't separate on camera, the fallback is one guard that blocks head shots only. `docs/camera-playtest.md` updated.
+
+## 2026-11-05 22:16 AEDT | playtest | Boxing: first real-webcam recording, the pose model alone can't tell a punch
+
+- **Decided by:** user (recorded the 7 moves); Claude (the reading).
+- **Data:** `docs/playtest/boxing-2026-11-05-pose-only.txt`, about 25 fps.
+- **Findings:**
+  - The current detector fires "jab" all the time: 5 while relaxed, 13 while moving without punching, about 10 in each guard. Every one comes from the model's depth, which sits around 3 shoulder widths in front for every move (a real arm reaches about 1.3). This is also why a hook never registered: the depth noise makes every fast hand "forward", so the jab check wins first.
+  - Fist size from the pose model barely moves: a jab's high is 0.25-0.26 against 0.22-0.24 for the guards, relaxed and moving. About 1.2x, not the 2x expected. It can't be a threshold.
+  - Elbow angle with depth is 120-160 for everything: useless. On screen (2D) it jumps from 3 to 166 within one move: the elbow point is unstable.
+  - Height works: a jab's wrist is at +0.13 to +0.19 (above the shoulders), relaxed, body punches and the low guard at -0.07 to -0.33.
+  - The high guard read as hands far below the shoulders (-0.96 to -1.47) with straight arms, and the left hand seen only 66%: with the hands in front of the face the model seems to lose them and guess. To check with the user.
+- **Outcome:** the pose model's three hand points are too coarse for "arm out". Next to try: the hand model archery already loads (21 points per hand), for the fist's size.
+
+## 2026-11-05 22:18 AEDT | playtest | Boxing: the high guard was misread, not done wrong
+
+- **Decided by:** user (described the guard); Claude (the reading).
+- **Finding:** the user's high guard was fists at eye height, one either side of the eyes, the face partly covered: a normal guard. The pose model read the wrists 1 to 1.5 shoulder widths below the shoulders with straight arms, and lost the left hand a third of the time. So with the hands by the face the pose model loses them and guesses the arms are down: it fails in the position boxing needs most. Another reason to try the hand model, which finds hands in the image directly (caveat: it detects palms, and closed fists are harder for it).
+
+## 2026-11-05 22:20 AEDT | change | Boxing: the hand model in the playtest readout
+
+- **Decided by:** user ("yes add the hand model"); Claude (how).
+- **What happened:** with `?debug`, boxing's camera also loads the hand model archery uses (21 points per hand). `handMeasures` in `client/input/camera/box-pose.ts` gives each hand's palm size (mean of wrist to index knuckle, wrist to pinky knuckle and across the knuckles, in shoulder widths), its height above the shoulders and its position across. Hands are assigned left or right by which side of the shoulders' middle they are on, not by MediaPipe's handedness label (mirroring or a closed fist can flip it) and not by the pose wrists (lost with the hands by the face). The recorded table gets a HAND MODEL line per hand next to the pose model's. The readout box now scrolls.
+- **Why:** the pose model's fist size moved only about 1.2x on a jab and it lost the hands in the high guard. Players without `?debug` don't load the hand model yet: only if the numbers earn it.
+- **Cost to watch:** a second model per frame; the recording's fps line will show it (it was about 25).

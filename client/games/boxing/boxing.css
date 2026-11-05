@@ -141,5 +141,6 @@
   max-height: 60vh;
   overflow: auto;
   border-radius: 6px;
-  pointer-events: none;
+  /* scrollable: the recorded table outgrows the box */
+  pointer-events: auto;
 }

@@ -1,8 +1,8 @@
 import { CameraError, openCamera, startPose } from "../../input/camera/camera.ts";
 import type { CameraSession } from "../../input/camera/camera.ts";
 import type { CameraFrame } from "../../input/camera/pose.ts";
-import { BoxTracker, armMeasures, boxFrame } from "../../input/camera/box-pose.ts";
-import type { ArmMeasures, BoxHand, BoxPunch } from "../../input/camera/box-pose.ts";
+import { BoxTracker, armMeasures, boxFrame, handMeasures } from "../../input/camera/box-pose.ts";
+import type { ArmMeasures, BoxHand, BoxPunch, HandMeasures } from "../../input/camera/box-pose.ts";
 
 // Boxing's camera (task 30): the same webcam and local pose model as the other
 // games (video never leaves the browser), read as punches and a guard by
@@ -119,7 +119,8 @@ export function createBoxCamera(view: HTMLElement, button: HTMLButtonElement, ch
       video.hidden = false;
       panel.innerHTML = `<h2>Loading pose model…</h2><p class="muted" role="status">The first time takes a few seconds.</p>`;
       setChip("Loading…", "warn");
-      session = await startPose(video, stream, onFrame, () => {});
+      // the hand model only for the playtest readout until it earns its place
+      session = await startPose(video, stream, onFrame, () => {}, { hands: debug !== null });
       button.textContent = "Stop camera";
       read.hidden = false;
       panel.innerHTML = `<h2>Ready to box</h2><p role="status">Hands up by your face to guard. Jab: punch straight at the screen. Hook: sweep a hand across your body. Keep your shoulders in view.</p><div class="row"><button class="primary" data-step="close">Start boxing</button></div>`;
@@ -183,6 +184,7 @@ const COUNTDOWN_MS = 3000;
 const RECORD_MS = 5000;
 
 type Sample = { size: number | null; e3: number | null; e2: number | null; fwd: number; reach: number; height: number };
+type HandSample = { size: number; height: number; across: number };
 
 function createDebugReadout(dock: HTMLElement): { frame(f: CameraFrame): void; punch(label: string): void } | null {
   if (!new URLSearchParams(location.search).has("debug")) return null;
@@ -193,7 +195,7 @@ function createDebugReadout(dock: HTMLElement): { frame(f: CameraFrame): void; p
   let fps = 0;
   let lastT = 0;
   let status = "Press 1-7 to record a move, C to copy";
-  let rec: { move: number; startsAt: number; endsAt: number; frames: number; samples: Record<BoxHand, Sample[]>; punches: string[] } | null = null;
+  let rec: { move: number; startsAt: number; endsAt: number; frames: number; samples: Record<BoxHand, Sample[]>; hands: Record<BoxHand, HandSample[]>; punches: string[] } | null = null;
   const results = new Map<number, string>();
 
   const beep = (hz: number) => {
@@ -231,6 +233,14 @@ function createDebugReadout(dock: HTMLElement): { frame(f: CameraFrame): void; p
           ` | reach typ ${n(q(col("reach"), 0.5))} hi ${n(q(col("reach"), 0.9))}` +
           ` | height lo ${n(q(col("height"), 0.1))} typ ${n(q(col("height"), 0.5))} hi ${n(q(col("height"), 0.9))}`,
       );
+      const hs = r.hands[hand];
+      const hcol = (k: keyof HandSample) => hs.map((x) => x[k]);
+      lines.push(
+        `  ${hand.padEnd(5)} HAND MODEL seen ${Math.round((100 * hs.length) / Math.max(1, r.frames))}%` +
+          ` | size lo ${n(q(hcol("size"), 0.1))} typ ${n(q(hcol("size"), 0.5))} hi ${n(q(hcol("size"), 0.9))}` +
+          ` | height lo ${n(q(hcol("height"), 0.1))} typ ${n(q(hcol("height"), 0.5))} hi ${n(q(hcol("height"), 0.9))}` +
+          ` | across lo ${n(q(hcol("across"), 0.1))} typ ${n(q(hcol("across"), 0.5))} hi ${n(q(hcol("across"), 0.9))}`,
+      );
     }
     return lines.join("\n");
   };
@@ -240,7 +250,7 @@ function createDebugReadout(dock: HTMLElement): { frame(f: CameraFrame): void; p
     const d = Number(e.key);
     if (Number.isInteger(d) && d >= 1 && d <= MOVES.length && !rec) {
       const now = performance.now();
-      rec = { move: d, startsAt: now + COUNTDOWN_MS, endsAt: now + COUNTDOWN_MS + RECORD_MS, frames: 0, samples: { left: [], right: [] }, punches: [] };
+      rec = { move: d, startsAt: now + COUNTDOWN_MS, endsAt: now + COUNTDOWN_MS + RECORD_MS, frames: 0, samples: { left: [], right: [] }, hands: { left: [], right: [] }, punches: [] };
       beep(440);
     } else if (e.key === "c" || e.key === "C") {
       const text = `fps ~${fps.toFixed(0)}\n${table()}`;
@@ -251,6 +261,8 @@ function createDebugReadout(dock: HTMLElement): { frame(f: CameraFrame): void; p
     }
   });
 
+  const liveHand = (hand: BoxHand, h: HandMeasures | null | undefined) =>
+    `${hand.padEnd(5)} HAND size ${n(h?.size ?? null)}  height ${n(h?.height ?? null)}  across ${n(h?.across ?? null)}`;
   const live = (hand: BoxHand, m: ArmMeasures | null) =>
     `${hand.padEnd(5)} size ${n(m?.size ?? null)}  elbow3d ${n(m?.elbow3d ?? null, 0)}  depth ${n(m?.forward ?? null)}  reach ${n(m?.reach ?? null)}  height ${n(m ? -m.down : null)}`;
 
@@ -260,6 +272,7 @@ function createDebugReadout(dock: HTMLElement): { frame(f: CameraFrame): void; p
       lastT = f.t;
       const lm = f.landmarks;
       const m = { left: lm ? armMeasures(lm, f.aspect, "left") : null, right: lm ? armMeasures(lm, f.aspect, "right") : null };
+      const hm = lm ? handMeasures(f.hands, lm, f.aspect) : null;
       const now = performance.now();
       let head = status;
       if (rec) {
@@ -270,6 +283,8 @@ function createDebugReadout(dock: HTMLElement): { frame(f: CameraFrame): void; p
           for (const hand of ["left", "right"] as const) {
             const a = m[hand];
             if (a) rec.samples[hand].push({ size: a.size, e3: a.elbow3d, e2: a.elbow2d, fwd: a.forward, reach: a.reach, height: -a.down });
+            const h = hm?.[hand];
+            if (h) rec.hands[hand].push({ size: h.size, height: h.height, across: h.across });
           }
           head = `[${rec.move}] ${MOVES[rec.move - 1]}: RECORDING ${Math.ceil((rec.endsAt - now) / 1000)}`;
         } else {
@@ -281,7 +296,7 @@ function createDebugReadout(dock: HTMLElement): { frame(f: CameraFrame): void; p
         }
       }
       const done = MOVES.map((name, i) => `${results.has(i + 1) ? "✓" : " "} ${i + 1} ${name}`).join("   ");
-      el.textContent = [`fps ${fps.toFixed(0)}   ${head}`, live("left", m.left), live("right", m.right), "", done, "", table()].join("\n");
+      el.textContent = [`fps ${fps.toFixed(0)}   ${head}`, live("left", m.left), live("right", m.right), liveHand("left", hm?.left), liveHand("right", hm?.right), "", done, "", table()].join("\n");
     },
     punch(label) {
       if (rec && performance.now() >= rec.startsAt) rec.punches.push(label);
