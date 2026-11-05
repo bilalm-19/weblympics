@@ -1367,3 +1367,17 @@ the format of the entries below (see CLAUDE.md, Docs).
 - **Looked at:** screenshots at 1920x1080 and 390x844 with the HUD and buttons: your gloves frame the bottom, the foe faces you, no horizontal scroll.
 - **Known from the agent, unfixed:** the low guard sits only a little below the high guard in first person; a blocked jab's shake is small; faces don't change when hurt.
 - **Tests:** `pnpm check` 44 files, 706 tests, exit 0; `pnpm e2e --workers=1 e2e/boxing` 14 passed, exit 0.
+
+## 2026-11-06 00:29 AEDT | playtest | Boxing 3D, first camera play without ?debug
+
+- **Decided by:** user (played it); Claude (the reading).
+- **Findings:** (1) tilting does nothing: expected, the camera slip isn't built until a lean is recorded (A and D slip); (2) holding the hands up as a guard keeps registering punches, not the guard. Played without `?debug`, so this was the old `BoxTracker`, which the first recording already showed fires "jabs" from depth noise in any pose.
+- **Next:** the trial detector becomes the default for everyone, and the old one leaves the game path.
+
+## 2026-11-06 00:36 AEDT | bug fix | Boxing: the camera's guard read as jabs; the trial detector is now everyone's
+
+- **Decided by:** user (found it: "if i hold my hands up as a guard, it just keeps registering punches"; confirmed no `?debug`); Claude (the fix).
+- **Cause:** without `?debug` the panel still used the old `BoxTracker`, whose jab is the pose model's depth moving fast. Fed a held guard shaped like the user's recording (depth about 3 shoulder widths, wobbling), it reads 17 jabs in 5 s.
+- **Fix:** `box-camera.ts` runs the `TrialDetector` for everyone, with the hand model always loaded and the pose model every third frame; the `?debug` readout now only shows and records what it reads. The old tracker stays in `box-pose.ts` with its spec but is off the game path.
+- **Tests:** `spec/boxing-trial-detector.test.ts`: raising both hands from relaxed into a high guard reads the guard and no jab; and a check that the panel runs `TrialDetector` with hands on, never `new BoxTracker(`, which fails on the old code. `pnpm check` 44 files, 708 tests, exit 0; `pnpm e2e --workers=1 e2e/boxing` 14 passed, exit 0.
+- **Still open:** tilting does nothing (no camera slip until a lean is recorded).

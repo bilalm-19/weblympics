@@ -305,10 +305,13 @@ lazily and only when a player enters a game. Video never leaves the browser.
   and "unlimited" (bout after bout, counts bouts won and knockouts,
   unrated). Practice vs bot is never rated. Camera
   (`spec/boxing-box-pose.test.ts`, `cameraBoxing` in `box-pose.ts`): it
-  sends the same messages a key does, never a hit. With `?debug` the trial
-  detector's guard height and jab target go through; otherwise the old
-  tracker's jab is a head jab and its guard the high guard; hooks are
-  dropped; no camera slip yet. Keys: J head jab, K body jab, hold Space
+  sends the same messages a key does, never a hit. Everyone gets the trial
+  detector (`TrialDetector`, `spec/boxing-trial-detector.test.ts`; the old
+  `BoxTracker` read "jabs" from depth noise in a held guard, playtest 4): the
+  hand model's palm growing past its own resting size is a jab, its height
+  the target; both palms up is the guard, high or low by height, one arm up
+  is none. The pose model runs every third frame (shoulders only). No hooks,
+  no camera slip yet. `?debug` adds a readout and a recorder only. Keys: J head jab, K body jab, hold Space
   high guard, hold L low guard, A/D slip; six buttons on a phone.
 - Camera is used for gameplay only. Every camera action has a keyboard/mouse
   equivalent, and the lobby and room work with no camera at all.

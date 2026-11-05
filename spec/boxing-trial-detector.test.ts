@@ -100,6 +100,18 @@ describe("trial detector", () => {
     expect(run(d, hold(guard, 5), 5000).guard).toBe("high");
   });
 
+  it("raising both hands from relaxed into a high guard reads the guard, not a jab (playtest 4)", () => {
+    // the palms rise from 0.17 to 0.6 over a third of a second and look a
+    // little bigger nearer the face (at most 1.2x), as the recordings showed
+    const d = new TrialDetector();
+    const frames: TrialFrame[] = [...hold(pose({ height: 0.17 }), 24)];
+    for (let i = 1; i <= 8; i++) frames.push(pose({ height: 0.17 + (0.43 * i) / 8, grow: { left: 1 + 0.2 * (i / 8), right: 1 + 0.15 * (i / 8) } }));
+    frames.push(...hold(pose({ height: 0.6, grow: { left: 1.2, right: 1.15 } }), 24));
+    const r = run(d, frames);
+    expect(r.punches).toEqual([]);
+    expect(r.guard).toBe("high");
+  });
+
   it("a guard needs a few steady frames, so one stray frame doesn't drop it", () => {
     const d = new TrialDetector();
     const frames = [...hold(pose({ height: 0.6 }), 10), pose({ height: 0.17 }), ...hold(pose({ height: 0.6 }), 2)];
@@ -126,5 +138,16 @@ describe("handMeasures", () => {
     expect(r.left!.across).toBeGreaterThan(0);
     expect(r.right!.across).toBeLessThan(0);
     expect(r.left!.size).toBeGreaterThan(0.15);
+  });
+});
+
+describe("the camera panel uses the trial detector for everyone (playtest 4)", () => {
+  it("box-camera.ts runs TrialDetector with the hand model, and never the old BoxTracker", async () => {
+    const { readFileSync } = await import("node:fs");
+    const src = readFileSync(new URL("../client/games/boxing/box-camera.ts", import.meta.url), "utf8");
+    // the old tracker read 17 "jabs" in 5 s of a held guard from depth noise
+    expect(src).not.toMatch(/new BoxTracker\(/);
+    expect(src).toMatch(/new TrialDetector\(/);
+    expect(src).toMatch(/hands: true/);
   });
 });
