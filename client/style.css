@@ -1271,6 +1271,45 @@ a:focus-visible {
   animation: runner-bob 0.6s ease-in-out -0.3s infinite;
 }
 
+/* Boxing: the two boxers bob and throw a glove in turn. */
+.loop-box-a {
+  animation: runner-bob 0.7s ease-in-out infinite;
+}
+
+.loop-box-b {
+  animation: runner-bob 0.7s ease-in-out -0.35s infinite;
+}
+
+.loop-glove-a {
+  animation: glove-jab-a 1.4s ease-in-out infinite;
+}
+
+.loop-glove-b {
+  animation: glove-jab-b 1.4s ease-in-out -0.7s infinite;
+}
+
+@keyframes glove-jab-a {
+  0%,
+  60%,
+  100% {
+    transform: translateX(0);
+  }
+  75% {
+    transform: translateX(26px);
+  }
+}
+
+@keyframes glove-jab-b {
+  0%,
+  60%,
+  100% {
+    transform: translateX(0);
+  }
+  75% {
+    transform: translateX(-26px);
+  }
+}
+
 @keyframes runner-bob {
   0%,
   100% {

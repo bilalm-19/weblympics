@@ -19,7 +19,7 @@ export const TICK_MS = 1000 / 60;
 const ticks = (ms: number): number => Math.round(ms / TICK_MS);
 
 // GUESSES to be playtested, like track's numbers.
-export const HEALTH = 100;
+export const HEALTH = 500;
 export const DAMAGE: Record<PunchKind, number> = { jab: 6, hook: 14 };
 /** Share of a punch's damage that gets through a guard (rounded to whole points). */
 export const BLOCKED_SHARE = 0.2;

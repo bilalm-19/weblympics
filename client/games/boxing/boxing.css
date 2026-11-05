@@ -1,0 +1,86 @@
+/* Boxing (task 30), first version: the bout board, the round call and the three
+   buttons, laid over a flat 2D canvas like the other games' HUDs. */
+
+.boxing .bx-board {
+  display: grid;
+  gap: 0.2rem;
+  width: min(26rem, 100%);
+  min-width: 0;
+  padding: 0.35rem 0.6rem;
+  border-radius: 10px;
+  background: #0f1720cc;
+  color: #fff;
+  font-variant-numeric: tabular-nums;
+}
+
+.boxing .bx-head {
+  font-size: 0.8rem;
+  opacity: 0.85;
+}
+
+.boxing .bx-row {
+  display: grid;
+  grid-template-columns: minmax(3rem, 7rem) 1fr 2.6rem;
+  align-items: center;
+  gap: 0.5rem;
+  border-left: 4px solid var(--seat);
+  padding-left: 0.4rem;
+}
+
+.boxing .bx-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.boxing .bx-bar {
+  height: 0.7rem;
+  border-radius: 4px;
+  background: #ffffff22;
+  overflow: hidden;
+}
+
+.boxing .bx-bar i {
+  display: block;
+  height: 100%;
+  background: var(--seat);
+  transition: width 120ms linear;
+}
+
+.boxing .bx-hp {
+  text-align: right;
+  font-size: 0.95rem;
+}
+
+.boxing .bx-call {
+  position: absolute;
+  left: 50%;
+  top: 38%;
+  transform: translate(-50%, -50%);
+  padding: 0.3rem 1.4rem;
+  border-radius: 12px;
+  background: #0f1720d9;
+  color: #fff;
+  font-size: clamp(1.8rem, 6vw, 3.4rem);
+  font-weight: 800;
+  pointer-events: none;
+}
+
+.boxing .bx-call[hidden] {
+  display: none;
+}
+
+.boxing .bx-controls {
+  gap: 0.6rem;
+}
+
+.boxing .bx-controls button {
+  min-width: 5.5rem;
+  min-height: 3.2rem;
+  touch-action: none;
+  user-select: none;
+}
+
+.boxing[data-guard="true"] .bx-controls [data-guard] {
+  outline: 3px solid #7dd3fc;
+}

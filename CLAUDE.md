@@ -35,7 +35,10 @@ lazily and only when a player enters a game. Video never leaves the browser.
   health, the per-hand recovery and the punch cap, rounds, KO, decision,
   draw), `bot.ts` (guards after a seeded reaction delay, mixes jabs and
   hooks), `index.ts` (adapter); its pure camera maths is
-  `client/input/camera/box-pose.ts`. Its view waits on task 28.
+  `client/input/camera/box-pose.ts`. Its client is `client/games/boxing/`:
+  `view.ts` (a flat 2D ring on one canvas, bout board, round call, J/K/Space
+  and three buttons), `practice.ts` + `practice-sim.ts` (in-page practice vs
+  the bot), `boxing.css`; it reuses tennis's ready panel.
   `shared/look.ts`
   is the fixed palette and hat/hair list for a player's look (task 18).
 - `server/` `index.ts` (http + ws + `/readme/`), `rooms.ts` (live rooms with
@@ -216,8 +219,8 @@ lazily and only when a player enters a game. Video never leaves the browser.
 - Game logic stays deterministic (seed + input stream) so it can be tested.
 - Tennis, archery (task 22) and track (tasks 26-27, one game with two
   events: the sprint is playable, hurdles is task 27) are the games; boxing
-  (task 30, a "maybe") has its sim, rooms and camera maths but no view yet. Add
-  another only when I ask. Each lives in `shared/games/<name>/` and registers in the registry, so
+  (task 30, a "maybe") is playable on keys and buttons in a flat 2D ring (its
+  3D scene and camera wiring wait on task 28). Add another only when I ask. Each lives in `shared/games/<name>/` and registers in the registry, so
   rooms, lobby and reconnect stay game-agnostic. A game's specs are named
   `spec/<name>-*.test.ts` and `e2e/<name>-*.e2e.ts`.
 - Video never leaves the browser. The game page's CSP `connect-src` allows
@@ -270,7 +273,9 @@ lazily and only when a player enters a game. Video never leaves the browser.
   never damage, a hit or a health. A jab lands 200 ms after it is thrown, a
   hook 350 ms; on landing the server checks the other's guard on that tick
   (guarded 20% damage, open full), so a guard raised in time still saves
-  you. Health 100, jab 6, hook 14. A hand can't throw again until its punch
+  you. Health 500 (100 ended bot bouts in about 15 s, so the rounds never
+  happened; `spec/boxing-sim.test.ts` holds bouts to well over a round), jab 6,
+  hook 14. A hand can't throw again until its punch
   lands plus 150 ms; the guard up stops punching; a punch cap (4 a second
   per boxer, burst of 2, by the punch's own timestamp and by the server's
   clock) so flailing buys nothing. Three rounds of 30 s with a 5 s break;
@@ -283,7 +288,8 @@ lazily and only when a player enters a game. Video never leaves the browser.
   bot is never rated. Camera (`spec/boxing-box-pose.test.ts`): a wrist
   moving fast toward the camera in front of its shoulder is a jab, one
   sweeping fast across the body at shoulder height is a hook, both wrists
-  by the face is the guard; in shoulder widths.
+  by the face is the guard; in shoulder widths (not wired to a view yet).
+  Keys: J jab, K hook, hold Space to guard; three buttons on a phone.
 - Camera is used for gameplay only. Every camera action has a keyboard/mouse
   equivalent, and the lobby and room work with no camera at all.
 - Webcam is the default (task 15, `e2e/webcam-default.e2e.ts`): a seated

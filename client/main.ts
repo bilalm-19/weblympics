@@ -4,6 +4,8 @@ import { startArcheryPractice } from "./games/archery/practice.ts";
 import { startArchery } from "./games/archery/view.ts";
 import { startTraining } from "./games/tennis/training.ts";
 import { startTennis } from "./games/tennis/view.ts";
+import { startBoxingPractice } from "./games/boxing/practice.ts";
+import { startBoxing } from "./games/boxing/view.ts";
 import { startTrackPractice } from "./games/track/practice.ts";
 import { startTrack } from "./games/track/view.ts";
 import { Connection } from "./net/socket.ts";
@@ -33,7 +35,7 @@ function showMenu(): void {
     { name: conn.name, matches: conn.matches, account: conn.account, demo: conn.demo, look: conn.look },
     error,
     {
-      onTrain: (s) => (s === "archery" ? practiseArchery() : s === "track" ? practiseTrack() : train()),
+      onTrain: (s) => (s === "archery" ? practiseArchery() : s === "track" ? practiseTrack() : s === "boxing" ? practiseBoxing() : train()),
       onPractice: (s) => conn.send({ t: "create", game: s, practice: true }),
       onCreate: (s) => conn.send({ t: "create", game: s, practice: false }),
       onJoin: (code) => conn.send({ t: "join", room: code }),
@@ -110,6 +112,19 @@ function practiseTrack(): void {
   });
 }
 
+// Boxing practice (task 30): in the page too, nothing sent to the server.
+function practiseBoxing(): void {
+  disposeGame?.();
+  training = true;
+  sport = "boxing";
+  error = null;
+  history.replaceState(null, "", "#/boxing/practice");
+  disposeGame = startBoxingPractice(root, () => {
+    history.replaceState(null, "", location.pathname);
+    showMenu();
+  });
+}
+
 function enterRoom(info: RoomInfo): void {
   disposeGame?.();
   currentRoom = info.room;
@@ -122,6 +137,8 @@ function enterRoom(info: RoomInfo): void {
     disposeGame = startArchery(root, conn, info, leave);
   } else if (info.game === "track") {
     disposeGame = startTrack(root, conn, info, leave);
+  } else if (info.game === "boxing") {
+    disposeGame = startBoxing(root, conn, info, leave);
   } else {
     // practice offers training once the camera is set up (a room may have
     // someone waiting, so it doesn't): leave the bot and train with the camera on
@@ -163,4 +180,5 @@ if (watchLink) conn.send({ t: "join", room: watchLink[1].toUpperCase(), watch: t
 if (location.hash === "#/train") train();
 else if (location.hash === "#/archery/practice") practiseArchery();
 else if (location.hash === "#/track/practice") practiseTrack();
+else if (location.hash === "#/boxing/practice") practiseBoxing();
 else showMenu();

@@ -49,6 +49,9 @@ const ICONS = {
   bowling: icon(
     `<path d="M12 2c2 0 2.6 2 2 4.5-.4 1.6 3 5 3 9.5 0 3.5-2 6-5 6s-5-2.5-5-6c0-4.5 3.4-7.9 3-9.5C9.4 4 10 2 12 2z" fill="#fff" stroke="#9aa5b1" stroke-width="1.2"/><path d="M9.6 7.6h4.8" stroke="#e03131" stroke-width="1.6"/>`,
   ),
+  boxing: icon(
+    `<circle cx="12" cy="12" r="10" fill="#e0453a" stroke="#a52a22" stroke-width="1.2"/><path d="M8 9.5c0-2 1.6-3.2 4-3.2s4 1.2 4 3.4v3.2c0 2.6-1.8 4.6-4 4.6s-4-2-4-4.6z" fill="#fff"/><path d="M8.6 15h6.8" stroke="#a52a22" stroke-width="1.6"/>`,
+  ),
   mystery: icon(
     `<circle cx="12" cy="12" r="10" fill="#e7ecf2" stroke="#9aa5b1" stroke-width="1.2"/><text x="12" y="16.5" text-anchor="middle" font-size="12" font-weight="800" font-family="system-ui, sans-serif" fill="#6b7a8a">?</text>`,
   ),
@@ -220,6 +223,27 @@ function bowlingThumb(): string {
   `)}</div>`;
 }
 
+function boxingThumb(): string {
+  const boxer = (x: number, shirt: string, dir: 1 | -1, cls: string) => `
+    <g class="${cls}"><g transform="translate(${x} 150)">
+      <rect x="-8" y="-34" width="7" height="34" rx="3" fill="#2b303b"/><rect x="1" y="-34" width="7" height="34" rx="3" fill="#2b303b"/>
+      <rect x="-12" y="-72" width="24" height="42" rx="8" fill="${shirt}"/>
+      <circle cy="-86" r="14" fill="#f3cfae"/>
+      <g class="loop-glove-${dir === 1 ? "a" : "b"}"><circle cx="${dir * 22}" cy="-60" r="9" fill="#fff" stroke="#0007" stroke-width="1.4"/></g>
+      <circle cx="${dir * 10}" cy="-76" r="8" fill="${shirt}" stroke="#0007" stroke-width="1.4"/>
+    </g></g>`;
+  return `<div class="thumb-art">${svg(`
+    <rect width="320" height="180" fill="#2b2f4a"/>
+    <rect y="150" width="320" height="30" fill="#c9b27c"/>
+    <g stroke="#e0453a" stroke-width="3"><line x1="0" y1="60" x2="320" y2="60"/><line x1="0" y1="90" x2="320" y2="90"/><line x1="0" y1="120" x2="320" y2="120"/></g>
+    <g fill="#fff" opacity=".18"><circle cx="40" cy="26" r="4"/><circle cx="90" cy="20" r="3"/><circle cx="230" cy="22" r="4"/><circle cx="285" cy="28" r="3"/></g>
+    <g class="loop">
+    ${boxer(112, "#2f7fe0", 1, "loop-box-a")}
+    ${boxer(208, "#e0453a", -1, "loop-box-b")}
+    </g>
+  `)}</div>`;
+}
+
 function mysteryThumb(): string {
   return `<div class="thumb-art">${svg(`
     <rect width="320" height="180" fill="#c9dcf0"/>
@@ -244,7 +268,7 @@ export const SPORTS: Sport[] = [
   { id: "bowling", name: "Bowling", playable: false, icon: ICONS.bowling, blurb: "Coming soon.", thumbnail: bowlingThumb },
   { id: "archery", name: "Archery", playable: true, icon: ICONS.archery, blurb: "Read the wind and hit the gold, stage by stage. Draw with your camera or the mouse.", thumbnail: archeryThumb },
   { id: "track", name: "Track", playable: true, icon: ICONS.track, blurb: "Sprint 100 m against the bot or a friend. Run on the spot with your camera, or tap A and D.", thumbnail: trackThumb },
-  { id: "mystery-2", name: "??", playable: false, icon: ICONS.mystery, blurb: "A secret sport. Who knows?", thumbnail: mysteryThumb },
+  { id: "boxing", name: "Boxing", playable: true, icon: ICONS.boxing, blurb: "Three rounds of 30 seconds against the bot or a friend. Jab, hook and guard with the keyboard or buttons.", thumbnail: boxingThumb },
 ];
 
 /**

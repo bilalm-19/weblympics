@@ -283,3 +283,21 @@ describe("boxing determinism and the bot", () => {
     expect(hooks).toBeLessThan(200);
   });
 });
+
+// Playtest 2026-11-05: with health 100 two bots knocked each other out in
+// about 15 seconds, so the three rounds never happened. Health is 500 now.
+describe("boxing: a bout is worth watching", () => {
+  it("bots trading punches last well into the bout, and a good share go past round 1", () => {
+    let pastRoundOne = 0;
+    let seconds = 0;
+    const N = 12;
+    for (let seed = 1; seed <= N; seed++) {
+      const s = createState(seed);
+      while (s.phase !== "over" && s.tick < 60 * 400) step(s, [...botInputs(s, 0), ...botInputs(s, 1)]);
+      seconds += s.tick / 60;
+      if (s.round > 1) pastRoundOne++;
+    }
+    expect(seconds / N).toBeGreaterThan(45);
+    expect(pastRoundOne).toBeGreaterThanOrEqual(N - 1);
+  });
+});
