@@ -9,6 +9,7 @@ import type { LobbyView, RoomFormat, RoomInfo, ServerMsg } from "../../../shared
 import type { GameLink } from "../../net/link.ts";
 import { createReadyPanel } from "../tennis/ready-panel.ts";
 import { createBoxCamera } from "./box-camera.ts";
+import { chooseHand } from "./hand-pick.ts";
 import "./boxing.css";
 
 // The boxing view (task 30): the 3D ring (scene.ts), first-person for a
@@ -87,13 +88,20 @@ export function startBoxing(root: HTMLElement, conn: GameLink, info: RoomInfo, o
 
   // ---- input: jabs, the guard and the slip, never a claim of damage ----
   let nextHand: Hand = "left";
+  const sentAt: Record<Hand, number | null> = { left: null, right: null };
   const count = () => (canvas.dataset.sent = String(Number(canvas.dataset.sent ?? 0) + 1));
   const punch = (target: Target, hand?: Hand) => {
     if (!canBox()) return false;
-    // alternate hands; the server refuses a busy one and the other is tried next press
-    const h = hand ?? nextHand;
+    // alternate hands; the server refuses a hand still out or recovering and
+    // the press is lost, so a busy hand gives way to a free one (playtest 5)
+    const at = performance.now();
+    const h = chooseHand(hand ?? nextHand, {
+      left: sentAt.left === null ? null : at - sentAt.left,
+      right: sentAt.right === null ? null : at - sentAt.right,
+    });
+    sentAt[h] = at;
     nextHand = h === "left" ? "right" : "left";
-    conn.send({ t: "punch", hand: h, target, at: performance.now() });
+    conn.send({ t: "punch", hand: h, target, at });
     count();
     return true;
   };

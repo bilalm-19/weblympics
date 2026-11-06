@@ -60,3 +60,24 @@ blocks head shots only, with a body shot getting through any guard.
   probably too noisy to use alone.
 - **reach**: wrist to shoulder on screen.
 - **height**: wrist above the shoulder line (negative below): head or body.
+
+## Marking real punches and reading the tilt (playtest 5, 2026-11-06)
+Findings after the push: "it keeps leaning to either side too easily", "the
+punches are registering inconsistently". The old table can't say whether a
+punch was missed (it lists only what the detector read) or whether a jab
+leaned you by accident. So:
+
+- **Press P at each real punch** as you throw it (moves 4, 6 and 9 matter most;
+  it works in any move). The table then adds `marked punches N: read R, missed
+  M | detector jabs with no mark K`, and per mark: READ or MISSED, the highest
+  palm ratio (palm over that hand's resting size) in the 400 ms either side, and
+  how many frames the hand model saw each hand there. A MISSED mark with a peak
+  under 1.35 is the threshold or the rest; one with few frames seen is the hand
+  model losing the fist.
+- **Tilt spread** is on every move: min, max, standard deviation, the share of
+  frames past 4 and 8 degrees from neutral, how many leans started, the neutral
+  in degrees, and (when jabs were read) the worst tilt within 300 ms of a read
+  jab. Move 4 (jab to head) with leans started above 0 means the jab itself
+  leans you.
+- Record move 1 (relaxed) first and sit as you will play for a few seconds
+  before the camera starts, since neutral is learned from the first second.
