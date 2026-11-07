@@ -1,6 +1,6 @@
 # 33 Customisation: more looks and a cleaner editor
 
-Status: started (2026-11-08), one agent on branch `customise-33`.
+Status: built on branch `customise-33` (2026-11-08), not merged; agent choices in the devlog entry "Task 33 built".
 Model: Opus 5.5
 Waits on: nothing. Task 31's agents run in parallel and don't edit `character.ts`.
 
@@ -46,9 +46,9 @@ by `client/ui/look-preview.ts` as SVG on the home screen. The user
   as picture swatches, Save and Cancel, keyboard reachable, both viewports.
 
 ## Done when
-- [ ] The new lists in `shared/look.ts`; server refuses anything outside them
+- [x] The new lists in `shared/look.ts`; server refuses anything outside them
       (`spec/look.test.ts` extended); the schema step and its old-db test.
-- [ ] Every option drawn in 3D and SVG; the editor at both viewports;
+- [x] Every option drawn in 3D and SVG; the editor at both viewports;
       `e2e/look.e2e.ts` extended.
-- [ ] CLAUDE.md's looks rule, README and spec agree.
-- [ ] `pnpm check` and `pnpm e2e --workers=1` green.
+- [x] CLAUDE.md's looks rule, README (says nothing about looks) and spec agree.
+- [x] `pnpm check` and `pnpm e2e --workers=1` green (726 specs; 198 e2e, port 8207).
