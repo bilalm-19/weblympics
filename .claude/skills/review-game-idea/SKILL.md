@@ -39,12 +39,21 @@ List each action the camera would read. For each:
 Count the actions, held states included (A2), and compare with the games
 already built.
 
-Then start one **fresh agent** (general-purpose) with only persona 1 from
-the criteria and the paragraph from step 2 written as the player would read
-it on screen (no code names). Tell it: "Do not read any file." Ask: what
-would you do with your body for each action, what would confuse you, and
-would you play again with your friend? Where its answers differ from what
-the camera would measure, a newcomer will fail.
+Then start two **fresh agents** in parallel (general-purpose), each told
+"Do not read any file":
+- **The reader** (persona 2): its persona and the step 2 paragraph written
+  as the player would read it on screen (no code names).
+- **The skipper** (persona 1): its persona and only the game's name and a
+  one-line button label for each action (as a menu would show them).
+
+Ask each: what would you do with your body for each action, what would
+confuse you, and would you play again with your friend? Where their answers
+differ from what the camera would measure, a newcomer will fail.
+
+Then work out personas 3 to 5 yourself, briefly: does each move work seated
+and close (tight space), does the game need a reaction faster than lag
+allows (patchy wifi), and where would the player wait on the game
+(smoothness)?
 
 ## 4. The rest of the criteria
 
@@ -80,7 +89,8 @@ so; it can settle a risky move before any code is written.
 | Criterion | Result | Evidence |
 |---|---|---|
 
-**What persona 1 said:** <2-4 lines, quoted>
+**What the reader and the skipper said:** <2-4 lines each, quoted>
+**Tight space / patchy wifi / smoothness:** <one line each>
 **Inputs to learn:** <n>
 **Changes before building:** <numbered, smallest first>
 **Recordings to make first:** <list>

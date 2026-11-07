@@ -51,16 +51,41 @@ Collect every word and picture a new player gets about the camera, from the
 code: the camera setup steps, training or practice prompts, the HUD's hints,
 any on-screen silhouette or demo. Quote them.
 
-Then start one **fresh agent** (general-purpose) with only persona 1 from the
-criteria and those quoted words, in the order a player meets them. Tell it:
-"Do not read any file. You only know this text." Ask it, for each action
-the game needs: what exactly would you do with your body, how big, how
-fast, and from where (sitting or standing, how far from the laptop)?
+Then start two **fresh agents** in parallel (general-purpose), each told:
+"Do not read any file. You only know what is given here."
+- **The skipper** (persona 1): its persona word for word, and only the
+  button labels, headings, picture descriptions and animations, no
+  paragraphs.
+- **The reader** (persona 2): its persona word for word, and every quoted
+  word in the order a player meets it.
 
-Compare its answers with step 2's "what the code needs". Each mismatch is a
-place a new player fails.
+Ask each, for every action the game needs: what exactly would you do with
+your body, how big and how fast? And which actions would you not know how
+to do at all?
 
-## 4. What goes wrong
+Compare their answers with step 2's "what the code needs". Each mismatch is
+a place a new player fails. Skip the skipper for a wording-only change.
+
+## 4. Tight space, patchy wifi, smoothness
+
+Personas 3 to 5 from the criteria, worked out by you from the code:
+- **Tight space:** for each move, at mid-chest framing about 50 cm away:
+  is the landmark in frame and tracked (the recordings' "seen" share), and
+  does the move clear its threshold at that size? Note any assumption of
+  standing, one hand or good light.
+- **Patchy wifi:** trace one on-time move at 150 to 300 ms of lag with
+  jitter: does it count (the lag rule, ADR 001), what does the opponent
+  see, and what does a 2 s dropout do? Read the game's timing and the
+  room's hold in `server/room.ts` and `server/lobby.ts`.
+- **Smoothness:** add up the delay from the move to the screen with each
+  part's source (camera frame rate, how often the model runs, the
+  detector's waits and cooldowns, the sim's wind-up or recovery, the 60 Hz
+  tick, the animation). Say where the player waits on the game.
+
+Skip patchy wifi and smoothness when only instructions or thresholds
+changed.
+
+## 5. What goes wrong
 
 From the code and the recordings:
 - **False reads:** does normal play cross a threshold? Check the recorded
@@ -76,7 +101,7 @@ From the code and the recordings:
   one handedness, or a mirrored picture? A laptop webcam with the player
   seated sees to mid-chest.
 
-## 5. Ask for a recording where the evidence runs out
+## 6. Ask for a recording where the evidence runs out
 
 When a finding can't be settled from the code and the existing recordings,
 name the recording that would settle it, following
@@ -88,22 +113,25 @@ say that one is needed and what it should record for this game. If one
 summary line per move isn't enough to replay a move through the detector,
 say a per-frame trace is needed.
 
-## 6. Report
+## 7. Report
 
 ```
 ## <Game>: <intuitive | fix the instructions | change controls>
 
 <two sentences: the verdict and what decides it>
 
-| Action | What the code needs | Real move | Screen says | Fresh agent would | Result |
-|---|---|---|---|---|---|
-| Jab | palm 1.35x resting size (box-pose.ts:NN, recorded) | ... | ... | ... | intuitive / instructions / change move |
+| Action | What the code needs | Real move | Screen says | Skipper would | Reader would | Result |
+|---|---|---|---|---|---|---|
+| Jab | palm 1.35x resting size (box-pose.ts:NN, recorded) | ... | ... | ... | ... | intuitive / instructions / change move |
 
 ### Problems, worst first
 1. <what a newcomer would do and why it fails> — evidence: <file:line,
    recording row, quote> — smallest fix: <instruction wording, threshold
    from which recording, or a different move>
 
+**Tight space:** <moves that fail seated and close, or "all fine">
+**Patchy wifi:** <what happens at 300 ms and on a 2 s dropout>
+**Smoothness:** move to screen <n> ms (<biggest parts>)
 **Inputs to learn:** <n> (<list>)
 **Guesses still in the controls:** <numbers with no recording>
 **Recordings to make:** <move list and what each should show, or "none">

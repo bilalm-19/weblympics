@@ -99,17 +99,37 @@ Measured 2026-11-07 (deploy 11): idle RSS 106 MB (41%), cold start about
 
 ## Personas
 
-A fresh agent that has not read the code is given only what that person
-would see (the on-screen words, or the pitch) and says what they would do.
-No agent plays on a webcam; the user's playtests judge feel.
+Five ways a newcomer can fail. The first two are fresh agents that have not
+read the code: each gets only what that person would take in and says what
+they would do with their body. The other three the reviewer works out from
+the code and the recordings. No agent plays on a webcam; the user's
+playtests judge feel.
 
-1. **Casual friend, laptop.** Sent an invite link by a friend, never seen the
-   site, has a webcam, will give up after about a minute of confusion.
-2. **Phone, no webcam.** 390x844, plays on the on-screen buttons.
-3. **Spectator.** Opens a watch link mid-match and wants to know who is
-   winning.
-4. **The marker.** Arrives with only the URL, starts at `/readme/`, wants to
-   get two browsers into a match, and comes back the next day.
+1. **The skipper** (agent). Doesn't read paragraphs and clicks the biggest
+   button. Gets only button labels, headings, pictures and anything that
+   animates. Doesn't know the sport's terms (jab, slip, backhand). Tests
+   whether the game shows the move without words, the Wii way.
+2. **The reader** (agent). Reads every word of the setup, training and
+   hints, in order. A casual gamer who has played Wii Sports or Kinect and
+   makes moves big and exaggerated. Tests whether the instructions say what
+   the code measures, and whether big moves still read as the right
+   control.
+3. **Tight space** (from the code). Seated at a laptop about 50 cm from the
+   camera, framed to mid-chest, ordinary indoor light, maybe left-handed.
+   For each move: is the body part in frame and tracked, and does the move
+   still clear its threshold at that size?
+4. **Patchy wifi** (from the code). 150 to 300 ms of lag with jitter, and a
+   2 s dropout. Does an on-time move still count (ADR 001 looks back at most
+   150 ms)? What does the opponent see? What does the dropout do (the 30 s
+   hold)?
+5. **Smoothness** (from the code). An ordinary laptop. Add up the delay
+   from the move to the screen: camera frame, how often the model runs, the
+   detector's waits and cooldowns, the server tick, the animation. Note
+   what costs frame rate (the model plus the 3D scene) and where the
+   player waits on the game rather than the other way round.
+
+To save budget: skip the skipper for a wording-only change, and skip patchy
+wifi and smoothness when only instructions or thresholds changed.
 
 ## Verdicts
 
