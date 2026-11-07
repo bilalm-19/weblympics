@@ -182,7 +182,30 @@ export function startBowling(root: HTMLElement, conn: GameLink, info: RoomInfo, 
   };
 
   // keys: arrows aim and curve, Space bowls, D and C vote
-  const aimHeld = new Set<-1 | 1>();
+  // per held direction: when it went down and how far it has moved the spot since,
+  // so the spot moves by the real time held whatever the frame rate
+  const aimHeld = new Map<-1 | 1, { since: number; applied: number }>();
+  const pressAim = (dir: -1 | 1) => {
+    if (aimHeld.has(dir)) return;
+    aimHeld.set(dir, { since: performance.now(), applied: 0 });
+    setAim(aim + dir * AIM_TAP);
+  };
+  /** Moves the spot by the time held not yet applied. */
+  const slideAim = (now: number) => {
+    if (!myTurn() || bowlCam.on()) return;
+    for (const [dir, h] of aimHeld) {
+      const due = ((now - h.since) / 1000) * AIM_RATE;
+      if (due > h.applied) {
+        setAim(aim + dir * (due - h.applied));
+        h.applied = due;
+      }
+    }
+  };
+  const releaseAim = (dir: -1 | 1) => {
+    slideAim(performance.now());
+    aimHeld.delete(dir);
+    sendAim(true);
+  };
   const onKeyDown = (e: KeyboardEvent) => {
     if (e.target instanceof HTMLInputElement || e.target instanceof HTMLSelectElement) return;
     if (e.code === "Space" && e.target instanceof HTMLButtonElement && !e.target.closest(".bowling")) return;
@@ -194,8 +217,7 @@ export function startBowling(root: HTMLElement, conn: GameLink, info: RoomInfo, 
     if (dir) {
       e.preventDefault();
       if (e.repeat || !myTurn() || bowlCam.on()) return;
-      aimHeld.add(dir);
-      setAim(aim + dir * AIM_TAP);
+      pressAim(dir);
       return;
     }
     if (e.code === "ArrowUp" || e.code === "ArrowDown") {
@@ -209,8 +231,8 @@ export function startBowling(root: HTMLElement, conn: GameLink, info: RoomInfo, 
     }
   };
   const onKeyUp = (e: KeyboardEvent) => {
-    if (e.code === "ArrowLeft") aimHeld.delete(-1);
-    else if (e.code === "ArrowRight") aimHeld.delete(1);
+    if (e.code === "ArrowLeft") releaseAim(-1);
+    else if (e.code === "ArrowRight") releaseAim(1);
     else if (e.code === "Space") endHold(true);
   };
   window.addEventListener("keydown", onKeyDown);
@@ -226,14 +248,12 @@ export function startBowling(root: HTMLElement, conn: GameLink, info: RoomInfo, 
       e.preventDefault();
       if (!myTurn()) return;
       b.setPointerCapture?.(e.pointerId);
-      if (a !== null && !bowlCam.on()) {
-        aimHeld.add(a);
-        setAim(aim + a * AIM_TAP);
-      } else if (sp !== null) setSpin(spin + sp * SPIN_STEP);
+      if (a !== null && !bowlCam.on()) pressAim(a);
+      else if (sp !== null) setSpin(spin + sp * SPIN_STEP);
       else if (bowl) startHold();
     });
     const up = (throwIt: boolean) => () => {
-      if (a !== null) aimHeld.delete(a);
+      if (a !== null && aimHeld.has(a)) releaseAim(a);
       if (bowl) endHold(throwIt);
     };
     b.addEventListener("pointerup", up(true));
@@ -435,6 +455,10 @@ export function startBowling(root: HTMLElement, conn: GameLink, info: RoomInfo, 
       if (next.phase === "aim" && (prev?.phase !== "aim" || (prev && ballKey(prev) !== ballKey(next)))) {
         holdSince = null;
         sentAim = null;
+        for (const h of aimHeld.values()) {
+          h.since = now;
+          h.applied = 0;
+        }
         if (next.turn === info.seat) sendAim(true);
         swingStart = null;
       }
@@ -534,10 +558,7 @@ export function startBowling(root: HTMLElement, conn: GameLink, info: RoomInfo, 
     raf = requestAnimationFrame(frame);
     const dt = Math.min(0.1, (now - last) / 1000);
     last = now;
-    if (myTurn() && aimHeld.size && !bowlCam.on()) {
-      const dir = (aimHeld.has(1) ? 1 : 0) - (aimHeld.has(-1) ? 1 : 0);
-      if (dir) setAim(aim + dir * AIM_RATE * dt);
-    }
+    slideAim(now);
     const m = holdSince !== null ? meterAt((now - holdSince) / 1000) : 0;
     meterBar.style.width = `${(m * 100).toFixed(1)}%`;
     canvas.dataset.meter = m.toFixed(2);

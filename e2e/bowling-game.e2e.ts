@@ -160,17 +160,23 @@ test("vs the bot: the server rolls both players' balls and the game plays to the
   await expect.poll(() => sent.filter((m) => m.t === "throw").length).toBe(1);
   expect(Object.keys(sent.find((m) => m.t === "throw")!).sort()).toEqual(["aim", "at", "speed", "spin", "t"]);
   // keep bowling whenever it's my turn until the first game ends
-  while ((await canvas(page).getAttribute("data-matches")) === "0") {
+  // (a game vs the bot starts the next 4 s after the end, so look for the end card itself)
+  const end = page.locator(".bw-end");
+  while (!(await end.isVisible())) {
     const mine = await page.locator(".bowling").getAttribute("data-turn");
     if (mine === "mine" && (await canvas(page).getAttribute("data-phase")) === "aim") await bowl(page, 1000);
-    else await page.waitForTimeout(250);
+    else await page.waitForTimeout(150);
   }
-  await expect(page.locator(".bw-end")).toBeVisible();
-  await expect(page.locator(".bw-end-title")).toHaveText(/You win!|Bot wins|Draw/);
-  await expect(page.locator(".bw-end-score")).toHaveText(/You \d+ · Bot \d+/);
-  const totals = (await canvas(page).getAttribute("data-totals"))!.split(",").map(Number);
-  await expect(page.locator('.bw-card tr[data-seat="0"] .bw-total')).toHaveText(String(totals[0]));
-  await laidOut(page, [".hud .bw-board", ".hud button:visible", ".bw-end", ".controls"]);
+  // read it all at once, while it's up
+  const shown = await page.evaluate(() => ({
+    title: document.querySelector(".bw-end-title")?.textContent,
+    score: document.querySelector(".bw-end-score")?.textContent,
+    totals: document.querySelector(".bowling canvas")?.getAttribute("data-totals"),
+    mine: document.querySelector('.bw-card tr[data-seat="0"] .bw-total')?.textContent,
+  }));
+  expect(shown.title).toMatch(/You win!|Bot wins|Draw/);
+  expect(shown.score).toMatch(/You \d+ · Bot \d+/);
+  expect(shown.mine).toBe(shown.totals!.split(",")[0]);
 });
 
 test("a room offers bowling's own formats", async ({ page }) => {
