@@ -1637,3 +1637,11 @@ the format of the entries below (see CLAUDE.md, Docs).
 - **Decided by:** user ("why did you remove the 3d stuff you just add before, that looked good, also the thumbnail is too small now"); Claude.
 - **3D:** nothing 3D was removed in round 7: the 3D card icons still load (checked: six 3D canvases drawn, the flat ones hidden). The 3D party characters were dropped in round 5 at the user's word ("the 2d version still looks much nicer"). The mock now says in its "Mock controls" tab whether the 3D icons are on, or why not (phone, reduced motion, no WebGL), so the user can see which version their browser shows; a cached old copy (Ctrl+Shift+R) is the likely cause if the tab says on but the icons look flat.
 - **Thumbnail:** back to about 58% of the panel's width (it had shrunk to a corner in round 2), capped at 30% of the window's height so the code box still fits; the title larger. Re-checked at the seven window sizes: no overflow, the join box on screen.
+
+## 2026-11-08 04:37 AEDT | milestone | Track looks agent finished (task 31, branch track-looks-31, db349cd)
+
+- **Decided by:** agent (the scene and its choices); Claude (accepting it for the merge).
+- **Result:** `pnpm check` 45 files, 722 tests, exit 0; `e2e/track` 12 passed, exit 0; tennis's layout, look and call-banner e2e 27 of 28, the one failure passing alone. The full e2e wasn't run (left to integration).
+- **Built:** an eight-lane stadium (tartan, numbers, blocks, infield, flags, a long side stand and an end stand with tennis's crowd, a finish arch with a race clock); runners as the tennis character with jointed arms and legs following the server's speed; the crowd cheering harder near the line. `character.ts` and `shared/look.ts` untouched; `stadium.ts` gained small exports (`sky`, `paintStand`, `crowdMeshes`, `FAN_SHIRTS`), tennis unchanged.
+- **Frame rate:** the first version ran at about a quarter of today's; after merging each stand's fans into one mesh, baking the light into the stadium's colours and dropping the sky gradient, it measured about equal to before on the software renderer (desktop 17-36 fps against 21-35 before, mobile 60), on a machine loaded by other agents.
+- **Open:** no e2e checks a custom look on track (read from the code only); the podium waits on task 28.
