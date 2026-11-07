@@ -143,7 +143,8 @@ function courtTexture(): CanvasTexture {
   });
 }
 
-function sky(scene: Scene, arena: Object3D, paint: Painter): void {
+/** Sky gradient, fog, clouds and distant hills (track reuses it). */
+export function sky(scene: Scene, arena: Object3D, paint: Painter): void {
   scene.background = canvasTexture(2, 256, (g) => {
     const grad = g.createLinearGradient(0, 0, 0, 256);
     grad.addColorStop(0, "#2f86dc");
@@ -362,52 +363,71 @@ function boards(paint: Painter): void {
   }
 }
 
-function stands(scene: Object3D, paint: Painter): CrowdHandle {
+/** A run of a stand's seats in one colour, in the stand's local x. */
+export interface StandHalf {
+  x0: number;
+  x1: number;
+  colour: number;
+}
+
+/**
+ * One stand into the painter: tiers of benches in each half's colour, aisle
+ * stairs, a front rail, a back wall and a roof with a coloured fascia
+ * (`fasciaOverhang` added to each half's fascia). Track reuses it, with
+ * `stepped`: each tier above the first is only its step, not a box down to
+ * the ground, which looks the same from the front at far fewer pixels drawn.
+ */
+export function paintStand(paint: Painter, s: Stand, halves: StandHalf[], fasciaOverhang = 1, stepped = false): void {
   const o = new Object3D();
   const riser = [0xc9d0d8, 0xdfe4ea];
+  o.position.set(s.x, 0, s.z);
+  o.rotation.set(0, s.angle, 0);
+  o.updateMatrix();
+  const base = o.matrix.clone();
+  // local frame: x along the stand, -z away from the court, y up
+    for (let t = 0; t < TIERS; t++) {
+    const h = WALL_H + (t + 1) * TIER_RISE;
+    const rise = stepped && t > 0 ? TIER_RISE : h;
+    paint.box(s.length, rise, TIER_DEPTH, 0, h - rise / 2, -(t + 0.5) * TIER_DEPTH, riser[t % 2], false, base);
+    // the row of seats: a coloured bench along each tier, in its section's colour
+    for (const half of halves) {
+      const len = half.x1 - half.x0;
+      paint.box(len - 0.1, 0.12, 0.36, (half.x0 + half.x1) / 2, h + 0.06, -(t + 0.55) * TIER_DEPTH, half.colour, false, base);
+      paint.box(len - 0.1, 0.34, 0.06, (half.x0 + half.x1) / 2, h + 0.2, -(t + 0.55) * TIER_DEPTH - 0.22, half.colour, false, base);
+    }
+    // aisles: pale stairs with a half step, cut through the benches
+    for (const a of s.aisles) {
+      paint.box(AISLE_HALF * 2, 0.04, TIER_DEPTH, a, h + 0.02, -(t + 0.5) * TIER_DEPTH, 0xf4f6f8, false, base);
+      paint.box(AISLE_HALF * 2, TIER_RISE / 2, TIER_DEPTH / 2, a, h + TIER_RISE / 4, -(t + 0.75) * TIER_DEPTH, 0xeef1f4, false, base);
+    }
+  }
+  // a rail along the front, a back wall, a canopy with a coloured fascia
+  const top = WALL_H + TIERS * TIER_RISE;
+  paint.box(s.length, 0.05, 0.05, 0, WALL_H + TIER_RISE + 0.9, -0.05, 0xf2f5e8, true, base);
+  paint.box(s.length, 1.4, 0.25, 0, top + 0.7, -TIERS * TIER_DEPTH - 0.12, 0x34495e, false, base);
+  const roofDepth = TIERS * TIER_DEPTH * 0.7;
+  const roof = new BoxGeometry(s.length + 1, 0.15, roofDepth).rotateX(-0.12).translate(0, top + 3.2, -TIERS * TIER_DEPTH * 0.6);
+  paint.add(roof.applyMatrix4(base), 0xf3f5f7);
+  for (const half of halves) {
+    const len = half.x1 - half.x0 + fasciaOverhang;
+    const fascia = new BoxGeometry(len, 0.42, 0.12).translate((half.x0 + half.x1) / 2, top + 3.0 + Math.sin(0.12) * (roofDepth / 2 - 0.4) + 0.2, -TIERS * TIER_DEPTH * 0.6 + roofDepth / 2);
+    paint.add(fascia.applyMatrix4(base), half.colour);
+  }
+  for (const x of [-s.length / 2, -s.length / 6, s.length / 6, s.length / 2]) {
+    paint.box(0.18, 3.4, 0.18, x, top + 1.6, -TIERS * TIER_DEPTH + 0.3, 0x5b6b7b, false, base);
+  }
+}
+
+function stands(scene: Object3D, paint: Painter): CrowdHandle {
   for (const [name, s] of Object.entries(STANDS) as [keyof typeof STANDS, Stand][]) {
-    o.position.set(s.x, 0, s.z);
-    o.rotation.set(0, s.angle, 0);
-    o.updateMatrix();
-    const base = o.matrix.clone();
-    // local frame: x along the stand, -z away from the court, y up
-    const halves: { x0: number; x1: number; colour: number }[] =
+    const halves: StandHalf[] =
       name === "front"
         ? [
             { x0: -s.length / 2, x1: 0, colour: SECTION_COLOUR.frontLeft },
             { x0: 0, x1: s.length / 2, colour: SECTION_COLOUR.frontRight },
           ]
         : [{ x0: -s.length / 2, x1: s.length / 2, colour: SECTION_COLOUR[name] }];
-    for (let t = 0; t < TIERS; t++) {
-      const h = WALL_H + (t + 1) * TIER_RISE;
-      paint.box(s.length, h, TIER_DEPTH, 0, h / 2, -(t + 0.5) * TIER_DEPTH, riser[t % 2], false, base);
-      // the row of seats: a coloured bench along each tier, in its section's colour
-      for (const half of halves) {
-        const len = half.x1 - half.x0;
-        paint.box(len - 0.1, 0.12, 0.36, (half.x0 + half.x1) / 2, h + 0.06, -(t + 0.55) * TIER_DEPTH, half.colour, false, base);
-        paint.box(len - 0.1, 0.34, 0.06, (half.x0 + half.x1) / 2, h + 0.2, -(t + 0.55) * TIER_DEPTH - 0.22, half.colour, false, base);
-      }
-      // aisles: pale stairs with a half step, cut through the benches
-      for (const a of s.aisles) {
-        paint.box(AISLE_HALF * 2, 0.04, TIER_DEPTH, a, h + 0.02, -(t + 0.5) * TIER_DEPTH, 0xf4f6f8, false, base);
-        paint.box(AISLE_HALF * 2, TIER_RISE / 2, TIER_DEPTH / 2, a, h + TIER_RISE / 4, -(t + 0.75) * TIER_DEPTH, 0xeef1f4, false, base);
-      }
-    }
-    // a rail along the front, a back wall, a canopy with a coloured fascia
-    const top = WALL_H + TIERS * TIER_RISE;
-    paint.box(s.length, 0.05, 0.05, 0, WALL_H + TIER_RISE + 0.9, -0.05, 0xf2f5e8, true, base);
-    paint.box(s.length, 1.4, 0.25, 0, top + 0.7, -TIERS * TIER_DEPTH - 0.12, 0x34495e, false, base);
-    const roofDepth = TIERS * TIER_DEPTH * 0.7;
-    const roof = new BoxGeometry(s.length + 1, 0.15, roofDepth).rotateX(-0.12).translate(0, top + 3.2, -TIERS * TIER_DEPTH * 0.6);
-    paint.add(roof.applyMatrix4(base), 0xf3f5f7);
-    for (const half of halves) {
-      const len = half.x1 - half.x0 + (name === "front" ? 0.5 : 1);
-      const fascia = new BoxGeometry(len, 0.42, 0.12).translate((half.x0 + half.x1) / 2, top + 3.0 + Math.sin(0.12) * (roofDepth / 2 - 0.4) + 0.2, -TIERS * TIER_DEPTH * 0.6 + roofDepth / 2);
-      paint.add(fascia.applyMatrix4(base), half.colour);
-    }
-    for (const x of [-s.length / 2, -s.length / 6, s.length / 6, s.length / 2]) {
-      paint.box(0.18, 3.4, 0.18, x, top + 1.6, -TIERS * TIER_DEPTH + 0.3, 0x5b6b7b, false, base);
-    }
+    paintStand(paint, s, halves, name === "front" ? 0.5 : 1);
   }
 
   // the low wall around the inner grass, with a bright cap
@@ -422,7 +442,7 @@ function stands(scene: Object3D, paint: Painter): CrowdHandle {
   return crowd(scene);
 }
 
-const SHIRTS = [0xff5d5d, 0xffb347, 0xfff07a, 0x7ad8ff, 0x5d8bff, 0xc77dff, 0xff7ac8, 0xffffff, 0x7aff9b, 0xff9d5d];
+export const FAN_SHIRTS = [0xff5d5d, 0xffb347, 0xfff07a, 0x7ad8ff, 0x5d8bff, 0xc77dff, 0xff7ac8, 0xffffff, 0x7aff9b, 0xff9d5d];
 const SKIN = [0xf6d2b0, 0xe8b48c, 0xc68a5e, 0x8d5a3b, 0xfbe0c8];
 // share of each section's fans wearing its colour
 const FAN_SHARE = 0.3;
@@ -446,15 +466,38 @@ export interface CrowdHandle {
 
 function crowd(scene: Object3D): CrowdHandle {
   const layout = crowdLayout();
-  const rand = rng(43);
-  const n = layout.seats.length;
+  const fans = crowdMeshes(layout.seats, (seat, rand) => (rand() < FAN_SHARE ? SECTION_COLOUR[seat.section] : FAN_SHIRTS[Math.floor(rand() * FAN_SHIRTS.length)]));
+  scene.add(fans.bodies, fans.heads);
+  return { layout, ...fans };
+}
+
+/** Where one fan sits: feet position and the turn about y that faces the action. */
+export interface FanSpot {
+  x: number;
+  y: number;
+  z: number;
+  facing: number;
+}
+
+/**
+ * Instanced fans on the given spots (one mesh for bodies, one for heads;
+ * instance i is `seats[i]`), seated with a seeded jitter. `shirt` picks each
+ * fan's top from the same seeded stream. Track reuses it for its own stands.
+ */
+export function crowdMeshes<T extends FanSpot>(
+  seats: T[],
+  shirt: (seat: T, rand: () => number) => number,
+  seed = 43,
+): Omit<CrowdHandle, "layout"> {
+  const rand = rng(seed);
+  const n = seats.length;
   const bodies = new InstancedMesh(new BoxGeometry(0.42, 0.55, 0.32), new MeshLambertMaterial({ color: 0xffffff, flatShading: true }), n);
   const heads = new InstancedMesh(new IcosahedronGeometry(0.17, 0), new MeshLambertMaterial({ color: 0xffffff, flatShading: true }), n);
   const color = new Color();
   const o = new Object3D();
   const restBody: Matrix4[] = [];
   const restHead: Matrix4[] = [];
-  layout.seats.forEach((seat, i) => {
+  seats.forEach((seat, i) => {
     const bob = (rand() - 0.5) * 0.08;
     const wide = 0.9 + rand() * 0.22;
     o.rotation.set(0, seat.facing + (rand() - 0.5) * 0.3, 0);
@@ -468,14 +511,12 @@ function crowd(scene: Object3D): CrowdHandle {
     o.updateMatrix();
     restHead.push(o.matrix.clone());
     heads.setMatrixAt(i, o.matrix);
-    const shirt = rand() < FAN_SHARE ? SECTION_COLOUR[seat.section] : SHIRTS[Math.floor(rand() * SHIRTS.length)];
-    bodies.setColorAt(i, color.setHex(shirt));
+    bodies.setColorAt(i, color.setHex(shirt(seat, rand)));
     heads.setColorAt(i, color.setHex(SKIN[Math.floor(rand() * SKIN.length)]));
   });
   bodies.name = "crowd-bodies";
   heads.name = "crowd-heads";
-  scene.add(bodies, heads);
-  return { layout, bodies, heads, restBody, restHead };
+  return { bodies, heads, restBody, restHead };
 }
 
 function trees(scene: Object3D): void {
