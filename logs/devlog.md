@@ -1537,3 +1537,10 @@ the format of the entries below (see CLAUDE.md, Docs).
 - **Who plays next in a party** (user): the leader picks, or chooses "rotate" or "randomise".
 - **Customisation** (user): a cleaner UI with more options: clothes, eyewear, smiles, facial hair, eye shape, nose shape and more.
 - **Open:** how to tell apart people with the same name when adding friends (Claude: chosen names are already unique ignoring case on the server; guests' pseudonyms aren't chosen, and guests can't be friended).
+
+## 2026-11-08 02:45 AEDT | decision | Names get a 4-digit tag (Name#1234); rotate has two modes
+
+- **Decided by:** user ("we can do the # with the 4 random numbers, and if... all codes with that name are taken notify the user"; rotate as "winner stays on" or "both swap out", both offered); Claude (the options and the trade-off: unique names already worked, a tag lets several people share a name).
+- **Rule:** an account's name becomes a chosen name plus a random 4-digit tag, e.g. `Sam#4821`. Several accounts may share a name; the name and tag together are unique. If every tag for that name is taken (all 10,000), the user is told to pick another name. Friendships, ratings and history stay stored by the hidden account id, never the name; the id is never shown.
+- **Party modes:** leader picks, winner stays on, both swap out, randomise.
+- **Changes this means (not built):** a schema step giving each existing account a tag, the name rules and the unique index (today "unique ignoring case" in CLAUDE.md and `spec/accounts.test.ts`), and everywhere a name is looked up. Where the tag shows (friends list and profile only, or everywhere) is still open.
