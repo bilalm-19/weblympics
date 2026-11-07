@@ -1,0 +1,338 @@
+/* Basketball (task 32): the score board, the shot clock, the call after a
+   shot, the hint, the power bar with its green zone, the end card and the
+   three buttons, laid over the court's canvas like the other games' HUDs. */
+
+.basketball .bb-board {
+  display: grid;
+  gap: 0.15rem;
+  width: min(24rem, 100%);
+  min-width: 0;
+  padding: 0.35rem 0.6rem;
+  border-radius: 10px;
+  background: #0f1720cc;
+  color: #fff;
+  font-variant-numeric: tabular-nums;
+}
+
+.basketball .bb-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+}
+
+.basketball .bb-spot {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.basketball .bb-clock {
+  min-width: 2.2rem;
+  padding: 0 0.4rem;
+  border-radius: 6px;
+  background: #1d1d1f;
+  color: #ffd23f;
+  font-weight: 800;
+  font-size: 1.05rem;
+  text-align: center;
+}
+
+.basketball .bb-clock[data-low="true"] {
+  color: #ff6b5e;
+}
+
+.basketball .bb-clock[hidden] {
+  display: none;
+}
+
+.basketball .bb-bonus {
+  font-size: 0.75rem;
+  opacity: 0.8;
+}
+
+.basketball .bb-row {
+  display: grid;
+  grid-template-columns: minmax(3rem, 7rem) 1fr 2.4rem;
+  align-items: center;
+  gap: 0.5rem;
+  border-left: 4px solid var(--seat);
+  padding-left: 0.4rem;
+}
+
+.basketball .bb-row[data-turn="true"] .bb-name::after {
+  content: " ◀";
+  color: var(--seat);
+}
+
+.basketball .bb-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.basketball .bb-shots {
+  overflow: hidden;
+  white-space: nowrap;
+  letter-spacing: 0.08em;
+  font-size: 0.85rem;
+}
+
+.basketball .bb-total {
+  text-align: right;
+  font-size: 1.15rem;
+}
+
+.basketball .hud .status {
+  font-weight: 700;
+  text-shadow: 0 1px 3px #000a;
+}
+
+/* the ready cue: the turn line glows while the shooter is set */
+.basketball[data-set="true"] .hud .status {
+  color: #ffd23f;
+}
+
+/* the call: over the asphalt between the hoop and the shooter, so the ball
+   dropping through the net stays in view; clear of the HUD and the bar */
+.basketball .bb-call {
+  position: absolute;
+  left: 50%;
+  top: 60%;
+  transform: translate(-50%, -50%);
+  display: grid;
+  justify-items: center;
+  gap: 0.1rem;
+  max-width: calc(100% - 1.5rem);
+  padding: 0.35rem 1.3rem;
+  border-radius: 12px;
+  background: #0f1720dd;
+  color: #fff;
+  text-align: center;
+  pointer-events: none;
+  animation: bb-pop 0.25s ease-out;
+}
+
+.basketball .bb-call strong {
+  font-size: clamp(1.6rem, 6vw, 3rem);
+  font-weight: 800;
+  line-height: 1.1;
+}
+
+.basketball .bb-call span {
+  font-size: 0.95rem;
+  opacity: 0.9;
+}
+
+.basketball .bb-call span:empty {
+  display: none;
+}
+
+.basketball .bb-call[data-kind="big"] strong {
+  color: #ffd23f;
+}
+
+.basketball .bb-call[data-kind="make"] strong {
+  color: #7ee08a;
+}
+
+.basketball .bb-call[data-kind="miss"] strong {
+  color: #ffb3a8;
+}
+
+.basketball .bb-call[hidden] {
+  display: none;
+}
+
+@keyframes bb-pop {
+  from {
+    transform: translate(-50%, -50%) scale(0.6);
+    opacity: 0;
+  }
+}
+
+/* the hint and the power bar sit just above the buttons */
+.basketball .bb-lower {
+  position: absolute;
+  left: 50%;
+  bottom: calc(max(1rem, env(safe-area-inset-bottom)) + 4.4rem);
+  transform: translateX(-50%);
+  width: min(26rem, calc(100% - 1.5rem));
+  display: grid;
+  gap: 0.4rem;
+  pointer-events: none;
+}
+
+/* the hint sits under the turn line, at the top, clear of the shooter and the floor arrow */
+.basketball .bb-hint {
+  width: min(34rem, 100%);
+  margin: 0 auto;
+  box-sizing: border-box;
+  padding: 0.3rem 0.6rem;
+  border-radius: 8px;
+  background: #0f1720cc;
+  color: #fff;
+  font-size: 0.85rem;
+  text-align: center;
+}
+
+.basketball .bb-hint[hidden],
+.basketball .bb-power[hidden] {
+  display: none;
+}
+
+.basketball .bb-power {
+  padding: 0.35rem 0.6rem 0.25rem;
+  border-radius: 10px;
+  background: #0f1720cc;
+  color: #fff;
+}
+
+.basketball .bb-power-label {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.85rem;
+}
+
+.basketball .bb-power[data-verdict="Just right"] .bb-verdict {
+  color: #7ee08a;
+}
+
+.basketball .bb-power[data-verdict="Too soft"] .bb-verdict,
+.basketball .bb-power[data-verdict="Too hard"] .bb-verdict {
+  color: #ffb3a8;
+}
+
+.basketball .bb-power-bar {
+  position: relative;
+  height: 0.9rem;
+  margin-top: 0.2rem;
+  border-radius: 999px;
+  background: #ffffff22;
+  overflow: hidden;
+}
+
+.basketball .bb-power-bar i {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+}
+
+.basketball .bb-zone {
+  background: #2fb84f;
+}
+
+.basketball .bb-fill {
+  left: 0;
+  background: #ffffff55;
+}
+
+.basketball .bb-mark {
+  width: 3px;
+  margin-left: -1.5px;
+  background: #ffd23f;
+}
+
+.basketball .bb-power-ends {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.7rem;
+  opacity: 0.7;
+}
+
+/* the end card: a simple card (task 28's podium comes later) */
+.basketball .bb-end {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: min(22rem, calc(100% - 2rem));
+  box-sizing: border-box;
+  display: grid;
+  gap: 0.4rem;
+  padding: 1rem 1.2rem;
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--bg) 95%, transparent);
+  box-shadow: 0 8px 30px #0008;
+  text-align: center;
+}
+
+.basketball .bb-end[hidden] {
+  display: none;
+}
+
+.basketball .bb-end h2 {
+  margin: 0;
+  font-size: 1.6rem;
+}
+
+.basketball .bb-end-score {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+
+.basketball .bb-end-lines {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  text-align: left;
+}
+
+.basketball .bb-end-lines li {
+  border-left: 4px solid var(--seat);
+  padding-left: 0.5rem;
+  margin: 0.2rem 0;
+}
+
+/* the end card covers the call and the bar while it is up */
+.basketball.show-end .bb-call,
+.basketball.show-end .bb-lower {
+  display: none;
+}
+
+.basketball .bb-controls .bb-shoot {
+  flex: 0 1 12rem;
+  font-size: 1.15rem;
+  font-weight: 800;
+}
+
+.basketball .bb-controls .move {
+  flex: 0 0 56px;
+  font-size: 1.2rem;
+}
+
+@media (max-width: 600px) {
+  .basketball .bb-board {
+    font-size: 0.85rem;
+  }
+
+  .basketball .bb-call {
+    top: 54%;
+  }
+
+  .basketball .bb-hint {
+    font-size: 0.75rem;
+  }
+
+  .basketball .bb-controls .bb-shoot {
+    flex: 1 1 auto;
+    min-height: 64px;
+  }
+
+  .basketball .bb-controls .move {
+    min-height: 64px;
+    flex: 0 0 64px;
+  }
+
+  .basketball .bb-lower {
+    bottom: calc(max(1rem, env(safe-area-inset-bottom)) + 5rem);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .basketball .bb-call {
+    animation: none;
+  }
+}

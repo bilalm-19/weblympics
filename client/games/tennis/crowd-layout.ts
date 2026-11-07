@@ -93,19 +93,41 @@ export function seatColumns(s: Stand): number[] {
   return xs;
 }
 
+/** A stand's steps: how many tiers, how deep and how high each, and the wall the first one sits on. */
+export interface Tiers {
+  tiers: number;
+  depth: number;
+  rise: number;
+  wall: number;
+}
+
+export const TENNIS_TIERS: Tiers = { tiers: TIERS, depth: TIER_DEPTH, rise: TIER_RISE, wall: WALL_H };
+
+/**
+ * The occupied seats of one stand, tier by tier, each in the section
+ * `sectionOf` gives for its local x along the stand. Shared with other
+ * sports' stands (basketball's bleachers, task 32), so every crowd is seated
+ * the same way.
+ */
+export function standSeats(s: Stand, tiers: Tiers, rand: () => number, sectionOf: (lx: number) => CrowdSection): CrowdSeat[] {
+  const out: CrowdSeat[] = [];
+  for (let t = 0; t < tiers.tiers; t++) {
+    const y = tiers.wall + (t + 1) * tiers.rise;
+    for (const lx of seatColumns(s)) {
+      if (rand() >= OCCUPANCY) continue;
+      const p = standToArena(s, lx, y, -(t + 0.55) * tiers.depth);
+      out.push({ section: sectionOf(lx), ...p, facing: s.angle, tier: t });
+    }
+  }
+  return out;
+}
+
 export function crowdLayout(seed = 42): CrowdLayout {
   const rand = rng(seed);
   const bySection: Record<CrowdSection, CrowdSeat[]> = { left: [], right: [], frontLeft: [], frontRight: [] };
   for (const [name, s] of Object.entries(STANDS) as [keyof typeof STANDS, Stand][]) {
-    for (let t = 0; t < TIERS; t++) {
-      const y = WALL_H + (t + 1) * TIER_RISE;
-      for (const lx of seatColumns(s)) {
-        if (rand() >= OCCUPANCY) continue;
-        const p = standToArena(s, lx, y, -(t + 0.55) * TIER_DEPTH);
-        const section: CrowdSection = name === "front" ? (lx < 0 ? "frontLeft" : "frontRight") : name;
-        bySection[section].push({ section, ...p, facing: s.angle, tier: t });
-      }
-    }
+    const sectionOf = (lx: number): CrowdSection => (name === "front" ? (lx < 0 ? "frontLeft" : "frontRight") : name);
+    for (const seat of standSeats(s, TENNIS_TIERS, rand, sectionOf)) bySection[seat.section].push(seat);
   }
   const seats: CrowdSeat[] = [];
   const ranges = {} as CrowdLayout["ranges"];

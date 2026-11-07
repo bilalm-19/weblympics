@@ -143,7 +143,8 @@ function courtTexture(): CanvasTexture {
   });
 }
 
-function sky(scene: Scene, arena: Object3D, paint: Painter): void {
+/** The sky, clouds and far hills, for a camera looking down -z (basketball's park reuses it). */
+export function sky(scene: Scene, arena: Object3D, paint: Painter): void {
   scene.background = canvasTexture(2, 256, (g) => {
     const grad = g.createLinearGradient(0, 0, 0, 256);
     grad.addColorStop(0, "#2f86dc");
@@ -445,8 +446,16 @@ export interface CrowdHandle {
 }
 
 function crowd(scene: Object3D): CrowdHandle {
-  const layout = crowdLayout();
-  const rand = rng(43);
+  return seatCrowd(scene, crowdLayout(), SECTION_COLOUR);
+}
+
+/**
+ * Seats a crowd: one instanced mesh of bodies and one of heads for `layout`'s
+ * seats, a share of each section's fans in its colour. Tennis's arena and
+ * basketball's bleachers (task 32) both use it.
+ */
+export function seatCrowd(scene: Object3D, layout: CrowdLayout, sectionColour: Partial<Record<CrowdSection, number>>, seed = 43): CrowdHandle {
+  const rand = rng(seed);
   const n = layout.seats.length;
   const bodies = new InstancedMesh(new BoxGeometry(0.42, 0.55, 0.32), new MeshLambertMaterial({ color: 0xffffff, flatShading: true }), n);
   const heads = new InstancedMesh(new IcosahedronGeometry(0.17, 0), new MeshLambertMaterial({ color: 0xffffff, flatShading: true }), n);
@@ -468,7 +477,7 @@ function crowd(scene: Object3D): CrowdHandle {
     o.updateMatrix();
     restHead.push(o.matrix.clone());
     heads.setMatrixAt(i, o.matrix);
-    const shirt = rand() < FAN_SHARE ? SECTION_COLOUR[seat.section] : SHIRTS[Math.floor(rand() * SHIRTS.length)];
+    const shirt = rand() < FAN_SHARE ? (sectionColour[seat.section] ?? SHIRTS[0]) : SHIRTS[Math.floor(rand() * SHIRTS.length)];
     bodies.setColorAt(i, color.setHex(shirt));
     heads.setColorAt(i, color.setHex(SKIN[Math.floor(rand() * SKIN.length)]));
   });
@@ -486,6 +495,11 @@ function trees(scene: Object3D): void {
     spots.push([side * (INNER.halfW + 14 + rand() * 10), -INNER.halfL - 6 + rand() * (INNER.halfL * 2 + 6)]);
   }
   for (let i = 0; i < 16; i++) spots.push([(rand() - 0.5) * 60, -INNER.halfL - 14 - rand() * 12]);
+  plantTrees(scene, spots, rand);
+}
+
+/** Low-poly trees at `spots` (x, z): trunks, cones and crowns, instanced, three draw calls. Basketball's park reuses them. */
+export function plantTrees(scene: Object3D, spots: [number, number][], rand: () => number): void {
 
   const flat = (color: number) => new MeshLambertMaterial({ color, flatShading: true });
   const leaves = new InstancedMesh(new ConeGeometry(1.6, 4.2, 7), flat(0x2f7a3a), spots.length);

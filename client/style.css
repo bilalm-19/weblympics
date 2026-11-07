@@ -1320,6 +1320,105 @@ a:focus-visible {
   }
 }
 
+/* Basketball: the shooter dips and pushes up, the ball arcs high and drops
+   through the hoop (smaller as it goes away), the chain net ripples. */
+.loop-hoop-ball {
+  animation: hoop-ball 2.6s ease-in-out infinite;
+}
+
+.loop-hoop-arms {
+  animation: hoop-arms 2.6s ease-in-out infinite;
+}
+
+.loop-shooter {
+  animation: hoop-shooter 2.6s ease-in-out infinite;
+}
+
+.loop-net {
+  transform-origin: 160px 52px;
+  animation: hoop-net 2.6s ease-out infinite;
+}
+
+@keyframes hoop-ball {
+  0%,
+  18% {
+    transform: translate(160px, 96px) scale(1);
+    opacity: 1;
+  }
+  26% {
+    transform: translate(160px, 86px) scale(0.95);
+  }
+  44% {
+    transform: translate(160px, 14px) scale(0.6);
+  }
+  60% {
+    transform: translate(160px, 50px) scale(0.45);
+  }
+  70% {
+    transform: translate(160px, 66px) scale(0.45);
+    opacity: 1;
+  }
+  76%,
+  94% {
+    transform: translate(160px, 78px) scale(0.45);
+    opacity: 0;
+  }
+  100% {
+    transform: translate(160px, 96px) scale(1);
+    opacity: 0;
+  }
+}
+
+@keyframes hoop-arms {
+  0%,
+  10% {
+    transform: translateY(24px);
+  }
+  20% {
+    transform: translateY(30px);
+  }
+  27%,
+  60% {
+    transform: translateY(0);
+  }
+  80%,
+  100% {
+    transform: translateY(24px);
+  }
+}
+
+@keyframes hoop-shooter {
+  0%,
+  10%,
+  40%,
+  100% {
+    transform: translateY(0);
+  }
+  20% {
+    transform: translateY(3px);
+  }
+  27% {
+    transform: translateY(-4px);
+  }
+}
+
+@keyframes hoop-net {
+  0%,
+  62% {
+    transform: none;
+  }
+  68% {
+    transform: scale(0.85, 1.2);
+  }
+  76% {
+    transform: scale(1.08, 0.95);
+  }
+  84%,
+  100% {
+    transform: none;
+  }
+}
+
 /* Mystery tiles: the question marks bob and the sparkles twinkle. */
 .loop-mystery {
   transform-origin: 160px 90px;
@@ -1388,6 +1487,10 @@ a:focus-visible {
 
   .loop-spark {
     opacity: 1;
+  }
+
+  .loop-hoop-ball {
+    transform: translate(160px, 30px) scale(0.55);
   }
 }
 
