@@ -258,14 +258,14 @@ function mysteryThumb(): string {
 }
 
 /**
- * The sports on the home screen, in menu order. Tennis, archery and track
- * are playable (CLAUDE.md). The others are "coming soon" placeholders:
+ * The sports on the home screen, in menu order. Tennis, bowling, archery,
+ * track and boxing are playable (CLAUDE.md). The others are "coming soon" placeholders:
  * aria-disabled, they only change the preview, can't be selected and never
  * reach the server. Delete an entry to drop it.
  */
 export const SPORTS: Sport[] = [
   { id: "tennis", name: "Tennis", playable: true, icon: ICONS.tennis, blurb: "Rally against the bot or a friend. Swing with your camera or the keyboard.", thumbnail: tennisThumb },
-  { id: "bowling", name: "Bowling", playable: false, icon: ICONS.bowling, blurb: "Coming soon.", thumbnail: bowlingThumb },
+  { id: "bowling", name: "Bowling", playable: true, icon: ICONS.bowling, blurb: "Five frames against the bot or a friend. Pick your spot, add some curve and bowl with the keyboard or buttons.", thumbnail: bowlingThumb },
   { id: "archery", name: "Archery", playable: true, icon: ICONS.archery, blurb: "Read the wind and hit the gold, stage by stage. Draw with your camera or the mouse.", thumbnail: archeryThumb },
   { id: "track", name: "Track", playable: true, icon: ICONS.track, blurb: "Sprint 100 m against the bot or a friend. Run on the spot with your camera, or tap A and D.", thumbnail: trackThumb },
   { id: "boxing", name: "Boxing", playable: true, icon: ICONS.boxing, blurb: "Three rounds of 30 seconds against the bot or a friend. Jab, hook and guard with the keyboard or buttons.", thumbnail: boxingThumb },
