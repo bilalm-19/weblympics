@@ -51,7 +51,7 @@ Waits on: the basketball and bowling merges (they change the protocol and rooms)
   small messages on the one connection each tab opens at load (the same one
   rooms use); no polling, no second connection. On reconnect the server
   sends the current friends list and party once, so nothing missed is lost.
-  Friend links and adding by name are \`/api\` POSTs like the account routes
+  Friend links and adding by name are `/api` POSTs like the account routes
   (Origin checked, rate limited).
 - **Server:** new tables (friendships, friend links, parties are in memory),
   a schema step with an old-db test, name tags as a schema step that gives
