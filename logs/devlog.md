@@ -1569,3 +1569,9 @@ the format of the entries below (see CLAUDE.md, Docs).
 
 - **Decided by:** user ("we arent leaving stuff after the deadline"), answering Claude's suggestion to leave tasks 19, 27, 25 and 9 until after noon Monday.
 - **Effect:** every open task is planned to finish before the deadline (19 crowd and sound, 27 hurdles, 25 swing feel, 9 menu polish, 28 podium, 34 friends and parties, the boxing fixes), alongside the merges, README and ship. Claude to plan the waves so the shared files (protocol, room, menu, character) merge cleanly and the e2e load stays within the headless limit.
+
+## 2026-11-08 03:12 AEDT | decision | Sound for every game, a friendlier crowd, jazz on the home screen
+
+- **Decided by:** user (music made in the browser; "aww" and groans instead of boos; all games, each with its own sounds: "tennis swing and ball bounce, boxing gloves hits and bell"; "sure sounds good" to the placed crowd); Claude (the shared module, the per-game sound lists, how spectators hear it).
+- **How the crowd sounds:** one crowd: everyone hears the winner's cheer and the loser's "aww" together, each panned and weighted to where its stand is on that screen; a spectator hears seat 1's side on the left. Worked out on each screen from the snapshot, as the point call is; no network message.
+- **Task 19** widened accordingly (shared `client/audio/`, per-game sounds, home-screen jazz loop from Web Audio, music and effects toggles).

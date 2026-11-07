@@ -1,6 +1,6 @@
 # 19 Crowd reactions and sound
 
-Status: queued, to start on Opus 5.5 once the integration branch is green and
+Status: widened to every game (user, 2026-11-08); to start next. Earlier: queued, to start on Opus 5.5 once the integration branch is green and
 merged (user, 2026-10-29). Tasks 16 and 20 are built, so both of its inputs
 exist; it must branch from the merged result, not from `main` before the merge.
 Model: Opus 5.5 for all of it (design, audio module, wiring and tests)
@@ -20,6 +20,32 @@ Session: its own session (B and C are finished)
   section belongs to is this task's job.
 - **Archery shares the room code:** the room, banner and score logic is tennis's;
   archery has its own view, so sound for archery is out of scope here.
+
+## Widened (user, 2026-11-08)
+- **Every game,** not only tennis: one shared module in `client/audio/`
+  (mute, separate music and effects toggles, volume, sound only after the
+  first gesture, the crowd), and each game's own sounds:
+  - tennis: racket whoosh, hit by strength, bounce, net cord, an "out" and
+    "fault" tone
+  - boxing: glove hits (duller when blocked), a whoosh on a slip, the round
+    bell, ding-ding at a KO
+  - archery: string creak on the draw, release twang, arrow thunk (louder
+    for a 10), wind by strength
+  - track: "set" and the gun, footsteps by cadence, the finish roar
+  - basketball and bowling: their agents' sounds moved onto the module
+- **Friendlier crowd** (user): "aww" and groans, never boos (replaces the
+  boo decided on 2026-10-21).
+- **One crowd, placed by side:** everyone hears both sides at once, the
+  winner's cheer and the loser's "aww". Each side's sound is panned and
+  weighted to where its stand is on that screen: your side nearer and
+  louder; a spectator gets seat 1's side on the left speaker and seat 2's
+  on the right. Worked out on each screen from the snapshot; no network
+  message. Bigger moments get bigger reactions.
+- **Home screen music** (user: made in the browser): a playful jazz loop
+  (walking bass, brushed drums, piano chords) from Web Audio, no file,
+  built so a recording could replace it; fades out into a game and back
+  in on return; behind the music toggle.
+- Nothing waits until after the deadline (user, 2026-11-08).
 
 ## Goal
 The crowd reacts to every point, and you hear it.
