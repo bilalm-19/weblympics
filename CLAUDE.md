@@ -52,7 +52,16 @@ lazily and only when a player enters a game. Video never leaves the browser.
   vote, the 2D lane: ball path and bend, ball-pin and pin-pin circles,
   `simulateThrow`, `aimFor`, `speedZone` for the after-ball read),
   `bot.ts` (`solveThrow`: the pocket, or the most of the leftovers, plus
-  noise), `index.ts` (adapter).
+  noise), `index.ts` (adapter). Its client (part 2) is
+  `client/games/bowling/`: `view.ts` (frame scoreboard, turn, clock, tie
+  vote, end card, keys and buttons), `scene.ts` (cameras: behind the
+  bowler, following the ball, the pin deck; side-on for a spectator),
+  `alley.ts` (the hall from merged primitives, tennis's crowd via
+  `crowdMeshes`), `calls.ts` (pure: the call, speed and curve read, the
+  guide arrow, the meter: `spec/bowling-calls.test.ts`), `sound.ts`
+  (WebAudio), `practice.ts` + `practice-sim.ts`, `bowling.css`,
+  `bowl-camera.ts` (part 3's camera; a no-op stub until it lands); it
+  reuses tennis's ready panel.
   `shared/look.ts`
   is the fixed palette and hat/hair list for a player's look (task 18).
 - `server/` `index.ts` (http + ws + `/readme/`), `rooms.ts` (live rooms with
@@ -233,7 +242,7 @@ lazily and only when a player enters a game. Video never leaves the browser.
 - Game logic stays deterministic (seed + input stream) so it can be tested.
 - Tennis, archery (task 22) and track (tasks 26-27, one game with two
   events: the sprint is playable, hurdles is task 27) are the games; boxing
-  (task 30, a "maybe") is playable on keys, buttons or the camera in a 3D ring; bowling (task 29, asked for) has its rules registered, no client yet. Add another only when I ask. Each lives in `shared/games/<name>/` and registers in the registry, so
+  (task 30, a "maybe") is playable on keys, buttons or the camera in a 3D ring; bowling (task 29, asked for) is playable on keys and buttons (its camera is part 3). Add another only when I ask. Each lives in `shared/games/<name>/` and registers in the registry, so
   rooms, lobby and reconnect stay game-agnostic. A game's specs are named
   `spec/<name>-*.test.ts` and `e2e/<name>-*.e2e.ts`.
 - Video never leaves the browser. The game page's CSP `connect-src` allows
@@ -327,8 +336,8 @@ lazily and only when a player enters a game. Video never leaves the browser.
   and a recorder only (move 9 records a lean). Keys: J head jab, K body jab, hold Space
   high guard, hold L low guard, hold A/D to lean; six buttons on a phone
   (the slip ones held like the guards).
-- Bowling (task 29, `docs/adr/004-bowling.md`; `spec/bowling-*.test.ts`;
-  rules only so far, no client): five frames each, real ten-pin scoring
+- Bowling (task 29, `docs/adr/004-bowling.md`; `spec/bowling-*.test.ts`,
+  `e2e/bowling-*.e2e.ts`): five frames each, real ten-pin scoring
   (the fifth frame's bonus balls, perfect 150), frames alternate, seat 0
   first. Clients send exactly `aim` {aim}, `throw` {speed, aim, spin, at}
   and `tie` {choice "draw"|"continue"}; anything else or any extra field is
@@ -345,7 +354,14 @@ lazily and only when a player enters a game. Video never leaves the browser.
   score, unrated). The physics numbers are first guesses
   (`spec/bowling-physics.test.ts` holds what they must do: a pocket ball at
   speed strikes, a curving one more often than a straight one, a slow ball
-  leaves pins, a head-on hit can split, spares are pickable).
+  leaves pins, a head-on hit can split, spares are pickable). On screen:
+  "Your turn" / "Their turn, watch"; the guide arrow shows only the start
+  and the first third of the lane (never the bend or the end); the last
+  path stays faint; after each ball the speed against `speedZone(spin)`
+  (just the speed when null) and "Curve: ..." with the call. Keys: Left/
+  Right start spot, Up/Down curve, hold Space (or Bowl) to fill a meter
+  that rises and falls, let go to throw; D/C vote in a tie. Practice runs
+  in the page; nothing sent to the server.
 - Camera is used for gameplay only. Every camera action has a keyboard/mouse
   equivalent, and the lobby and room work with no camera at all.
 - Webcam is the default (task 15, `e2e/webcam-default.e2e.ts`): a seated

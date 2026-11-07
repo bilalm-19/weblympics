@@ -2,7 +2,7 @@
 
 Weblympics - A webcam-controlled sports game, played against a bot or another person over the web!
 
-Currently: four events - TENNIS, ARCHERY, the TRACK sprint and BOXING
+Currently: five events - TENNIS, BOWLING, ARCHERY, the TRACK sprint and BOXING
 
 The shape is built to hold more: a shared game registry, a server that owns the simulation, and a client that just renders whatever the server says. Archery, track and boxing came through it.
 
@@ -32,6 +32,8 @@ Webcam is the default; "Use keyboard instead" plays on keys. In tennis: by defau
 In archery: hold an imaginary bow. Your front hand aims, pulling the other back sets strength, snapping it forward shoots. A dot shows the landing without wind; reading the wind is up to you.
 
 In track: run on the spot (arms or knees), or alternate A and D. Only footsteps are sent; the server turns their rhythm into speed and ignores the same foot twice or faster-than-human steps.
+
+In bowling: Left/Right pick the start spot, Up/Down the curve; hold Space (or Bowl) and let go. The server rolls ball and pins.
 
 In boxing you jab to the head or body and defend with a high guard, a low guard or a slip. The server judges each jab when it lands, so defending in time still saves you.
 
