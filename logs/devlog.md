@@ -1464,3 +1464,9 @@ the format of the entries below (see CLAUDE.md, Docs).
 - **Criteria:** A1, A2 (3 inputs, curve optional), B, C, D, E pass; A3 to A6 concerns; the release undefined failed as written; C4 needs the late-throw line; F1 open.
 - **Changes accepted:** plain words ("Your turn"); a hips silhouette; the arrow follows the hand in the setup step; the release is the wrist passing the hip going forward, with the character copying the arm (no backswing needed); the swing measured against the shoulders so steps and crouches are allowed; curve read only about 0.15 s around the release; the speed and curve read shown after each ball; aim from the hand's position across the whole picture, so walking works too.
 - **Written:** `docs/adr/004-bowling.md`; `tasks/29-bowling.md` rewritten (rules agent first, then scene and camera in parallel; ten recordings for the user); the overview row. Next: the bowling rules agent on port 8202.
+
+## 2026-11-08 00:22 AEDT | decision | Bowling: a tie asks both players, draw or a tie frame
+
+- **Decided by:** user ("keep the extra tie frame - but have the players decide draw or not - even if one person says draw, its a draw, if they continue then the extra frame"); Claude (the 15 s vote clock with no choice counting as draw, the bot always continuing, the `tie` message).
+- **Context:** asked how Wii Sports handles it; Claude believed (unverified) Wii Sports leaves a tie as a tie, where ADR 004 always bowled a tie frame.
+- **Change:** ADR 004 and task 29 updated; the bowling rules agent, mid-build, was sent the rule (a "tie-vote" phase, a draw recorded and rated as boxing's).

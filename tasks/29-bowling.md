@@ -12,8 +12,10 @@ It was reworked with the user on 2026-11-07/08 and reviewed with
 decisions are in the devlog ("Bowling: game-idea review and decisions").
 
 ## Decided (user)
-- 5 frames, real ten-pin scoring, alternate frames, a tie bowls another
-  frame each; 20 s shot clock.
+- 5 frames, real ten-pin scoring, alternate frames; 20 s shot clock.
+- A tie: both players choose; either choosing draw makes it a draw, both
+  choosing to continue bowls a tie frame (asked again if level); 15 s to
+  choose, no choice counts as draw; the bot always continues.
 - Server rolls the ball and pins; no random scatter.
 - Camera: the underarm swing, standing, the camera placed to see the hips;
   the forward swing past the hip is the release and its speed; aim from the
@@ -34,7 +36,7 @@ decisions are in the devlog ("Bowling: game-idea review and decisions").
 ## Claude's choices in the ADR, open to the user
 - Messages `aim` and `throw` (the opponent and spectators see the arrow).
 - A late throw counts within the round trip, capped at 150 ms.
-- Tie frames have no bonus balls and aren't added to the score.
+- Tie frames have no bonus balls and aren't added to the score; the 15 s vote clock.
 - The curve window about 0.15 s; the ball bends over the last third.
 
 ## Build split (agents, each in its own worktree from `main`)

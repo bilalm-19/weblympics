@@ -61,9 +61,16 @@ For steps and crouches:
   frame; a strike scores 10 plus the next two balls, a spare 10 plus the
   next ball; the fifth frame gives the bonus balls (up to three), so a
   perfect game is 150. Players alternate frames, seat 0 first. Highest
-  total wins. A tie bowls one more frame each (no bonus balls), repeating
-  until it breaks; tie frames decide the winner and aren't added to the
-  score.
+  total wins.
+- **A tie: the players choose** (user, 2026-11-08). A level game asks both
+  players "Draw or play a tie frame?". If either chooses draw, it is a
+  draw (`winner: null`, recorded and rated as a draw between two people,
+  as boxing's). Only if both choose to continue is a tie frame bowled: one
+  frame each, no bonus balls, deciding the winner and not added to the
+  score; a level tie frame asks again. A seat that hasn't chosen in 15 s
+  counts as draw (anyone can force a draw anyway). The bot always chooses
+  to continue, so in practice the person decides. Message:
+  `{ t: "tie", choice: "draw" | "continue" }`, one per seat per vote.
 - **"Unlimited":** game after game, counts games won and the best score, no
   winner overall, ends when someone leaves, unrated. Rated by the usual
   rule (`isRated`) for "game" between two people; practice vs bot never.
@@ -72,7 +79,7 @@ For steps and crouches:
   seat's measured round trip, capped at 150 ms (ADR 001's cap).
 - **Client messages (closed):** `{ t: "aim", aim }` (throttled; the server
   keeps it so the opponent and spectators see the arrow) and
-  `{ t: "throw", speed, aim, spin, at }`, `speed` 0..1, `aim` -1..1 (the
+  `{ t: "throw", speed, aim, spin, at }` and the tie vote above; `speed` 0..1, `aim` -1..1 (the
   start spot across the lane), `spin` -1..1, all clamped by the server.
   Anything else, any extra field, any message from a seat whose turn it
   isn't, and a second throw for one ball is dropped whole.
