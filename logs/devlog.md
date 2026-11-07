@@ -1516,3 +1516,9 @@ the format of the entries below (see CLAUDE.md, Docs).
 - **Checked:** with the NVIDIA GPU, a browser placed off-screen (`--window-position=-32000,-32000`) or started minimised still opened on the visible desktop (WSLg ignores both: window at 73,27 and 1296,37); `--ozone-platform=headless` and headless Chrome fall back to SwiftShader. No virtual display (Xvfb, weston) is installed.
 - **Change:** CLAUDE.md: agents run e2e headless (`pnpm e2e --workers=1`, one or two runs at once); `pnpm e2e:gpu` only with the user's OK. The script and the `E2E_GPU` switch stay.
 - **Sent:** the basketball scene agent, the bowling scene agent and the basketball rules agent were told to stop any `e2e:gpu` run and use headless from now on.
+
+## 2026-11-08 02:29 AEDT | milestone | Basketball tie vote built on basketball-rules (4126c1c)
+
+- **Decided by:** user (the rule); agent (the build); Claude (the merge note).
+- **Result:** `pnpm check` 47 files, 773 tests, exit 0, on port 8201; no e2e (no view on that branch). Either seat's draw ends it as a rated draw with no rating change; both continue plays sudden death from the deep spot, a level round votes again; 15 s, a missing vote counts as draw; the bot continues after 1 s; unlimited never votes. The snapshot gains `vote` and `draw` with bowling's shape and names.
+- **Merge note:** `server/index.ts` routes `tie` to `room.hoop()` on this branch and to `room.bowl()` on bowling's; either handler passes it to the room's own game, so integration keeps one route.
