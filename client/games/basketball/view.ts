@@ -33,7 +33,6 @@ import type { TieChoice, WithVote } from "./tie-vote.ts";
 // LOCAL TYPE EXTENSION (task 32 tie vote): `tie` isn't in this branch's
 // ClientMsg yet; the rules agent adds it on basketball-rules. Sent through
 // this cast until integration, then drop it.
-type TieMsg = { t: "tie"; choice: TieChoice };
 
 // The basketball view (task 32, ADR 003): the park court (court.ts), the
 // camera behind the shooter for a player and side-on for a spectator, the
@@ -224,7 +223,7 @@ export function startBasketball(root: HTMLElement, conn: GameLink, info: RoomInf
   // sound, only after a user gesture (sound.ts)
   const sounds = createSounds();
   // the tie vote: level after the five spots, draw or sudden death (tie-vote.ts)
-  const tiePanel = createTiePanel(document, info.seat, (choice) => conn.send({ t: "tie", choice } as TieMsg as never), (s) => label(s));
+  const tiePanel = createTiePanel(document, info.seat, (choice) => conn.send({ t: "tie", choice }), (s) => label(s));
   view.append(tiePanel.el);
 
   const sendSet = () => {

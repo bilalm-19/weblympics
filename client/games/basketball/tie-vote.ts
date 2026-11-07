@@ -12,15 +12,12 @@ import type { BasketballSnapshot, Seat } from "../../../shared/games/basketball/
 // once the real snapshot has them; drop them at integration.
 
 export type TieChoice = "draw" | "continue";
-export interface TieVote {
-  votes: [TieChoice | null, TieChoice | null];
-  ticksLeft: number;
-}
-export type WithVote = Omit<BasketballSnapshot, "phase"> & {
-  phase: BasketballSnapshot["phase"] | "tie-vote";
-  vote?: TieVote | null;
-  draw?: boolean;
-};
+import type { Vote } from "../../../shared/games/basketball/sim.ts";
+// The snapshot already carries the vote (rules branch, merged); kept as aliases
+// so the panel and view read the same names.
+export type TieVote = NonNullable<BasketballSnapshot["vote"]>;
+export type WithVote = BasketballSnapshot;
+export type { Vote };
 
 const WORD: Record<TieChoice, string> = { draw: "draw", continue: "continue" };
 
