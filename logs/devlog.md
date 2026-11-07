@@ -1607,3 +1607,10 @@ the format of the entries below (see CLAUDE.md, Docs).
 - **Why they differed:** the game's 3D face is a small canvas texture (256 px wide, eyes about 3 px, thin brows, a short nose line, a thin smile, no cheeks) wrapped round a sphere, so it reads as dots; the flat drawing has big eyes with a shine, a wide smile and rosy cheeks.
 - **Change (mock only):** `mock-home-3d.ts` paints the flat face's style on a 1024 px texture (big eyes with a white shine, soft brows, a wide smile, cheeks), sized up to survive the wrap, and swaps it onto each character's head after `makePlayer`; `character.ts` is untouched. `?force3d` keeps the 3D on past the frame-rate check, for screenshots on a slow machine.
 - **If approved:** the same face would go into `character.ts` so every game's characters get it (task 33's customisation agent owns that file now, with eye, nose and mouth options; the merge decides who changes it).
+
+## 2026-11-08 03:49 AEDT | design | Home mock, round 5: the party stays 2D; 3D only for the card icons; a party of 10
+
+- **Decided by:** user ("the 2d version still looks much nicer, the headshape, body, legs"; "its not letting me test a party of 10"); Claude (the fixes).
+- **Party back to 2D:** the flat SVG figures are the party at every size; the 3D characters are dropped from the home screen (the round-4 face swap with them). 3D stays only for the small spinning card icons, still loaded after the menu and only on a capable device.
+- **Fixes:** the icons vanished on every click because each render rebuilt the cards and wiped their canvases; the cards are now built once and only their selected state changes (checked: all six icon canvases have pixels after a click). The archery target rocks instead of spinning, so it never turns edge-on. The mock had six made-up people; it now has ten, and a party of more than five wraps to two rows with smaller nameplates; at 10 the title reads "full (10 of 10)" and the invite slot goes.
+- **Checked:** 1920x1080 and 390x844, no horizontal overflow, no page errors.
