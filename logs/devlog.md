@@ -1446,3 +1446,12 @@ the format of the entries below (see CLAUDE.md, Docs).
 
 - **Decided by:** user ("yes accept the rest, write the adr and task file": changes 1, 3, 4, 5 and 7 as listed); Claude (the ADR's details the user hasn't seen yet, listed in task 32 under "Claude's choices": the `set`/`aim`/`shoot` messages, the clock starting 5 s in if no `set`, a late shot counting within the round trip capped at 150 ms, no random scatter, the spot names, sudden death's alternating first shooter).
 - **Written:** `docs/adr/003-basketball-shoot-off.md`, `tasks/32-basketball.md` (rules agent first, then the scene and camera agents in parallel, then integration), and the row in `tasks/00-overview.md`. No agent started.
+
+## 2026-11-07 23:50 AEDT | decision + change | Agents get their own port and data folder; e2e runs on the laptop's GPU
+
+- **Decided by:** user (asked how to keep agents' tests from clashing, whether e2e could run outside WSL's CPU drawing, then "go ahead with all three"); Claude (the port plan, the measurement, the switch).
+- **Ports:** the tests default to `localhost:8080` (`APP_URL`) and Playwright reuses a running server, so an agent in a worktree would test the user's dev server on `main`, not its own code. CLAUDE.md now gives each agent a port (8201-8298, integration 8299) and a `DATA_DIR`, and says to always set `APP_URL`.
+- **Finding:** the slow e2e wasn't for want of a GPU (the laptop has an RTX 5060 and WSL sees it); `playwright.config.ts` forced SwiftShader, CPU drawing. Headless Chrome in WSL won't use the GPU with any flag tried (it falls back to SwiftShader or llvmpipe); a headed browser through WSLg with Mesa's D3D12 driver reaches the NVIDIA card.
+- **Measured** (`e2e/boxing` + `e2e/stroke`, one worker): SwiftShader 162 s, GPU 91 s, both 26/26. With 4 workers over boxing, stroke, aid and camera: SwiftShader 239 s and 3 of 48 failed (the stroke label and camera tests timing out, the frame-rate starvation CLAUDE.md warned of); GPU 72 s, 48/48.
+- **Change:** `E2E_GPU=1` in `playwright.config.ts` swaps in the GPU flags and a headed browser; `pnpm e2e:gpu` sets it with the Mesa variables. Plain `pnpm e2e` is unchanged (SwiftShader); CI doesn't run e2e. CLAUDE.md: up to 4 e2e runs at once on the GPU, `--workers=1` and one run at a time on SwiftShader.
+- **Cost:** the GPU runs open browser windows on the desktop while they run.

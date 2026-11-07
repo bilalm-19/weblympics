@@ -9,6 +9,7 @@
     "build": "vite build",
     "start": "node server/index.ts",
     "e2e": "playwright test",
+    "e2e:gpu": "E2E_GPU=1 GALLIUM_DRIVER=d3d12 MESA_D3D12_DEFAULT_ADAPTER_NAME=NVIDIA LD_LIBRARY_PATH=/usr/lib/wsl/lib playwright test",
     "typecheck": "tsc --noEmit",
     "check": "pnpm typecheck && pnpm test",
     "check:evidence": "node scripts/check-evidence.ts",
