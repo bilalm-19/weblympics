@@ -50,6 +50,34 @@ head or body is split at the shoulder line, which is always in view. If the
 high and low guards don't separate on camera, the fallback is one guard that
 blocks head shots only, with a body shot getting through any guard.
 
+## Basketball's moves
+Task 32, `client/games/basketball/shoot-camera.ts` with `?debug`. Record
+each standing about 1 m back, then again seated at the laptop. Pushes are
+up and towards the hoop (ADR 003), one every second or so, back to the
+chest between, any hand unless the move says.
+1. **ready**: two hands at the chest, holding an imaginary ball, still.
+2. **soft push**, two hands.
+3. **medium push**, two hands.
+4. **hard push**, two hands.
+5. **medium push, right hand only.**
+6. **medium push, left hand only.**
+7. **moving, no shot**: sway the hands left and right to aim, scratch your
+   head, cheer with your arms up. None of this may read as a shot.
+8. **chest pass**: nearly all forward, the hands barely rising.
+
+Measures, per hand, in shoulder widths against the shoulder line:
+- **up-speed**: the wrist's upward speed a second; and each push's **peak**
+  (lo/typ/hi of the peaks of each upward run in the recording). The shot
+  threshold (`minPeak`) sits between move 7's high and move 2's low; soft,
+  medium and hard set `power0` and `power1`.
+- **seen**: the share of frames the hand was seen (does a push leave the
+  top of the frame, seated or standing?).
+- **height**: the wrist above the shoulder line (negative below): where the
+  ready zone and the face line go.
+- **aim**: the aim the hands give, -1..1, over the recording.
+- **shots read**: the shots the current detector read, with power: moves
+  2-6 should read one per push, 7 none, 8 soft.
+
 ## Measures (all in shoulder widths, so distance doesn't matter)
 - **size**: the hand's apparent size (wrist to index and pinky knuckles). It
   grows as the fist nears the camera: the main candidate for "arm out".
