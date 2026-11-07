@@ -32,8 +32,8 @@ export interface BowModel {
 }
 
 const HALF = 0.55; // tip height above (and below) the grip
-const BRACE = 0.16; // string's distance behind the grip at rest
-const PULL = 0.38; // extra pull at full draw
+export const BRACE = 0.16; // string's distance behind the grip at rest
+export const PULL = 0.38; // extra pull at full draw
 const ARROW = 0.72;
 
 export function makeBow(): BowModel {

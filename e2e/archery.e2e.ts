@@ -163,6 +163,26 @@ test("vs the bot: the server takes turns, flies both arrows and scores them", as
   await expect(page.locator(".ar-score")).toContainText("Stage 2 of 8 · 15 m", { timeout: 10_000 });
 });
 
+test("task 31: the other archer's turn is seen over their shoulder, both archers on the range, then first person again", async ({ page }) => {
+  test.setTimeout(60_000);
+  await openArchery(page);
+  await page.getByRole("button", { name: "Play vs bot" }).click();
+  await expect.poll(async () => Number(await canvas(page).getAttribute("data-frames"))).toBeGreaterThan(5);
+  // my turn: first person, my own archer hidden, the bot waiting behind the line
+  await expect(canvas(page)).toHaveAttribute("data-view", "first");
+  await expect(canvas(page)).toHaveAttribute("data-archers", "1");
+  await holdShoot(page, 900);
+  // the bot's turn: over its shoulder, both archers on screen
+  await expect(canvas(page)).toHaveAttribute("data-turn", "1", { timeout: 10_000 });
+  await expect(canvas(page)).toHaveAttribute("data-view", "shoulder", { timeout: 5_000 });
+  await expect(canvas(page)).toHaveAttribute("data-archers", "2");
+  await laidOut(page, [".hud .ar-score", ".hud .status", ".ar-wind", ".ar-card", ".ar-draw", ".controls"]);
+  // stage two, the bot shoots first; then my turn brings the first-person view back
+  await expect(page.locator(".ar-score")).toContainText("Stage 2 of 8", { timeout: 15_000 });
+  await expect(canvas(page)).toHaveAttribute("data-turn", "0", { timeout: 20_000 });
+  await expect(canvas(page)).toHaveAttribute("data-view", "first", { timeout: 5_000 });
+});
+
 test("a room offers archery's own formats", async ({ page }) => {
   await openArchery(page);
   await page.getByRole("button", { name: "Create a room" }).click();

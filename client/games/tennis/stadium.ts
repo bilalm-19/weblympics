@@ -444,8 +444,8 @@ export interface CrowdHandle {
   restHead: Matrix4[];
 }
 
-function crowd(scene: Object3D): CrowdHandle {
-  const layout = crowdLayout();
+/** The instanced crowd for a layout (tennis's stands by default; archery passes its own small stand). */
+export function crowd(scene: Object3D, layout: CrowdLayout = crowdLayout()): CrowdHandle {
   const rand = rng(43);
   const n = layout.seats.length;
   const bodies = new InstancedMesh(new BoxGeometry(0.42, 0.55, 0.32), new MeshLambertMaterial({ color: 0xffffff, flatShading: true }), n);

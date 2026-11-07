@@ -21,9 +21,12 @@ import {
 import { AIM, MIN_DRAW, STAGES, SUDDEN_DEATH, TARGET, clampAim, predictHit, previewPath, scoreHit } from "../../../shared/games/archery/sim.ts";
 import type { Aim, ArcherySnapshot, Seat, Shot } from "../../../shared/games/archery/sim.ts";
 import type { LobbyView, RoomFormat, RoomInfo, ServerMsg } from "../../../shared/protocol.ts";
+import { DEFAULT_LOOKS } from "../../../shared/look.ts";
 import type { GameLink } from "../../net/link.ts";
 import { createReadyPanel } from "../tennis/ready-panel.ts";
 import "./archery.css";
+import { makeArcher } from "./archer.ts";
+import { LINE_X } from "./archer-pose.ts";
 import { createBowCamera } from "./bow-camera.ts";
 import { makeBow } from "./bow-model.ts";
 import { RING_COLOURS, buildRange, makeTarget } from "./range.ts";
@@ -45,6 +48,22 @@ const KEY_DRAW_RATE = 0.8;
 const SEND_MS = 50;
 // the camera's vertical field of view on a landscape screen, degrees
 const LENS_DEG = 22;
+// task 31: watching someone else shoot, the camera stands behind the line
+// and to the shooter's front (side-on, they face +x), so you see their face,
+// their look and the drawn bow, with the target beyond; a wider lens so the
+// archer fits
+const SHOULDER_DEG = 34;
+const SHOULDER_EYE = { x: 1.6, y: 2.3, z: 4.6 } as const;
+// a tall phone screen is narrow: further back and nearer the middle
+const SHOULDER_EYE_PORTRAIT = { x: 0.9, y: 2.6, z: 6.4 } as const;
+// where each seat's archer waits behind the line while the other shoots
+// (left of the line, clear of the watching camera's view of the shooter)
+const WAITING: readonly [{ x: number; z: number }, { x: number; z: number }] = [
+  { x: -2.2, z: 1.6 },
+  { x: -3.2, z: 2.2 },
+];
+/** Eases toward a target at a rate per second, the same at any frame rate. */
+const ease = (from: number, to: number, rate: number, dt: number) => from + (to - from) * (1 - Math.exp(-rate * dt));
 
 /** Options for practice (task 22), which runs this view on a LocalLink. */
 export interface ArcheryViewOptions {
@@ -114,7 +133,17 @@ export function startArchery(root: HTMLElement, conn: GameLink, info: RoomInfo, 
 
   const scene = new Scene();
   const farthest = STAGES.at(-1)!.distance;
-  buildRange(scene, farthest);
+  const range = buildRange(scene, farthest);
+  // task 31: an archer per seat in the seat's look (practice has one); the
+  // shooter's own stays hidden in their first-person view
+  const archers = (opts.local ? [0] : [0, 1]).map((seat) => {
+    const a = makeArcher(DEFAULT_LOOKS[seat]);
+    a.root.position.set(WAITING[seat].x, 0, WAITING[seat].z);
+    scene.add(a.root);
+    return { a, stance: 0, x: WAITING[seat].x, z: WAITING[seat].z, raise: 0 };
+  });
+  // 0 first person (my shot), 1 over the shooter's shoulder (anyone else's)
+  let shoulder = info.seat === null ? 1 : 0;
   const target = makeTarget();
   scene.add(target);
 
@@ -172,12 +201,13 @@ export function startArchery(root: HTMLElement, conn: GameLink, info: RoomInfo, 
   };
   const renderer = new WebGLRenderer({ canvas, antialias: false, powerPreference: "high-performance" });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  // keep the same width of view on a portrait screen
+  const lens = (deg: number) => (camera.aspect < 1 ? Math.min(70, (2 * Math.atan(Math.tan((deg * Math.PI) / 360) / camera.aspect) * 180) / Math.PI) : deg);
   const resize = () => {
     const { clientWidth: w, clientHeight: h } = view;
     renderer.setSize(w, h, false);
     camera.aspect = w / h;
-    // keep the same width of view on a portrait screen
-    camera.fov = camera.aspect < 1 ? Math.min(60, (2 * Math.atan(Math.tan((LENS_DEG * Math.PI) / 360) / camera.aspect) * 180) / Math.PI) : LENS_DEG;
+    camera.fov = lens(LENS_DEG) + (lens(SHOULDER_DEG) - lens(LENS_DEG)) * shoulder;
     camera.updateProjectionMatrix();
     bowCamera.aspect = camera.aspect;
     bowCamera.fov = camera.aspect < 1 ? 70 : 50;
@@ -479,7 +509,11 @@ export function startArchery(root: HTMLElement, conn: GameLink, info: RoomInfo, 
       const prev = snap;
       if (!prev || prev.shots.length !== next.shots.length || prev.stage !== next.stage || prev.matches !== next.matches) {
         const newest = next.shots.at(-1);
-        if (prev && newest && next.shots.length > prev.shots.length) call(newest);
+        if (prev && newest && next.shots.length > prev.shots.length) {
+          call(newest);
+          // the stand cheers a 10 or a bullseye
+          if (newest.points >= 10) range.cheer();
+        }
         renderHoles(next);
       }
       // a new turn of mine: start from a straight, undrawn sight
@@ -496,6 +530,7 @@ export function startArchery(root: HTMLElement, conn: GameLink, info: RoomInfo, 
     } else if (msg.t === "lobby") {
       const { t: _t, ...v } = msg;
       lobby = v;
+      archers.forEach((ar, i) => ar.a.setLook(v.seats[i]?.look ?? DEFAULT_LOOKS[i]));
       readyPanel.update(v);
       updateHud();
     }
@@ -517,10 +552,15 @@ export function startArchery(root: HTMLElement, conn: GameLink, info: RoomInfo, 
   let raf = 0;
   let last = performance.now();
   const eye = new Vector3();
+  const firstEye = new Vector3(0, 1.75, 1.2);
+  const shoulderEye = new Vector3();
+  let clock = 0;
   const frame = (now: number) => {
     raf = requestAnimationFrame(frame);
     const dt = Math.min(0.1, (now - last) / 1000);
     last = now;
+    clock += dt;
+    range.update(dt);
     if (snap) {
       const s = snap;
       // keys and the hold button: aim and draw grow while held
@@ -536,11 +576,46 @@ export function startArchery(root: HTMLElement, conn: GameLink, info: RoomInfo, 
         }
       }
       target.position.set(0, TARGET.centerY, -s.distance);
-      // first person at the line, straight down the middle: just behind and
-      // above where the arrow leaves the bow (x 0), so it flies from the centre
-      eye.set(0, 1.75, 1.2);
+      // the flags stream with the wind the arrow flies in (the dial's)
+      range.setWind(s.wind, clock);
+      // My shot: first person at the line, straight down the middle, just
+      // behind and above where the arrow leaves the bow (x 0), so it flies
+      // from the centre. Anyone else's (and a spectator's every shot): over
+      // the shooter's shoulder, easing across on the turn swap.
+      const mine = info.seat !== null && s.turn === info.seat && s.phase !== "over";
+      const wasShoulder = shoulder;
+      shoulder = ease(shoulder, mine ? 0 : 1, 5, dt);
+      if (Math.abs(shoulder - wasShoulder) > 1e-4) {
+        camera.fov = lens(LENS_DEG) + (lens(SHOULDER_DEG) - lens(LENS_DEG)) * shoulder;
+        camera.updateProjectionMatrix();
+      }
+      const se = camera.aspect < 1 ? SHOULDER_EYE_PORTRAIT : SHOULDER_EYE;
+      shoulderEye.set(se.x, se.y, se.z);
+      eye.lerpVectors(firstEye, shoulderEye, shoulder);
       camera.position.copy(eye);
       camera.lookAt(0, TARGET.centerY, -s.distance);
+      canvas.dataset.view = shoulder > 0.5 ? "shoulder" : "first";
+
+      // the archers: the shooter steps up to the line side-on and draws as
+      // far as they have sent; the other waits behind; at the end the winner
+      // holds the bow up
+      const atLine = s.phase === "over" ? null : s.turn;
+      archers.forEach((ar, seat) => {
+        const up = atLine === seat;
+        const spot = up ? { x: LINE_X, z: 0 } : WAITING[seat];
+        ar.x = ease(ar.x, spot.x, 4, dt);
+        ar.z = ease(ar.z, spot.z, 4, dt);
+        // the stance comes up as they arrive
+        const near = Math.hypot(ar.x - spot.x, ar.z - spot.z) < 0.3;
+        ar.stance = ease(ar.stance, up && near ? 1 : 0, 8, dt);
+        ar.raise = ease(ar.raise, s.phase === "over" && s.winner === seat ? 1 : 0, 5, dt);
+        ar.a.root.position.set(ar.x, 0, ar.z);
+        const aimNow = up && s.phase === "aim" ? (seat === info.seat ? aim : s.aim) : { yaw: 0, pitch: 0, draw: 0 };
+        ar.a.pose(ar.stance, aimNow.draw, aimNow.pitch, aimNow.yaw, up && s.phase === "aim", ar.raise);
+        // my own archer is hidden while I look through their eyes
+        ar.a.root.visible = !(seat === info.seat && shoulder < 0.5);
+      });
+      canvas.dataset.archers = String(archers.filter((ar) => ar.a.root.visible).length);
 
       // the sight: mine while I aim, the shooter's (as sent) while I watch
       const shownAim = myTurn() ? aim : s.aim;
@@ -595,9 +670,12 @@ export function startArchery(root: HTMLElement, conn: GameLink, info: RoomInfo, 
     renderer.autoClear = true;
     renderer.render(scene, camera);
     // the bow on top: keep the range, clear only depth
-    renderer.autoClear = false;
-    renderer.clearDepth();
-    renderer.render(bowScene, bowCamera);
+    // (only in first person: over the shoulder the archer holds it)
+    if (shoulder < 0.5) {
+      renderer.autoClear = false;
+      renderer.clearDepth();
+      renderer.render(bowScene, bowCamera);
+    }
     canvas.dataset.frames = String(++frames);
   };
   raf = requestAnimationFrame(frame);
