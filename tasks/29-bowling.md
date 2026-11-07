@@ -1,64 +1,83 @@
 # 29 Bowling
 
-Status: planned (2026-11-05), waiting on the user's OK on the rules.
-Model: Opus for the sim and camera; Sonnet for the view
-Waits on: 28 (shared character, podium)
+Status: planned (2026-11-08). Design accepted (ADR 004); nothing built. Runs in parallel with basketball (task 32).
+Model: Opus 5.5 for every part
+Waits on: nothing. Built without task 28; its podium replaces the end card later.
 
 ## Context
-The user asked for bowling on 2026-11-05 (CLAUDE.md's "add another only when
-I ask"), with "faster matches". The home menu already has a "Bowling, coming
-soon" tile; this makes it playable.
+The user asked for bowling on 2026-11-05 with "faster matches". The first
+plan (5 Nov) read the backswing from a seated player and waited on task 28.
+It was reworked with the user on 2026-11-07/08 and reviewed with
+`review-game-idea`; the design is `docs/adr/004-bowling.md`, the review and
+decisions are in the devlog ("Bowling: game-idea review and decisions").
 
-## Decided (user, 2026-11-05)
-- **5 frames**, not 10, so a match is quick.
+## Decided (user)
+- 5 frames, real ten-pin scoring, alternate frames, a tie bowls another
+  frame each; 20 s shot clock.
+- Server rolls the ball and pins; no random scatter.
+- Camera: the underarm swing, standing, the camera placed to see the hips;
+  the forward swing past the hip is the release and its speed; aim from the
+  hand's position across the whole picture (walking works too), locked at
+  the swing; curve from the hand's sideways sweep at release, read in a
+  short window; steps and crouches allowed; fallback reads the rise past
+  the chest when the hips aren't seen.
+- Keys: left/right start spot, up/down curve, hold Space or the Bowl button.
+- A partial guide: an arrow for the start and direction over the first
+  third of the lane; the last ball's path stays drawn.
+- Indoor alley, tennis's character, a simple end card now.
+- Formats "game" (rated between two people) and "unlimited" (unrated).
+- The review's changes: plain words ("Your turn"), a hips silhouette, the
+  arrow follows the hand in the setup step, the release defined and shown,
+  curve read only around the release, the speed and curve read shown after
+  each ball.
 
-## Design (Claude's proposal)
-- **Rules:** real ten-pin scoring on 5 frames: two balls a frame, a strike
-  scores 10 plus the next two balls, a spare 10 plus the next ball; the 5th
-  frame gives bonus balls (up to 3 balls), so a perfect game is 150.
-  Players alternate frames, seat 0 first. Higher total wins; a tie bowls
-  one more frame each (sudden death, like archery's), repeating until it
-  breaks. A 20 s shot clock: a ball not thrown in time rolls a gutter.
-- **Server owns the pins.** The client sends one `throw` event: `speed`
-  (0..1), `aim` (lateral start, -1..1), `curve` (-1..1) and its timestamp.
-  The server clamps each, rolls the ball and knocks the pins in its own
-  deterministic sim (seeded; simple 2D circle physics on the lane, ball and
-  pin collisions plus pin-pin, a little seeded scatter so the same throw
-  isn't always the same), and scores it. The client animates what the server
-  says. Lanes are separate: players take turns on one lane, the other
-  watches.
-- **Formats** (`GameDef.formats`): "game" (5 frames, rated between two
-  people) and "unlimited" (game after game, counts games won and best score,
-  unrated). Practice vs bot never rated.
-- **Bot:** picks a target (the pocket) and solves speed/aim/curve, plus
-  noise (like archery's `solveAim`); it sometimes leaves a spare to pick up.
-- **Keyboard / mouse / touch:** left/right (or drag) to move your start
-  spot, hold Space (or the Bowl button) to swing: a power meter fills and
-  falls; release to throw. Up/down sets curve. Same `throw` event.
-- **Camera** (pure maths in `client/input/camera/bowl-pose.ts`, unit tested
-  on synthetic landmarks): an underarm swing of the bowling arm. The wrist
-  going back past the hip, then forward and up past the hip, is a throw;
-  `speed` is the wrist's peak speed through the bottom (in shoulder widths
-  a second); `aim` is where the body stands across the frame at release;
-  `curve` is the wrist's sideways drift through the release. A slow swing
-  is a slow ball; no swing, no throw. Laptop distance with the arm in view.
-- **Client:** `client/games/bowling/` with `view.ts` (lane, pins, ball
-  return, pin deck camera after the throw, scoreboard of frames and running
-  totals, the turn), `alley.ts` (alley from primitives: polished lane,
-  gutters, pins, bowlers' area, neon signs, crowd from the shared kit),
-  `bowl-camera.ts`, `practice.ts` + `practice-sim.ts` (in the page, nothing
-  sent). The shared character with a `ball` prop. Podium at the end.
-- **Specs:** `spec/bowling-scoring.test.ts` (strikes, spares, the 5th
-  frame, sudden death), `spec/bowling-sim.test.ts` (determinism, clamps, a
-  straight pocket throw strikes most of the time, a gutter scores 0, the
-  shot clock), `spec/bowling-room.test.ts` (turns, a client can't send pins
-  or a score, reconnect), `spec/bowling-bowl-pose.test.ts`, and
-  `e2e/bowling.e2e.ts` at both viewports.
+## Claude's choices in the ADR, open to the user
+- Messages `aim` and `throw` (the opponent and spectators see the arrow).
+- A late throw counts within the round trip, capped at 150 ms.
+- Tie frames have no bonus balls and aren't added to the score.
+- The curve window about 0.15 s; the ball bends over the last third.
+
+## Build split (agents, each in its own worktree from `main`)
+1. **Rules** (first): `shared/games/bowling/` `sim.ts` (frames, scoring,
+   turns, shot clock and late grace, the lane, the ball's path and bend,
+   ball-pin and pin-pin collisions, gutters, tie frames, unlimited),
+   `bot.ts` (solves aim, speed and curve for the pocket or the leftover
+   pins, plus noise; beatable), `index.ts` (closed `asInput`, formats
+   "game" and "unlimited"), registered in `shared/games/registry.ts`.
+   `spec/bowling-*.test.ts`: scoring (strikes, spares, the fifth frame,
+   perfect 150, gutter game 0), tie frames, turns, the clock and grace,
+   messages dropped whole, off-turn and second throws ignored,
+   determinism, a pocket ball at speed strikes, a straight pocket ball
+   strikes less often than a curving one over a sweep of throws, a slow
+   ball deflects, a gutter, a spare pickup possible, the bot beatable, a
+   room plays a bot game to the end with `game: "bowling"`, a rated game
+   moves only the bowling rating.
+2. **Scene and view** (after 1): `client/games/bowling/` `alley.ts`,
+   `view.ts` (behind-the-bowler camera, a pin-deck view after the throw,
+   side-on for a spectator, the frame scoreboard, the arrow and last path,
+   the speed zone and curve read, the call, keys and buttons), sound in
+   the browser, `practice.ts` + `practice-sim.ts`, `bowling.css`; the menu
+   tile goes live; reuses tennis's ready panel and character.
+   `e2e/bowling-*.e2e.ts` at both viewports.
+3. **Camera** (alongside 2): `client/input/camera/bowl-pose.ts` (aim across
+   the picture, the release past the hip, speed, the curve window, the
+   fallback; `spec/bowling-bowl-pose.test.ts` on synthetic landmarks),
+   `client/games/bowling/bowl-camera.ts` (panel, hips check, setup step
+   with the arrow, a `?debug` readout and recorder with the moves below).
+4. **Integrate** (Claude).
+
+## Recordings for the user (`docs/camera-playtest.md`), about 2 m back, hips in view
+1. slow swing; 2. medium; 3. fast; 4. medium with a step and crouch;
+5. straight with a natural follow-through (must read no curve); 6. curve
+left; 7. curve right; 8. left-handed medium; 9. moving, no throw (picking
+up, stretching, walking sideways); 10. medium at 1 m (the fallback).
 
 ## Done when
-- [ ] Rules above, each in a spec that fails without it.
-- [ ] Playable vs bot, vs a person by room code, and in practice, by keys,
-      buttons and the fake-webcam setup panel, at both viewports.
-- [ ] The menu tile is live; README, CLAUDE.md (rules and layout) agree.
-- [ ] `pnpm check` and `pnpm e2e --workers=1` green.
-- [ ] Real-webcam playtest by the user (the swing thresholds are guesses).
+- [ ] Rules, bot and adapter registered; `spec/bowling-*.test.ts` green.
+- [ ] Playable vs bot, vs a person by room code, spectated, and in practice,
+      by keys, buttons and the fake-webcam setup, at both viewports.
+- [ ] A finished "game" between two accounts is rated and moves only the
+      bowling rating.
+- [ ] Menu tile live; README, CLAUDE.md and spec agree.
+- [ ] `pnpm check` and `pnpm e2e:gpu` green.
+- [ ] The user's recordings replace the camera guesses.
