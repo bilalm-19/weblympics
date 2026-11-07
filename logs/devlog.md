@@ -1486,3 +1486,12 @@ the format of the entries below (see CLAUDE.md, Docs).
 - **Result:** `pnpm check` 48 files, 791 tests, exit 0 (27 new in `spec/basketball-shoot-pose.test.ts`); `e2e/camera` + `e2e/home` 46 passed, exit 0 (plain `pnpm e2e`: its branch predates `e2e:gpu`).
 - **Agent's addition beyond the brief:** a hand must rest in the chest zone 200 ms before a push counts, because a wave up from the hip read as a shot. Told to the user; theirs to keep or drop.
 - **Not yet checked:** the panel has never run in a browser (no view until the scene branch is merged); every number waits on the user's eight recordings.
+
+## 2026-11-08 00:51 AEDT | milestone + process | Bowling rules agent finished; bowling scene and camera agents started
+
+- **Decided by:** agent (the physics and its numbers, first guesses); Claude (the next briefs); user (the open question below is theirs).
+- **Rules result** (branch `bowling-rules`, 24135c1): `pnpm check` 47 files, 776 tests, exit 0; `e2e:gpu e2e/home` 32 passed, exit 0. The tie vote built as the user asked. Measured: a centred pocket ball with spin strikes at every speed 0.225-1; over 44 throws a straight ball strikes 5, spin 0.6 strikes 7, full spin 28 (a straight ball into the exact pocket always leaves the 10 pin); a slow ball (0.1) knocks 5; head-on leaves the 4-6 split family; the bot averages 74 of 150 with 5% strikes.
+- **Agent's choices:** the hook is per metre rolled, not per second (slow balls had hooked into the gutter), speed 2-10 m/s, 12 substeps, the pocket 8 cm off the head pin's line, "game" a new room format.
+- **Open, for the user:** a voted draw between two accounts is stored `rated = 1` but moves no rating (ratings only move with a winner; boxing's draw is the same). Half a point each would be a change in `server/ratings.ts`.
+- **Merge note from the agent:** basketball and bowling both added the bare `{t:"aim",aim}` message; the server routes it to `room.hoop` on one branch and `room.bowl` on the other, so integration must route it by the room's game.
+- **Sent:** a bowling scene agent (port 8205, branch `bowling-scene`) and a bowling camera agent (port 8206, branch `bowling-camera`), both from `bowling-rules`, with the fixed interface `createBowlCamera(view, button, chip, { aim, throw, pause })` returning `{ on, state, setTurn, dispose }` (the scene uses a stub until the merge). The scene brief includes the tie-vote panel (Draw / Continue, the 15 s clock, the other player's choice); the camera brief points at basketball's camera branch as the pattern to follow.
