@@ -59,10 +59,16 @@ For the camera move:
   (2), wing three 6.75 m (3), top three 7.25 m (3), deep 9 m (the money
   ball, 4). One shot each per spot, players alternate, the first shooter
   swaps each spot. A swish (no rim, no board) adds 1 to any basket, the
-  money ball included (so a swished money ball is 5). Highest total wins. A
-  tie goes to sudden death from the deep spot, one shot each, the first
-  shooter alternating: a make against a miss wins; otherwise again. Sudden
-  death decides the winner and is not added to the score (as archery's).
+  money ball included (so a swished money ball is 5). Highest total wins.
+- **A tie: the players choose** (user, 2026-11-08, the same as bowling's,
+  ADR 004). A pop-up asks both "Draw, or go to sudden death?". If either
+  chooses draw, it is a draw (`winner: null`, recorded and rated as a draw
+  between two people). Only if both choose to continue is a sudden-death
+  round shot from the deep spot, one shot each, the first shooter
+  alternating: a make against a miss wins; a level round asks again.
+  Sudden death decides the winner and is not added to the score. 15 s to
+  choose, no choice counts as draw; the bot always continues. Message:
+  `{ t: "tie", choice: "draw" | "continue" }`.
 - **"Unlimited":** a seeded random spot each turn, counts points, makes and
   the longest make, no winner, ends when someone leaves, unrated.
 - **Rated** by the usual rule (`isRated`): "shootout" between two accounts

@@ -17,6 +17,9 @@ the review's changes").
   shooter swaps each spot. 2 inside the arc, 3 beyond, the deep spot a
   money ball of 4, +1 for a swish on any basket. Tie: sudden death from the
   deep spot. 15 s shot clock.
+- A tie asks both players first, like bowling: either choosing draw makes it
+  a draw, both choosing to continue goes to sudden death (asked again if
+  level); 15 s to choose, no choice counts as draw; the bot continues.
 - Real rim and backboard physics on the server.
 - An outdoor park court (fence, trees, sky), bleachers with a crowd that
   cheers on a make, louder on a swish or money ball, groans on a miss;
