@@ -1,6 +1,6 @@
 # 34 Friends, status, parties and name tags
 
-Status: designed with the user (2026-11-08), not built. Built only if basketball and bowling merge cleanly by Sunday evening; otherwise after the deadline.
+Status: designed with the user (2026-11-08); proposals 1-3 and 5 accepted, parties amended (4). Not built. Built only if basketball and bowling merge cleanly by Sunday evening; otherwise after the deadline.
 Model: Opus 5.5
 Waits on: the basketball and bowling merges (they change the protocol and rooms).
 
@@ -39,10 +39,20 @@ Waits on: the basketball and bowling merges (they change the protocol and rooms)
 - **Invite to a match:** a friend gets a pop-up "Sam invites you to
   Tennis. Join?" that drops them into the room (the existing invite flow).
 - **Parties:** up to 10 (the watcher limit). A leader; invite-only parties
-  take friends or a party link; public parties are link-only, never listed
-  (the "no public list" rule). The leader picks the game and the mode; two
+  take friends or a party link. **Public parties are listed to the leader's
+  friends** (user, 2026-11-08), never to strangers; anyone else needs the
+  link. **In the party lobby, every member is shown** (name, look, status,
+  who's playing next); **in a game the party shows compact** (a small strip,
+  never covering the court or the HUD). The leader picks the game and the mode; two
   play, the rest watch through the spectator code; the party moves to the
   next match together. Leaving a party mid-match follows the room's rules.
+- **Live updates over the WebSocket the page already has** (Claude,
+  2026-11-08): requests, invites, status and party changes are pushed as
+  small messages on the one connection each tab opens at load (the same one
+  rooms use); no polling, no second connection. On reconnect the server
+  sends the current friends list and party once, so nothing missed is lost.
+  Friend links and adding by name are \`/api\` POSTs like the account routes
+  (Origin checked, rate limited).
 - **Server:** new tables (friendships, friend links, parties are in memory),
   a schema step with an old-db test, name tags as a schema step that gives
   every existing account a tag; all checked on the server, Origin checked,
