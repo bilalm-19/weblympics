@@ -1495,3 +1495,10 @@ the format of the entries below (see CLAUDE.md, Docs).
 - **Open, for the user:** a voted draw between two accounts is stored `rated = 1` but moves no rating (ratings only move with a winner; boxing's draw is the same). Half a point each would be a change in `server/ratings.ts`.
 - **Merge note from the agent:** basketball and bowling both added the bare `{t:"aim",aim}` message; the server routes it to `room.hoop` on one branch and `room.bowl` on the other, so integration must route it by the room's game.
 - **Sent:** a bowling scene agent (port 8205, branch `bowling-scene`) and a bowling camera agent (port 8206, branch `bowling-camera`), both from `bowling-rules`, with the fixed interface `createBowlCamera(view, button, chip, { aim, throw, pause })` returning `{ on, state, setTurn, dispose }` (the scene uses a stub until the merge). The scene brief includes the tie-vote panel (Draw / Continue, the 15 s clock, the other player's choice); the camera brief points at basketball's camera branch as the pattern to follow.
+
+## 2026-11-08 01:22 AEDT | milestone | Bowling camera agent finished (branch bowling-camera, 8806e09)
+
+- **Decided by:** agent (the detector and its numbers, all first guesses); Claude (accepting it for the merge).
+- **Result:** `pnpm check` 48 files, 802 tests, exit 0 (26 new in `spec/bowling-bowl-pose.test.ts`); `e2e:gpu e2e/camera e2e/home` 46 passed, exit 0. The agent broke three rules one at a time to check each test fails without it.
+- **Finding:** from the front, a backswing also rises past the hip line at about the forward swing's speed. So a rise past the hip is the release only if the arm came down through that line within 600 ms before it (the bottom of the swing), or the model's depth puts the wrist 0.3 shoulder widths in front of the hips; a rise with the wrist behind the hips never counts. If the pose model's depth proves noisy, as boxing's recordings found, the pendulum rule works alone.
+- **Not yet checked:** never run with a person on camera (no view until the scene merges); the ten recordings are the user's.
