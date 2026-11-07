@@ -52,6 +52,9 @@ const ICONS = {
   boxing: icon(
     `<circle cx="12" cy="12" r="10" fill="#e0453a" stroke="#a52a22" stroke-width="1.2"/><path d="M8 9.5c0-2 1.6-3.2 4-3.2s4 1.2 4 3.4v3.2c0 2.6-1.8 4.6-4 4.6s-4-2-4-4.6z" fill="#fff"/><path d="M8.6 15h6.8" stroke="#a52a22" stroke-width="1.6"/>`,
   ),
+  basketball: icon(
+    `<circle cx="12" cy="12" r="10" fill="#e8671c" stroke="#a8440f" stroke-width="1.2"/><path d="M2 12h20M12 2v20M5 4.8c3 2.6 3 11.8 0 14.4M19 4.8c-3 2.6-3 11.8 0 14.4" fill="none" stroke="#2a1a10" stroke-width="1.2"/>`,
+  ),
   mystery: icon(
     `<circle cx="12" cy="12" r="10" fill="#e7ecf2" stroke="#9aa5b1" stroke-width="1.2"/><text x="12" y="16.5" text-anchor="middle" font-size="12" font-weight="800" font-family="system-ui, sans-serif" fill="#6b7a8a">?</text>`,
   ),
@@ -244,6 +247,40 @@ function boxingThumb(): string {
   `)}</div>`;
 }
 
+// A park court seen from behind the shooter: fence, trees, asphalt with the
+// lane and the arc, the hoop; the shooter pushes up and the ball arcs into
+// the net, which ripples, then it all starts again.
+function basketballThumb(): string {
+  const fence = Array.from({ length: 17 }, (_, i) => `<line x1="${i * 20}" y1="58" x2="${i * 20}" y2="104"/>`).join("");
+  return `<div class="thumb-art">${svg(`
+    ${sky("#5fb0ee", "#d6eefc")}
+    <g fill="#3d8f45"><circle cx="30" cy="62" r="22"/><circle cx="72" cy="56" r="18"/><circle cx="250" cy="58" r="20"/><circle cx="292" cy="64" r="24"/></g>
+    <rect y="58" width="320" height="46" fill="#c9ced6" opacity=".18"/>
+    <g stroke="#9aa5b1" stroke-width="1">${fence}<line x1="0" y1="58" x2="320" y2="58" stroke-width="2"/></g>
+    <rect y="104" width="320" height="76" fill="#4a4f57"/>
+    <polygon points="138,104 182,104 196,150 124,150" fill="#2f6fb5"/>
+    <g stroke="#f4f4f0" stroke-width="1.6" fill="none">
+      <line x1="0" y1="104" x2="320" y2="104"/>
+      <polygon points="138,104 182,104 196,150 124,150"/>
+      <path d="M40 104 Q40 176 160 176 Q280 176 280 104"/>
+    </g>
+    <rect x="157" y="46" width="6" height="58" fill="#2f3a46"/>
+    <rect x="132" y="22" width="56" height="34" rx="2" fill="#f7f8fa" stroke="#1d1d1f" stroke-width="1.6"/>
+    <rect x="150" y="34" width="20" height="15" fill="none" stroke="#ee334e" stroke-width="1.6"/>
+    <g class="loop">
+      <g class="loop-net"><path d="M148 52 L152 66 L168 66 L172 52 M152 52 L156 66 M160 52 L160 66 M168 52 L164 66" stroke="#e4e7eb" stroke-width="1.1" fill="none"/></g>
+      <ellipse cx="160" cy="52" rx="13" ry="3" fill="none" stroke="#ff6a1a" stroke-width="2.4"/>
+      <g class="loop-shooter"><g transform="translate(160 176)">
+        <rect x="-8" y="-30" width="7" height="30" rx="3" fill="#2b303b"/><rect x="1" y="-30" width="7" height="30" rx="3" fill="#2b303b"/>
+        <rect x="-12" y="-66" width="24" height="40" rx="8" fill="#0081c8"/>
+        <circle cy="-80" r="13" fill="#4a2c1a"/>
+        <g class="loop-hoop-arms"><line x1="-9" y1="-60" x2="-5" y2="-86" stroke="#f3cfae" stroke-width="6" stroke-linecap="round"/><line x1="9" y1="-60" x2="5" y2="-86" stroke="#f3cfae" stroke-width="6" stroke-linecap="round"/></g>
+      </g></g>
+      <g class="loop-hoop-ball"><circle r="8" fill="#e8671c" stroke="#a8440f" stroke-width="1"/><path d="M-8 0h16M0 -8v16" stroke="#2a1a10" stroke-width=".9"/></g>
+    </g>
+  `)}</div>`;
+}
+
 function mysteryThumb(): string {
   return `<div class="thumb-art">${svg(`
     <rect width="320" height="180" fill="#c9dcf0"/>
@@ -258,8 +295,8 @@ function mysteryThumb(): string {
 }
 
 /**
- * The sports on the home screen, in menu order. Tennis, archery and track
- * are playable (CLAUDE.md). The others are "coming soon" placeholders:
+ * The sports on the home screen, in menu order. Tennis, archery, track,
+ * boxing and basketball are playable (CLAUDE.md). The others are "coming soon" placeholders:
  * aria-disabled, they only change the preview, can't be selected and never
  * reach the server. Delete an entry to drop it.
  */
@@ -269,6 +306,7 @@ export const SPORTS: Sport[] = [
   { id: "archery", name: "Archery", playable: true, icon: ICONS.archery, blurb: "Read the wind and hit the gold, stage by stage. Draw with your camera or the mouse.", thumbnail: archeryThumb },
   { id: "track", name: "Track", playable: true, icon: ICONS.track, blurb: "Sprint 100 m against the bot or a friend. Run on the spot with your camera, or tap A and D.", thumbnail: trackThumb },
   { id: "boxing", name: "Boxing", playable: true, icon: ICONS.boxing, blurb: "Three rounds of 30 seconds against the bot or a friend. Jab, hook and guard with the keyboard or buttons.", thumbnail: boxingThumb },
+  { id: "basketball", name: "Basketball", playable: true, icon: ICONS.basketball, blurb: "A shootout from five spots on a park court, turn by turn. Push up to shoot with your camera, or hold Space.", thumbnail: basketballThumb },
 ];
 
 /**

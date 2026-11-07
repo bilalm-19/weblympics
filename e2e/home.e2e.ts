@@ -134,10 +134,10 @@ test("coming-soon sports can't be activated and never reach the server", async (
   await expect(page.locator('.sport[aria-pressed="true"]')).toHaveAttribute("data-sport", "tennis");
 });
 
-test("the sports are Tennis, Bowling, Archery, Track and Boxing, in that order", async ({ page }) => {
+test("the sports are Tennis, Bowling, Archery, Track, Boxing and Basketball, in that order", async ({ page }) => {
   await page.goto("/");
   await expect(page.locator(".pm-button")).toBeVisible();
-  await expect(page.locator(".sport .sport-name")).toHaveText(["Tennis", "Bowling", "Archery", "Track", "Boxing"]);
+  await expect(page.locator(".sport .sport-name")).toHaveText(["Tennis", "Bowling", "Archery", "Track", "Boxing", "Basketball"]);
 });
 
 test("the logo (task 14): five rings and the word in the five colours, letters bounce in once, rings float; nothing clipped", async ({ page }) => {
