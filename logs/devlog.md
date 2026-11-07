@@ -1631,3 +1631,9 @@ the format of the entries below (see CLAUDE.md, Docs).
 - **Fix:** the layout follows the window's height: the top padding, panel padding, button and icon sizes, card heights and the sport grid all shrink with `vh`; the logo is smaller under 760 px tall; the page may scroll as a last resort instead of hiding content. A party of 10 is a fixed grid of two rows of five whose figures shrink to fit; the phone's party strip no longer pushes the page sideways. The mock's review note is a collapsed "Mock controls" tab.
 - **Checked by script** at 1920x960 and 1536x730 (1080p browsers, 100% and 125% Windows scaling), 1366x657 (laptop browser), 1280x600, 1920x1080, 2560x1300 and 390x844, alone and with a party of 10: the join box inside the window, the panel below the logo, no horizontal overflow, at every size.
 - **Lesson for the real build:** check the home screen at browser-window heights (about 650-960 px), not only the full-screen viewports in CLAUDE.md.
+
+## 2026-11-08 04:27 AEDT | design | Home mock, round 8: a bigger thumbnail; the 3D state shown
+
+- **Decided by:** user ("why did you remove the 3d stuff you just add before, that looked good, also the thumbnail is too small now"); Claude.
+- **3D:** nothing 3D was removed in round 7: the 3D card icons still load (checked: six 3D canvases drawn, the flat ones hidden). The 3D party characters were dropped in round 5 at the user's word ("the 2d version still looks much nicer"). The mock now says in its "Mock controls" tab whether the 3D icons are on, or why not (phone, reduced motion, no WebGL), so the user can see which version their browser shows; a cached old copy (Ctrl+Shift+R) is the likely cause if the tab says on but the icons look flat.
+- **Thumbnail:** back to about 58% of the panel's width (it had shrunk to a corner in round 2), capped at 30% of the window's height so the code box still fits; the title larger. Re-checked at the seven window sizes: no overflow, the join box on screen.
