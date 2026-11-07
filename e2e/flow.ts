@@ -25,6 +25,25 @@ export async function skipCheck(page: Page): Promise<void> {
   await expect(panel).toBeHidden();
 }
 
+/** Seat 1's default look (shared/look.ts, task 33), which a guest wears, and how a drawing names it (`data-look`, every field in order). */
+export const DEFAULT_LOOK = {
+  top: "tee",
+  topColour: "blue",
+  bottom: "shorts",
+  bottomColour: "navy",
+  skin: "s2",
+  hairColour: "brown",
+  hairStyle: "short",
+  headwear: "none",
+  eyes: "round",
+  brows: "straight",
+  nose: "small",
+  mouth: "smile",
+  facialHair: "none",
+  eyewear: "none",
+};
+export const DEFAULT_KEY = Object.values(DEFAULT_LOOK).join("/");
+
 // The home screen's profile button, top right (named "Profile: <name>"), and
 // its panel: sign in and out, the demo accounts behind "Dev tools", and the
 // ways to the profile dialog and the leaderboard.
