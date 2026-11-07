@@ -47,12 +47,26 @@ lazily and only when a player enters a game. Video never leaves the browser.
   `box-camera.ts` (its camera panel; the pure maths is
   `box-pose.ts`), `practice.ts` + `practice-sim.ts` (in-page practice vs
   the bot), `boxing.css`; it reuses tennis's ready panel.
-  Basketball (task 32, part 1 so far) is `shared/games/basketball/`:
+  Basketball (task 32, parts 1-2 so far) is `shared/games/basketball/`:
   `sim.ts` (spots, turns, the shot clock and late-shot grace, the flight
   against the rim and board, `makeWindow`, scoring, sudden death,
   unlimited; `BasketballSnapshot` is what a view draws), `bot.ts` (aims
   inside `makeWindow` plus noise), `index.ts` (adapter, closed `asInput`).
   `server/rewind.ts` `lateShotTicks` turns a seat's round trip into its grace.
+  Its client is `client/games/basketball/`: `view.ts` (HUD, shot clock,
+  ready cue, floor arrow, power bar against `makeWindow`, the call, end
+  card; ←/→ or the mouse aim, hold Space, the court or Shoot; camera behind
+  the shooter for a player, side-on for a spectator), `calls.ts` (pure:
+  the call with the stacking swish, "Too soft"/"Just right"/"Too hard", the
+  spot line, the held bar: `spec/basketball-calls.test.ts`), `court.ts`
+  (the park court from primitives; bleachers seated with tennis's
+  `standSeats`/`seatCrowd`, which cheer or groan), `shooter.ts` (the tennis
+  character with arms holding the ball, one shot; `shotPose` pure),
+  `sound.ts` (WebAudio, after a gesture), `tie-vote.ts` (the level-score
+  pop-up: Draw or Continue, D/C, sends `tie`; a spectator sees both
+  choices: `spec/basketball-tie-vote.test.ts`), `shoot-camera.ts` (its camera,
+  task 32 part 3), `practice.ts` + `practice-sim.ts` (in-page practice vs
+  the bot), `basketball.css`; it reuses tennis's ready panel.
   `shared/look.ts`
   is the fixed palette and hat/hair list for a player's look (task 18).
 - `server/` `index.ts` (http + ws + `/readme/`), `rooms.ts` (live rooms with
@@ -234,8 +248,8 @@ lazily and only when a player enters a game. Video never leaves the browser.
 - Tennis, archery (task 22) and track (tasks 26-27, one game with two
   events: the sprint is playable, hurdles is task 27) are the games; boxing
   (task 30, a "maybe") is playable on keys, buttons or the camera in a 3D ring;
-  basketball (task 32, asked for on 2026-11-07) has its rules built, no view
-  yet. Add another only when I ask. Each lives in `shared/games/<name>/` and registers in the registry, so
+  basketball (task 32, asked for on 2026-11-07) is playable on keys, the
+  mouse and buttons in a park court; its camera is part 3. Add another only when I ask. Each lives in `shared/games/<name>/` and registers in the registry, so
   rooms, lobby and reconnect stay game-agnostic. A game's specs are named
   `spec/<name>-*.test.ts` and `e2e/<name>-*.e2e.ts`.
 - Video never leaves the browser. The game page's CSP `connect-src` allows

@@ -186,6 +186,54 @@ test("vs the bot: the server takes the turns, flies every ball and plays to the 
   }
 });
 
+// The tie vote (user, 2026-11-08): the rules branch adds phase "tie-vote" to
+// the snapshot; until the merge this injects one such state from the server's
+// side of a real vs-bot room's socket, and checks the pop-up's layout, its
+// buttons and that they send exactly { t: "tie", choice }.
+test("the tie vote pops up over the court, below the scores, and Continue sends tie", async ({ page }) => {
+  test.setTimeout(60_000);
+  const sent: Record<string, unknown>[] = [];
+  let toPage: ((msg: string) => void) | null = null;
+  let last: Record<string, unknown> | null = null;
+  let holdStates = false;
+  await page.routeWebSocket(/\/ws$/, (ws) => {
+    const server = ws.connectToServer();
+    toPage = (m) => ws.send(m);
+    ws.onMessage((m) => {
+      sent.push(JSON.parse(String(m)));
+      server.send(m);
+    });
+    server.onMessage((m) => {
+      const msg = JSON.parse(String(m));
+      if (msg.t === "state") {
+        if (holdStates) return;
+        last = msg.state;
+      }
+      ws.send(m);
+    });
+  });
+  await openBasketball(page);
+  await page.getByRole("button", { name: "Play vs bot" }).click();
+  await useKeyboard(page);
+  await expect.poll(() => last !== null).toBe(true);
+  // hold the real room's states back from now on, so the vote stays up
+  holdStates = true;
+  const vote = { ...last!, phase: "tie-vote", totals: [9, 9], vote: { votes: [null, "continue"], ticksLeft: 12 * 60 }, draw: false };
+  toPage!(JSON.stringify({ t: "state", state: vote }));
+  const panel = page.getByRole("dialog", { name: "Tie vote" });
+  await expect(panel).toBeVisible();
+  await expect(panel).toContainText("Level! Draw, or go to sudden death?");
+  await expect(panel).toContainText("They chose: continue");
+  await expect(panel.locator(".bb-tie-clock")).toHaveText("12 s");
+  await insideViewport(page, panel);
+  const board = (await page.locator(".bb-board").boundingBox())!;
+  expect(overlap(board, (await panel.boundingBox())!), "the pop-up covers the scores").toBe(false);
+  await panel.getByRole("button", { name: /Continue/ }).click();
+  await expect.poll(() => sent.filter((m) => m.t === "tie")).toEqual([{ t: "tie", choice: "continue" }]);
+  await expect(panel.getByRole("button", { name: /Draw/ })).toBeDisabled();
+  expect(await noHorizontalScroll(page)).toBe(true);
+});
+
 async function newPage(browser: Browser, page: Page, testInfo: TestInfo): Promise<Page> {
   const mobile = testInfo.project.name === "mobile";
   const ctx = await browser.newContext({ viewport: page.viewportSize()!, isMobile: mobile, hasTouch: mobile });

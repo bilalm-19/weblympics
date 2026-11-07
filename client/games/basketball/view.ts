@@ -14,7 +14,7 @@ import {
   WebGLRenderer,
 } from "three";
 import { AIM_YAW, BALL_R, RIM, SPOTS, spotPosition } from "../../../shared/games/basketball/sim.ts";
-import type { BasketballSnapshot, Seat, ShotResult, Vec3 } from "../../../shared/games/basketball/sim.ts";
+import type { Seat, ShotResult, Vec3 } from "../../../shared/games/basketball/sim.ts";
 import { DEFAULT_LOOKS } from "../../../shared/look.ts";
 import type { Look } from "../../../shared/look.ts";
 import type { LobbyView, RoomFormat, RoomInfo, ServerMsg } from "../../../shared/protocol.ts";
@@ -27,6 +27,13 @@ import { buildCourt } from "./court.ts";
 import { createShootCamera } from "./shoot-camera.ts";
 import { SHOT_TIMES, makeShooter, shotPose } from "./shooter.ts";
 import { createSounds } from "./sound.ts";
+import { createTiePanel } from "./tie-vote.ts";
+import type { TieChoice, WithVote } from "./tie-vote.ts";
+
+// LOCAL TYPE EXTENSION (task 32 tie vote): `tie` isn't in this branch's
+// ClientMsg yet; the rules agent adds it on basketball-rules. Sent through
+// this cast until integration, then drop it.
+type TieMsg = { t: "tie"; choice: TieChoice };
 
 // The basketball view (task 32, ADR 003): the park court (court.ts), the
 // camera behind the shooter for a player and side-on for a spectator, the
@@ -179,7 +186,7 @@ export function startBasketball(root: HTMLElement, conn: GameLink, info: RoomInf
   resize();
 
   // ---- state ----
-  let snap: BasketballSnapshot | null = null;
+  let snap: WithVote | null = null;
   let names: [string | null, string | null] = [null, null];
   let lobby: LobbyView | null = null;
   let looks: [Look, Look] = [DEFAULT_LOOKS[0], DEFAULT_LOOKS[1]];
@@ -216,6 +223,9 @@ export function startBasketball(root: HTMLElement, conn: GameLink, info: RoomInf
   const shotStarted: [number | null, number | null] = [null, null];
   // sound, only after a user gesture (sound.ts)
   const sounds = createSounds();
+  // the tie vote: level after the five spots, draw or sudden death (tie-vote.ts)
+  const tiePanel = createTiePanel(document, info.seat, (choice) => conn.send({ t: "tie", choice } as TieMsg as never), (s) => label(s));
+  view.append(tiePanel.el);
 
   const sendSet = () => {
     if (!myTurn() || setSent) return;
@@ -263,6 +273,11 @@ export function startBasketball(root: HTMLElement, conn: GameLink, info: RoomInf
   // ---- keys ----
   const onKey = (down: boolean) => (e: KeyboardEvent) => {
     if (e.target instanceof HTMLInputElement || e.target instanceof HTMLSelectElement) return;
+    // the tie vote's D and C
+    if (down && !e.repeat && tiePanel.key(e.code)) {
+      e.preventDefault();
+      return;
+    }
     if (!["ArrowLeft", "ArrowRight", "Space"].includes(e.code)) return;
     // Space on a focused button (Camera, Ready, a format) presses that button; only the Shoot button's Space shoots
     if (e.code === "Space" && e.target instanceof HTMLButtonElement && e.target !== shootBtn) return;
@@ -386,13 +401,20 @@ export function startBasketball(root: HTMLElement, conn: GameLink, info: RoomInf
     view.classList.remove("show-end");
   };
   (view.querySelector("[data-action=end-ok]") as HTMLElement).addEventListener("click", hideEnd);
-  const showEnd = (s: BasketballSnapshot) => {
-    if (s.winner === null) return;
-    const w = s.winner;
-    const l: Seat = w === 0 ? 1 : 0;
-    (endEl.querySelector("h2") as HTMLElement).textContent = w === info.seat ? "You win!" : `${label(w)} wins`;
-    const decided = s.shots.some((x) => x.suddenDeath);
-    (endEl.querySelector(".bb-end-score") as HTMLElement).textContent = `${s.totals[w]} to ${s.totals[l]}${decided ? ", won in sudden death" : ""}`;
+  const showEnd = (s: WithVote) => {
+    const h2 = endEl.querySelector("h2") as HTMLElement;
+    const score = endEl.querySelector(".bb-end-score") as HTMLElement;
+    if (s.draw) {
+      // both chose a draw at the tie vote
+      h2.textContent = "Draw";
+      score.textContent = `${s.totals[0]} all`;
+    } else if (s.winner !== null) {
+      const w = s.winner;
+      const l: Seat = w === 0 ? 1 : 0;
+      h2.textContent = w === info.seat ? "You win!" : `${label(w)} wins`;
+      const decided = s.shots.some((x) => x.suddenDeath);
+      score.textContent = `${s.totals[w]} to ${s.totals[l]}${decided ? ", won in sudden death" : ""}`;
+    } else return;
     const lines = endEl.querySelector(".bb-end-lines") as HTMLElement;
     lines.replaceChildren();
     for (const seat of [0, 1] as const) {
@@ -410,7 +432,7 @@ export function startBasketball(root: HTMLElement, conn: GameLink, info: RoomInf
 
   // ---- the HUD ----
   const shotMark = (x: ShotResult) => (x.lost === "time" ? "⏱" : x.swish ? "★" : x.made ? "●" : "○");
-  const renderBoard = (s: BasketballSnapshot) => {
+  const renderBoard = (s: WithVote) => {
     spotEl.textContent = spotLine(s, opts.local);
     bonusEl.textContent = bonusLine(s.spot, s.suddenDeath);
     for (const seat of [0, 1] as const) {
@@ -452,6 +474,8 @@ export function startBasketball(root: HTMLElement, conn: GameLink, info: RoomInf
     if (l?.phase === "paused" && l.hold) {
       statusEl.textContent = `Paused: waiting for ${l.hold.seat === info.seat ? "you" : l.hold.name} to reconnect (${l.hold.seconds} s)`;
     } else if (l?.match && l.phase === "countdown") statusEl.textContent = `Back. Resuming in ${l.countdown ?? 0}…`;
+    else if (s.phase === "over" && s.draw) statusEl.textContent = `Draw, ${s.totals[0]} all`;
+    else if (s.phase === "tie-vote") statusEl.textContent = "Level after five spots";
     else if (s.phase === "over" && s.winner !== null) {
       const w = s.winner;
       const score = `${s.totals[w]} to ${s.totals[w === 0 ? 1 : 0]}`;
@@ -474,7 +498,7 @@ export function startBasketball(root: HTMLElement, conn: GameLink, info: RoomInf
   let lastStateAt = 0;
   const unsubscribe = conn.on((msg: ServerMsg) => {
     if (msg.t === "state") {
-      const next = msg.state as BasketballSnapshot;
+      const next = msg.state as WithVote;
       const prev = snap;
       const now = performance.now();
       if (lastStateAt) ballGap = Math.min(120, Math.max(16, now - lastStateAt));
@@ -526,6 +550,7 @@ export function startBasketball(root: HTMLElement, conn: GameLink, info: RoomInf
         ballFrom = ballTo = null;
       }
       snap = next;
+      tiePanel.update(next);
       canvas.dataset.phase = next.phase;
       canvas.dataset.turn = String(next.turn);
       canvas.dataset.spot = String(next.spot);
@@ -569,7 +594,7 @@ export function startBasketball(root: HTMLElement, conn: GameLink, info: RoomInf
 
   // ---- the frame ----
   const look = new Vector3();
-  const placeCamera = (s: BasketballSnapshot) => {
+  const placeCamera = (s: WithVote) => {
     const p = spotPosition(s.spot);
     const d = Math.hypot(p.x, p.z) || 1;
     const ox = p.x / d;
@@ -725,6 +750,7 @@ export function startBasketball(root: HTMLElement, conn: GameLink, info: RoomInf
     window.removeEventListener("keydown", keydown);
     window.removeEventListener("keyup", keyup);
     shootCam.dispose();
+    tiePanel.dispose();
     sounds.dispose();
     disposeSpectating();
     observer.disconnect();

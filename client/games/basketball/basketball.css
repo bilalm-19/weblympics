@@ -286,6 +286,76 @@
   margin: 0.2rem 0;
 }
 
+/* the tie vote: over the court in the middle, below the HUD's scores and
+   above the buttons */
+.basketball .bb-tie {
+  position: absolute;
+  left: 50%;
+  top: 52%;
+  transform: translate(-50%, -50%);
+  width: min(24rem, calc(100% - 2rem));
+  box-sizing: border-box;
+  display: grid;
+  gap: 0.5rem;
+  padding: 0.9rem 1.1rem;
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--bg) 95%, transparent);
+  box-shadow: 0 8px 30px #0008;
+  text-align: center;
+}
+
+.basketball .bb-tie[hidden] {
+  display: none;
+}
+
+.basketball .bb-tie h2 {
+  margin: 0;
+  font-size: 1.25rem;
+}
+
+.basketball .bb-tie-clock {
+  margin: 0;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.basketball .bb-tie-buttons {
+  display: flex;
+  justify-content: center;
+  gap: 0.6rem;
+}
+
+.basketball .bb-tie-buttons button {
+  flex: 1 1 0;
+  min-height: 48px;
+}
+
+.basketball .bb-tie-buttons button[aria-pressed="true"] {
+  outline: 3px solid #ffd23f;
+}
+
+.basketball .bb-tie kbd {
+  margin-left: 0.3rem;
+  padding: 0 0.3rem;
+  border-radius: 4px;
+  background: #0002;
+  font-size: 0.8em;
+}
+
+.basketball .bb-tie-mine {
+  margin: 0;
+}
+
+.basketball .bb-tie-mine:empty {
+  display: none;
+}
+
+.basketball .bb-tie-votes {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
 /* the end card covers the call and the bar while it is up */
 .basketball.show-end .bb-call,
 .basketball.show-end .bb-lower {

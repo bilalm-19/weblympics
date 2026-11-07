@@ -1,6 +1,6 @@
 # 32 Basketball
 
-Status: part 1 (rules) built on branch `basketball-rules` (agent, 2026-11-08), not merged; parts 2-4 not started. Design accepted (ADR 003).
+Status: part 1 (rules) built on branch `basketball-rules`; part 2 (scene and view) built on `basketball-scene`, from it, with a stub `shoot-camera.ts` for part 3 to replace (agent, 2026-11-08); neither merged; parts 3-4 not done. Design accepted (ADR 003).
 Model: Opus 5.5 for every part
 Waits on: nothing. Task 28's podium can replace the end card later.
 
