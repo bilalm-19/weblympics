@@ -373,12 +373,13 @@ scroll, controls reachable, canvas not clipped. Check both for any UI change.
   without it the tests hit :8080, the user's dev server on `main`, and pass
   or fail on code the agent never ran. Ports: 8080/5173 the user's dev
   server, 8201-8298 agents, 8299 the integration branch. Restart the app
-  before each check. Run e2e with `pnpm e2e:gpu` (the laptop's GPU through
-  WSLg; it needs headed browsers, so their windows appear on the desktop): measured 1.8x faster one at a
-  time and green with 4 workers, where SwiftShader failed 3 of 48. Up to 4
-  e2e runs at once on the GPU; on plain `pnpm e2e` (SwiftShader, as CI would)
-  keep `--workers=1` and one run at a time. Re-run a lone failure by itself
-  before calling it a bug. Agents commit on their branch only and never
+  before each check. Agents run e2e headless, plain `pnpm e2e --workers=1`,
+  one or two runs at once at most. `pnpm e2e:gpu` (the laptop's GPU, 1.8x
+  faster, green with 4 workers where SwiftShader failed 3 of 48) needs
+  visible browser windows under WSLg (off-screen and minimised windows stay
+  on screen; headless falls back to SwiftShader), and they take over the
+  user's screen: only with the user's OK, e.g. when they're away. Re-run a
+  lone failure by itself before calling it a bug. Agents commit on their branch only and never
   push; Claude merges on an integration branch, runs the full checks there,
   then moves `main`.
 - Never commit secrets or `mise.local.toml`.

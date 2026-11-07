@@ -1509,3 +1509,10 @@ the format of the entries below (see CLAUDE.md, Docs).
 - **Context:** Claude listed how each game ends level today: boxing draws automatically, archery, track and basketball go straight to sudden death or a re-run, tennis can't tie, bowling votes. The user chose the vote for basketball only.
 - **Change:** ADR 003 and task 32 updated. A draw is recorded and rated but moves no rating, as boxing's and bowling's (the half-point question is still open with the user).
 - **Sent:** the basketball rules agent (resumed, branch `basketball-rules`, port 8201) was told to add the "tie-vote" phase and the `tie` message, copying bowling's parse and dispatch hunks byte for byte so one copy survives the merge, with the same snapshot field (`vote`), and specs. The basketball scene agent (branch `basketball-scene`, still running) was told to add the pop-up (Draw / Continue, the countdown, the other player's choice, D and C keys, no buttons for spectators) against that exact shape, with a local type extension until the merge, and a test that renders it from a snapshot.
+
+## 2026-11-08 02:21 AEDT | decision + process | E2e back to headless: the GPU windows took over the user's screen
+
+- **Decided by:** user ("can you launch the agent browsers in the background, they are taking over my screen"); Claude (the checks and the rule).
+- **Checked:** with the NVIDIA GPU, a browser placed off-screen (`--window-position=-32000,-32000`) or started minimised still opened on the visible desktop (WSLg ignores both: window at 73,27 and 1296,37); `--ozone-platform=headless` and headless Chrome fall back to SwiftShader. No virtual display (Xvfb, weston) is installed.
+- **Change:** CLAUDE.md: agents run e2e headless (`pnpm e2e --workers=1`, one or two runs at once); `pnpm e2e:gpu` only with the user's OK. The script and the `E2E_GPU` switch stay.
+- **Sent:** the basketball scene agent, the bowling scene agent and the basketball rules agent were told to stop any `e2e:gpu` run and use headless from now on.
