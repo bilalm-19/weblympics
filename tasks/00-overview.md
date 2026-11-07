@@ -44,6 +44,7 @@ One flat list. Start at the top; a task only waits on the ones named.
 | 29 | [Bowling](29-bowling.md): 5 frames, server rolls the pins, underarm camera swing | 28 | Opus then Sonnet |
 | 30 | [Boxing](30-boxing.md): 3 x 30 s rounds, jab, hook, guard, KO; a maybe, dropped if not solid by Sat night | 28 | Opus |
 | 31 | [Track and archery looks](31-track-archery-looks.md): colour, stadium, crowd, shared characters | 28 | Sonnet |
+| 32 | [Basketball](32-basketball.md): a turn-by-turn shoot-off from 5 spots, the server flies the ball off a real rim and board, one camera push (ADR 003) | - | Opus |
 
 Tasks 10 (README) and 11 (ship) are set aside by the user for now. Task 7 now
 waits on 17 and is per-sport with a host-set rated option. How the new tasks

@@ -1413,3 +1413,36 @@ the format of the entries below (see CLAUDE.md, Docs).
 - **Thrown away:** the first version had fresh agents play the running app through Playwright on keys, plus a 5-room server load test. Dropped because no agent can use a webcam (Chrome's fake camera shows a test pattern, not a person), so it only tested the keyboard path, which the user doesn't treat as the focus. Also dropped the phone, spectator and marker personas, which belonged to it.
 - **Server figures taken (user ran flyctl and curl):** deploy 11, one shared-cpu-1x 256 MB machine in syd, auto-stops; idle RSS 106 MB (41%), cold start about 4 s, warm about 1 s. Not yet measured under load.
 - **Commits:** 54cc21d, 0970b31, 6059f31. Not run on a game yet.
+
+## 2026-11-07 23:16 AEDT | review | Basketball shoot-off: game-idea review, "build with changes" (nothing built yet)
+
+- **Decided by:** user (the design: shoot-off, 5 spots, outdoor court, real rim and backboard physics, new home-screen tile, one shot style with no setting, stand about 1 m back, the review run); Claude (the review and the changes below); agent (two persona agents, the reader and the skipper). The changes are proposals until the user answers.
+- **Design as reviewed:** 5 spots in an arc, 4.6 m to 9 m, turn by turn, one shot each per spot, the first shooter swaps each spot; 2 points inside the arc, 3 beyond, the last spot a 4-point money ball, +1 for a swish; a tie goes to sudden death from the deep spot; 15 s shot clock. The server owns the ball (seeded rim and backboard physics); the client sends one `shoot {power, aim, ts}`. Camera: no setting, any fast hand rise (one hand or both, either hand) is a shot, wrist speed sets the power, the hands' sideways offset from the shoulders sets the aim, one standard animation. Keys: hold Space or a Shoot button, a power bar fills and falls, release shoots. Formats "shootout" (rated) and "unlimited" (unrated).
+- **Method:** `review-game-idea` run twice. The first run was by hand (the skill had not loaded in that session) and found A5 failing: nothing showed whether a miss was too soft or too hard. The second run used the real skill with fresh reader and skipper agents, shown the screen wording revised for that finding (hold at the chin, no jumping, power bar after each shot, floor arrow).
+- **Verdict:** build with changes. The rules pass (server owns the shot, closed message, short match, light on the server, turns need no fast reaction). The camera push is the risk and can't be tuned without a recording.
+- **What the personas said:** both still wanted to jump and push hard ("Kinect taught me big equals good"), both swayed 30-40 cm to aim, and neither knew whether the shot timer waited on them. The power bar fixed the first run's A5 finding: they would learn the push from "Too hard" and "Just right". The reader asked twice whether to push straight up or forward, and whether a sideways drift during the push changes the aim.
+- **Criteria:** A1, A2 (2 inputs; boxing has 5), A5, B, C (one closed message, one shot a turn, seeded), D, E pass. Concerns: A3 (straight up or forward), A4 (aiming sway could read as a push), A6 (unproven at 1 m or seated), F1 (every number a guess). C4 needs a line: the server's own clock plus a small grace for the 15 s clock.
+- **Changes proposed before building:**
+  1. Say "no need to jump" on screen, and give a clear ready cue (hands glow, the clock starts).
+  2. Say "push straight up, not forward"; show "Their shot, watch" off-turn.
+  3. Keep the power bar with the spot's sweet zone after each shot ("Too soft / Just right / Too hard").
+  4. Keep the floor arrow and make it visibly follow the hands in the setup step.
+  5. Lock the aim when the push starts, so a sideways drift can't change it (the one change to the design).
+  6. Make the sweet zone wider on the near spots so first shots go in.
+  7. State in the UI that the +1 swish stacks on any basket, the money ball included.
+- **Tight space:** a push read between chin and forehead should stay in frame at 1 m and seated, unproven. The pose model must run every frame (a push lasts 0.2-0.4 s), not boxing's every third.
+- **Recordings to make first** (`docs/camera-playtest.md`, 1 m standing and seated): soft, medium and hard pushes with two hands; the same one-handed, each side; and "moving, no shot" (aiming sway, scratching, cheering), which must stay below the shot threshold. Boxing's `?debug` recorder can show today whether the hands stay tracked up to the forehead; it doesn't record push speed, so basketball needs its own recorder.
+- **Open:** the user's answers on changes 1-7, and whether basketball is worth starting about two days before the noon Monday 9 Nov deadline, with boxing's fixes, the README (task 10) and ship (task 11) still open. No ADR, task file or code yet.
+
+## 2026-11-07 23:26 AEDT | decision | Basketball: answers on the review's changes
+
+- **Decided by:** user (each change below); Claude (the reasons offered).
+- **Push up and towards the hoop** (change 2, user: "dont you push a little forward in basketball? straight up might be awkward"): the wording becomes "Push up and towards the hoop, like a real shot. No need to jump." The camera reads the rise of the wrists against the shoulders, which a forward-and-up push still has; a push that is nearly all forward (a chest pass) reads as soft, and the power bar shows it. The recordings use up-and-forward pushes.
+- **No hand-widened sweet zone** (change 6, user: "wouldnt being closer give the same effect?"): yes, a nearer shot needs a slower ball, so the same push error moves it fewer centimetres and the same hoop takes a wider range of pushes. The server works each spot's sweet zone out from its own physics and the bar draws that; widen by hand only if a playtest shows first shots still miss.
+- **Ready position at the chest** (user, over Claude's proposal of the chin): "we can do chest, it should be fine". Risk noted: seated close, the frame can end around mid-chest. If the hands aren't seen, the screen asks to raise them a little; the push itself is read as the wrists pass the face either way.
+- **Still to confirm:** changes 1, 3, 4, 5 (aim locks when the push starts) and 7, as listed in the review entry above.
+
+## 2026-11-07 23:28 AEDT | decision | Basketball: changes accepted; ADR 003 and task 32 written
+
+- **Decided by:** user ("yes accept the rest, write the adr and task file": changes 1, 3, 4, 5 and 7 as listed); Claude (the ADR's details the user hasn't seen yet, listed in task 32 under "Claude's choices": the `set`/`aim`/`shoot` messages, the clock starting 5 s in if no `set`, a late shot counting within the round trip capped at 150 ms, no random scatter, the spot names, sudden death's alternating first shooter).
+- **Written:** `docs/adr/003-basketball-shoot-off.md`, `tasks/32-basketball.md` (rules agent first, then the scene and camera agents in parallel, then integration), and the row in `tasks/00-overview.md`. No agent started.
