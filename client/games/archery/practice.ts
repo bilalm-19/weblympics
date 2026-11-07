@@ -26,7 +26,7 @@ class PracticeLink implements GameLink {
   }
 
   send(msg: ClientMsg): void {
-    if (msg.t === "aim") this.sim.aim(msg);
+    if (msg.t === "aim" && "yaw" in msg) this.sim.aim(msg);
     else if (msg.t === "release") this.sim.release(msg);
     else if (msg.t === "pause") this.sim.paused = msg.paused;
     else if (msg.t === "leave") this.stop();
