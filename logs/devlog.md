@@ -1600,3 +1600,10 @@ the format of the entries below (see CLAUDE.md, Docs).
 - **Light on weak devices:** the flat SVG page shows first; the 3D module (with Three.js) loads only after it, and only if WebGL works, the window is wider than a phone and reduced motion is off. After 3 s, if the party draws under 30 frames a second it stops, frees its renderer and puts the flat version back. `?flat` forces flat.
 - **Measured:** in the headless test browser (software drawing, a stand-in for a weak laptop) the 3D drew at 9 then 1 frames a second, and the page fell back to flat on its own, with no page errors. On a real GPU it should hold (not measured here: the GPU browser opens windows on the user's screen).
 - **Not yet seen working:** the 3D card icons after their fix (the test browser falls back before they show); the user to check in their own browser.
+
+## 2026-11-08 03:43 AEDT | design | Home mock, round 4: the 2D face on the 3D characters
+
+- **Decided by:** user ("the faces on 2d look nicer than the 3d versions"); Claude (the change).
+- **Why they differed:** the game's 3D face is a small canvas texture (256 px wide, eyes about 3 px, thin brows, a short nose line, a thin smile, no cheeks) wrapped round a sphere, so it reads as dots; the flat drawing has big eyes with a shine, a wide smile and rosy cheeks.
+- **Change (mock only):** `mock-home-3d.ts` paints the flat face's style on a 1024 px texture (big eyes with a white shine, soft brows, a wide smile, cheeks), sized up to survive the wrap, and swaps it onto each character's head after `makePlayer`; `character.ts` is untouched. `?force3d` keeps the 3D on past the frame-rate check, for screenshots on a slow machine.
+- **If approved:** the same face would go into `character.ts` so every game's characters get it (task 33's customisation agent owns that file now, with eye, nose and mouth options; the merge decides who changes it).
