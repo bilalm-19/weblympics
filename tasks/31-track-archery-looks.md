@@ -1,8 +1,8 @@
 # 31 Track and archery looks
 
-Status: planned (2026-11-05), waiting on the user's OK.
+Status: planned (2026-11-05); no longer waits on 28 (user, 2026-11-08). Not started.
 Model: Sonnet (one agent per game, in parallel)
-Waits on: 28 (shared character, crowd, podium)
+Waits on: nothing (user, 2026-11-08). Uses tennis's character and crowd pieces directly, as boxing, basketball and bowling do; a simple end card now, task 28's podium later.
 
 ## Context
 The user (2026-11-05): "everything looks too plain, I want some more colour,

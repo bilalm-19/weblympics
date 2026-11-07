@@ -43,7 +43,7 @@ One flat list. Start at the top; a task only waits on the ones named.
 | 28 | [Shared look kit and podium](28-shared-kit-podium.md): tennis character for every game, shared crowd, 3D podium at the end | - | Opus |
 | 29 | [Bowling](29-bowling.md): 5 frames, the server rolls the ball and pins, the camera reads the forward underarm swing (ADR 004); built without 28 | - | Opus |
 | 30 | [Boxing](30-boxing.md): 3 x 30 s rounds, jab, hook, guard, KO; a maybe, dropped if not solid by Sat night | 28 | Opus |
-| 31 | [Track and archery looks](31-track-archery-looks.md): colour, stadium, crowd, shared characters | 28 | Sonnet |
+| 31 | [Track and archery looks](31-track-archery-looks.md): colour, stadium, crowd, shared characters | - | Sonnet |
 | 32 | [Basketball](32-basketball.md): a turn-by-turn shoot-off from 5 spots, the server flies the ball off a real rim and board, one camera push (ADR 003) | - | Opus |
 
 Tasks 10 (README) and 11 (ship) are set aside by the user for now. Task 7 now

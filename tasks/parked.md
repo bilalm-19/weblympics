@@ -56,3 +56,10 @@ for the same effort (grip and arm path differ, so the same thresholds may be
 wrong for one of them)? Is a quick guided calibration (three swings per stroke)
 worth the setup time, or should it learn from play? What does the player see
 while doing it, and can keys and touch skip it as they do now?
+
+## Later (user, 2026-11-08): fewer scores and options
+Not now. The user is thinking of removing the leaderboard and Elo, keeping
+only "matches played", and of removing play options that aren't the
+default (in tennis, for example), keeping leaning as an optional extra.
+Discuss before touching: README, CLAUDE.md and many specs promise the
+leaderboard and ratings (task 7), so removing them is a coordinated change.

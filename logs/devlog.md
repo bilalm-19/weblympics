@@ -1522,3 +1522,10 @@ the format of the entries below (see CLAUDE.md, Docs).
 - **Decided by:** user (the rule); agent (the build); Claude (the merge note).
 - **Result:** `pnpm check` 47 files, 773 tests, exit 0, on port 8201; no e2e (no view on that branch). Either seat's draw ends it as a rated draw with no rating change; both continue plays sudden death from the deep spot, a level round votes again; 15 s, a missing vote counts as draw; the bot continues after 1 s; unlimited never votes. The snapshot gains `vote` and `draw` with bowling's shape and names.
 - **Merge note:** `server/index.ts` routes `tie` to `room.hoop()` on this branch and to `room.bowl()` on bowling's; either handler passes it to the room's own game, so integration keeps one route.
+
+## 2026-11-08 02:31 AEDT | decision | Task 31 no longer waits on 28; the user's next ideas
+
+- **Decided by:** user ("yeah mark it like that"; the ideas below); Claude (the reason 31 can go ahead).
+- **Task 31:** track and archery looks can use tennis's character and crowd pieces directly, as boxing, basketball and bowling do, with a simple end card until task 28's podium. Task file and overview updated.
+- **New ideas from the user, to discuss next:** friends (add, invite to a match), online / away / offline status, a party system (several people together, games stay 1v1, the others spectate; public or invite-only), and a cleaner customisation and looks UI.
+- **Parked for later (not now):** removing the leaderboard and Elo for just "matches played", and removing non-default play options (e.g. in tennis), keeping leaning as optional. Written in `tasks/parked.md`.
