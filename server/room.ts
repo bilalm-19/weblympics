@@ -11,7 +11,7 @@ import type { ClientMsg, LobbyView, RoomFormat, ServerMsg } from "../shared/prot
 import { Lobby } from "./lobby.ts";
 import type { Timing } from "./lobby.ts";
 import { log as realLog, who } from "./log.ts";
-import { TICK_MS, rewindTicks } from "./rewind.ts";
+import { TICK_MS, lateShotTicks, rewindTicks } from "./rewind.ts";
 import type { MatchRecord } from "./schema.ts";
 
 export type Seat = 0 | 1;
@@ -60,6 +60,9 @@ const STEPS_PER_SECOND = 30;
 // boxing: punch, guard and slip messages a second accepted from one seat before
 // the sim's own punch cap; past this is a flood and is dropped here
 const BOX_PER_SECOND = 30;
+// basketball: set, aim and shoot messages a second accepted from one seat
+// (aim is throttled by the client); past this is a flood and is dropped here
+const HOOP_PER_SECOND = 40;
 const MAX_CATCHUP_TICKS = 5;
 const EMPTY_ROOM_TTL_MS = 30_000;
 const BOT_SEAT: Seat = 1;
@@ -94,6 +97,10 @@ export class Room {
     { start: 0, count: 0 },
   ];
   private boxWindow: [{ start: number; count: number }, { start: number; count: number }] = [
+    { start: 0, count: 0 },
+    { start: 0, count: 0 },
+  ];
+  private hoopWindow: [{ start: number; count: number }, { start: number; count: number }] = [
     { start: 0, count: 0 },
     { start: 0, count: 0 },
   ];
@@ -297,7 +304,7 @@ export class Room {
   }
 
   /** Archery's sight and release; the game ignores a seat whose turn it isn't. */
-  aim(c: Client, msg: Extract<ClientMsg, { t: "aim" | "release" }>): void {
+  aim(c: Client, msg: Extract<ClientMsg, { t: "aim" | "release"; yaw: number }>): void {
     if (c.seat === null) return;
     const input = { t: msg.t, yaw: msg.yaw, pitch: msg.pitch, draw: msg.draw };
     if (msg.t === "release") {
@@ -306,6 +313,31 @@ export class Room {
       this.pendingAim[c.seat] = null;
       this.pending.push({ seat: c.seat, input });
     } else this.pendingAim[c.seat] = input;
+  }
+
+  /**
+   * Basketball's set, aim, shot and tie vote (task 32), in arrival order.
+   * Rebuilt field by field, so nothing else reaches the game; the game ignores
+   * a seat whose turn it isn't, a second shot in a turn and a second vote,
+   * flies the ball and scores it.
+   */
+  hoop(c: Client, msg: Extract<ClientMsg, { t: "set" | "shoot" | "tie" } | { t: "aim"; aim: number }>): void {
+    if (c.seat === null) return;
+    const w = this.hoopWindow[c.seat];
+    if (this.ticks - w.start >= 60) {
+      w.start = this.ticks;
+      w.count = 0;
+    }
+    if (++w.count > HOOP_PER_SECOND) return;
+    const input =
+      msg.t === "set"
+        ? { t: "set" }
+        : msg.t === "aim"
+          ? { t: "aim", aim: msg.aim }
+          : msg.t === "tie"
+            ? { t: "tie", choice: msg.choice }
+            : { t: "shoot", power: msg.power, aim: msg.aim, at: msg.at };
+    this.pending.push({ seat: c.seat, input });
   }
 
   /** Track's footfall; the game counts it, caps the cadence and owns the distance. */
@@ -421,6 +453,14 @@ export class Room {
       this.tally.points[seat] += Number(e.points);
       this.tally.bestRally = Math.max(this.tally.bestRally, Number(e.points));
       this.deps.log("shot", { room: this.id, seat, points: e.points, stage: e.stage, lost: e.lost });
+    } else if (e.type === "basket") {
+      // basketball: a basket's points count toward unlimited; its best is the best basket (as archery's best arrow)
+      const seat = e.seat as Seat;
+      if (!e.suddenDeath) {
+        this.tally.points[seat] += Number(e.points);
+        this.tally.bestRally = Math.max(this.tally.bestRally, Number(e.points));
+      }
+      this.deps.log("basket", { room: this.id, seat, spot: e.spot, made: e.made, swish: e.swish, rim: e.rim, board: e.board, points: e.points, lost: e.lost });
     } else if (e.type === "race") {
       // track: a race won counts toward unlimited
       const winner = e.winner as Seat;
@@ -519,6 +559,8 @@ export class Room {
       if (this.practice) {
         for (const input of this.instance.botInputs(BOT_SEAT)) inputs.push({ seat: BOT_SEAT, input });
       }
+      // basketball: a shot after the buzzer counts within the seat's measured round trip (ADR 003)
+      if (this.instance.setLag) for (const seat of [0, 1] as const) this.instance.setLag(seat, lateShotTicks(this.seats[seat]?.rtt ?? null));
       this.simTick++;
       for (const e of this.instance.step(inputs)) this.report(e, 0);
     }

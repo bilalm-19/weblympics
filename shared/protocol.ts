@@ -7,8 +7,9 @@ import type { Look } from "./look.ts";
 // never rated, and ends when someone leaves. "stages" is archery's match,
 // "race" is track's (task 26): one race, first across the line. "bout" is
 // boxing's (task 30): three rounds, a knockout or a decision on damage.
-export type RoomFormat = "oneSet" | "bestOfThree" | "stages" | "race" | "bout" | "unlimited";
-export const ROOM_FORMATS: readonly RoomFormat[] = ["oneSet", "bestOfThree", "stages", "race", "bout", "unlimited"];
+// "shootout" is basketball's (task 32): five spots, one shot each per spot.
+export type RoomFormat = "oneSet" | "bestOfThree" | "stages" | "race" | "bout" | "shootout" | "unlimited";
+export const ROOM_FORMATS: readonly RoomFormat[] = ["oneSet", "bestOfThree", "stages", "race", "bout", "shootout", "unlimited"];
 
 // waiting (a seat is empty) -> ready-check -> countdown (3 s) -> playing;
 // paused while a dropped player's seat is held (30 s)
@@ -87,6 +88,17 @@ export type ClientMsg =
   | { t: "punch"; hand: "left" | "right"; target: "head" | "body"; at: number }
   | { t: "guard"; guard: "high" | "low" | null }
   | { t: "slip"; side: "left" | "right" | null }
+  // basketball (task 32, ADR 003): "I'm set" (starts the shot clock, shows
+  // the ready cue), the aim -1..1 (so others see the arrow; it shares
+  // `t: "aim"` with archery but carries only `aim`) and the shot: power 0..1,
+  // aim, and the sender's own clock (ms). Never a make or a score: the server
+  // flies the ball. A message with any extra field is dropped whole
+  | { t: "set" }
+  | { t: "aim"; aim: number }
+  | { t: "shoot"; power: number; aim: number; at: number }
+  // the vote after a level game (user, 2026-11-08: "draw" or "continue"),
+  // bowling's and basketball's
+  | { t: "tie"; choice: "draw" | "continue" }
   // movement mode for the sender's own seat: "auto" (the server walks you to
   // the ball, the default) or "tilt" (only your own moves); anything else is
   // a bad message
@@ -170,9 +182,14 @@ export function parseClientMsg(raw: string): ClientMsg | null {
       return typeof m.x === "number" && Number.isFinite(m.x) ? { t: "move", x: m.x } : null;
     case "aim":
     case "release": {
+      // basketball's aim is exactly { t, aim }; archery's carries yaw, pitch and draw
+      if (m.t === "aim" && Object.hasOwn(m, "aim")) {
+        if (!onlyKeys(m, ["t", "aim"])) return null;
+        return typeof m.aim === "number" && Number.isFinite(m.aim) ? { t: "aim", aim: m.aim } : null;
+      }
       const { yaw, pitch, draw } = m;
       if (![yaw, pitch, draw].every((v) => typeof v === "number" && Number.isFinite(v))) return null;
-      return { t: m.t, yaw: yaw as number, pitch: pitch as number, draw: draw as number };
+      return { t: m.t as "aim" | "release", yaw: yaw as number, pitch: pitch as number, draw: draw as number } as ClientMsg;
     }
     case "step":
       if (m.side !== "left" && m.side !== "right") return null;
@@ -188,6 +205,17 @@ export function parseClientMsg(raw: string): ClientMsg | null {
     case "slip":
       if (!onlyKeys(m, ["t", "side"])) return null;
       return m.side === "left" || m.side === "right" || m.side === null ? { t: "slip", side: m.side } : null;
+    case "set":
+      return onlyKeys(m, ["t"]) ? { t: "set" } : null;
+    case "shoot": {
+      if (!onlyKeys(m, ["t", "power", "aim", "at"])) return null;
+      const { power, aim, at } = m;
+      if (![power, aim, at].every((v) => typeof v === "number" && Number.isFinite(v))) return null;
+      return { t: "shoot", power: power as number, aim: aim as number, at: at as number };
+    }
+    case "tie":
+      if (!onlyKeys(m, ["t", "choice"])) return null;
+      return m.choice === "draw" || m.choice === "continue" ? { t: "tie", choice: m.choice } : null;
     case "mode":
       return m.mode === "auto" || m.mode === "tilt" ? { t: "mode", mode: m.mode } : null;
     case "pause":

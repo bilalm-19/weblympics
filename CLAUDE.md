@@ -47,6 +47,12 @@ lazily and only when a player enters a game. Video never leaves the browser.
   `box-camera.ts` (its camera panel; the pure maths is
   `box-pose.ts`), `practice.ts` + `practice-sim.ts` (in-page practice vs
   the bot), `boxing.css`; it reuses tennis's ready panel.
+  Basketball (task 32, part 1 so far) is `shared/games/basketball/`:
+  `sim.ts` (spots, turns, the shot clock and late-shot grace, the flight
+  against the rim and board, `makeWindow`, scoring, sudden death,
+  unlimited; `BasketballSnapshot` is what a view draws), `bot.ts` (aims
+  inside `makeWindow` plus noise), `index.ts` (adapter, closed `asInput`).
+  `server/rewind.ts` `lateShotTicks` turns a seat's round trip into its grace.
   `shared/look.ts`
   is the fixed palette and hat/hair list for a player's look (task 18).
 - `server/` `index.ts` (http + ws + `/readme/`), `rooms.ts` (live rooms with
@@ -227,7 +233,9 @@ lazily and only when a player enters a game. Video never leaves the browser.
 - Game logic stays deterministic (seed + input stream) so it can be tested.
 - Tennis, archery (task 22) and track (tasks 26-27, one game with two
   events: the sprint is playable, hurdles is task 27) are the games; boxing
-  (task 30, a "maybe") is playable on keys, buttons or the camera in a 3D ring. Add another only when I ask. Each lives in `shared/games/<name>/` and registers in the registry, so
+  (task 30, a "maybe") is playable on keys, buttons or the camera in a 3D ring;
+  basketball (task 32, asked for on 2026-11-07) has its rules built, no view
+  yet. Add another only when I ask. Each lives in `shared/games/<name>/` and registers in the registry, so
   rooms, lobby and reconnect stay game-agnostic. A game's specs are named
   `spec/<name>-*.test.ts` and `e2e/<name>-*.e2e.ts`.
 - Video never leaves the browser. The game page's CSP `connect-src` allows
@@ -321,6 +329,35 @@ lazily and only when a player enters a game. Video never leaves the browser.
   and a recorder only (move 9 records a lean). Keys: J head jab, K body jab, hold Space
   high guard, hold L low guard, hold A/D to lean; six buttons on a phone
   (the slip ones held like the guards).
+- Basketball (task 32, ADR 003; `spec/basketball-*.test.ts`): five spots
+  (free throw 4.6 m, elbow 5.5, wing three 6.75, top three 7.25, deep 9),
+  worth 2/2/3/3/4, one shot each per spot, alternating, the first shooter
+  swapping each spot; a swish (no rim, no board) adds 1 to any make, so a
+  swished money ball is 5. A level shootout asks both players, as bowling
+  does (user, 2026-11-08): phase "tie-vote", each seat sends `tie` {choice
+  "draw"|"continue"} once; either "draw" ends it as a draw (`winner: null`,
+  recorded `draw`, rated between two accounts with no rating change); only
+  both "continue" plays a sudden-death round from the deep spot (a make
+  against a miss wins, the first shooter alternating, not added to the
+  score), and a level round votes again. 15 s to vote (`VOTE_TICKS`), no
+  vote counts as "draw"; the bot votes "continue" after 1 s; off-phase,
+  second and malformed votes and spectators' are ignored. Clients send
+  exactly `set`, `aim` {aim}, `shoot` {power 0..1, aim -1..1, their own
+  timestamp} and `tie`; anything else or any extra field is dropped whole,
+  and so is an off-turn message or a second shot in a turn.
+  The server flies the ball (fixed release and launch angle, gravity,
+  substeps, a rim circle and a bounded board with fixed restitution); a make
+  is the ball's centre crossing down through the rim plane inside the rim.
+  No random scatter: the same shot always does the same thing; the seed only
+  picks unlimited's spots. `makeWindow(spot)` is the power range that scores
+  with a centred aim; the snapshot carries it for the power bar and the bot
+  aims inside it. Shot clock 15 s on the sim's ticks, from the shooter's
+  first `set` or 5 s into the turn; running out is a miss; a shot after the
+  buzzer counts within the seat's measured round trip, capped at 150 ms (9
+  ticks), none if unmeasured. Formats: "shootout" (rated between two
+  people) and "unlimited" (a seeded random spot each turn, counts points,
+  makes and the longest make, no winner, unrated). The physics numbers are
+  first guesses until the camera's recordings.
 - Camera is used for gameplay only. Every camera action has a keyboard/mouse
   equivalent, and the lobby and room work with no camera at all.
 - Webcam is the default (task 15, `e2e/webcam-default.e2e.ts`): a seated

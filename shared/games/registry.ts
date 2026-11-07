@@ -1,5 +1,6 @@
 import type { RoomFormat } from "../protocol.ts";
 import { archery } from "./archery/index.ts";
+import { basketball } from "./basketball/index.ts";
 import { boxing } from "./boxing/index.ts";
 import { tennis } from "./tennis/index.ts";
 import { track } from "./track/index.ts";
@@ -34,6 +35,12 @@ export interface GameInstance {
    */
   finished(): { winner: 0 | 1 | null; score: [number, number]; format?: string; sets?: Array<[number, number]> } | null;
   botInputs(seat: 0 | 1): unknown[];
+  /**
+   * Basketball (ADR 003): the room passes each seat's late-shot grace, ticks,
+   * from its measured round trip (`lateShotTicks`, capped at 9 = 150 ms).
+   * Other games leave it out.
+   */
+  setLag?(seat: 0 | 1, ticks: number): void;
 }
 
 export interface GameDef {
@@ -48,4 +55,4 @@ export interface GameDef {
   create(seed: number, options?: { endless?: boolean; format?: string }): GameInstance;
 }
 
-export const games: Record<string, GameDef> = { tennis, archery, track, boxing };
+export const games: Record<string, GameDef> = { tennis, archery, track, boxing, basketball };

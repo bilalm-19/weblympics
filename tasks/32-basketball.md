@@ -1,6 +1,6 @@
 # 32 Basketball
 
-Status: planned (2026-11-07). Design accepted (ADR 003); nothing built. Waiting on the user's go to start agents.
+Status: part 1 (rules) built on branch `basketball-rules` (agent, 2026-11-08), not merged; parts 2-4 not started. Design accepted (ADR 003).
 Model: Opus 5.5 for every part
 Waits on: nothing. Task 28's podium can replace the end card later.
 

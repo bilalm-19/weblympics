@@ -12,6 +12,7 @@ export const FORMAT_LABELS: Record<RoomFormat, string> = {
   stages: "Eight stages",
   race: "Race",
   bout: "Bout",
+  shootout: "Shootout",
   unlimited: "Unlimited",
 };
 
@@ -21,6 +22,7 @@ const FORMAT_NOTES: Record<RoomFormat, string> = {
   stages: "One arrow each per stage, 10 m to 50 m, the wind getting stronger. Highest total wins.",
   race: "One 100 m sprint, first across the line wins.",
   bout: "Three rounds of 30 seconds. A knockout wins at once, else the most damage dealt; a tie is a draw.",
+  shootout: "One shot each from five spots, 4.6 m to 9 m; the deep one is worth 4, a swish adds 1. Highest total wins.",
   unlimited: "Play as long as you like; points and best rally are counted. No winner, not rated.",
 };
 
@@ -30,6 +32,8 @@ const UNLIMITED_ARCHERY = "Random distance and wind every stage, as long as you 
 const UNLIMITED_TRACK = "Race after race, as long as you like; races won and best times are counted. No winner, not rated.";
 // boxing's unlimited boxes bout after bout
 const UNLIMITED_BOXING = "Bout after bout, as long as you like; bouts won and knockouts are counted. No winner, not rated.";
+// basketball's unlimited shoots from a random spot every turn
+const UNLIMITED_BASKETBALL = "A random spot every shot, as long as you like; points, makes and the longest make are counted. No winner, not rated.";
 
 export interface ReadyPanel {
   update(view: LobbyView): void;
@@ -60,6 +64,7 @@ export function createReadyPanel(
     ...(formats.includes("stages") ? { unlimited: UNLIMITED_ARCHERY } : {}),
     ...(formats.includes("race") ? { unlimited: UNLIMITED_TRACK } : {}),
     ...(formats.includes("bout") ? { unlimited: UNLIMITED_BOXING } : {}),
+    ...(formats.includes("shootout") ? { unlimited: UNLIMITED_BASKETBALL } : {}),
   };
   const el = document.createElement("section");
   el.className = "ready-panel";
