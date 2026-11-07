@@ -1654,3 +1654,10 @@ the format of the entries below (see CLAUDE.md, Docs).
 - **Bug its new spec found:** at full draw with the aim tipped down the bow hand was 1 cm out of reach; the arms were lengthened slightly.
 - **Frame rate:** the first version ran at half of main's on desktop; after a plain sky and unlit, merged ground, hills and clouds, alternating rounds measured desktop 37-60 fps against main's 30-49 at 10 m, about equal at 40 m, phone 60.
 - **Merge note:** both task-31 branches changed `stadium.ts` (track exported `sky`, `paintStand`, `crowdMeshes`, `FAN_SHIRTS`; archery exported `crowd()` with an optional layout), and bowling's exported `crowdMeshes` too: expect a conflict there.
+
+## 2026-11-08 05:08 AEDT | milestone | Customisation agent finished (task 33, branch customise-33, 8937087)
+
+- **Decided by:** agent (the build and its choices, in its own "Task 33 built" entry); Claude (accepting it for the merge).
+- **Result:** `pnpm check` 44 files, 726 tests, exit 0; `e2e/look`, `home`, `accounts` 40 passed; the full headless `pnpm e2e --workers=1` 198 passed, exit 0 (the first agent tonight with a fully green full run).
+- **Built:** 14 look fields, each a fixed list (top style and colour, bottom style and colour, skin, hair colour and style, headwear, eyes, brows, nose, mouth, facial hair, eyewear), refused on the server outside the lists; schema step 7 maps every stored task-18 look to the new shape, with a test on a v6 database; every option drawn in 3D (`character.ts`, faces in bold strokes that read at court distance) and SVG; a new editor (live preview, Face / Hair / Clothes / Extras tabs, picture swatches, Save and Cancel, keyboard).
+- **Merge notes:** take its `character.ts` over bowling-scene's (it already has bowling's `racket: false`, `arm` and `hand`, and still accepts task-18 looks, which bowling builds); boxing's upper arms now use the new `sleeve` part. Every building agent from tonight has now finished.
