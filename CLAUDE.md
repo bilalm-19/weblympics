@@ -120,8 +120,13 @@ lazily and only when a player enters a game. Video never leaves the browser.
   `bow-model.ts` (the first-person bow), `practice.ts` + `practice-sim.ts`
   (in-page practice), `archery.css`; it reuses tennis's ready panel. Track
   (task 26) is `games/track/`: `view.ts` (side-on chase camera, race board,
-  A/D, arrows and two tap buttons), `lane.ts` (track and runners from
-  primitives), `run-camera.ts` (its camera panel: mode, stand-still
+  A/D, arrows and two tap buttons), `lane.ts` (task 31's stadium from
+  tennis's `Painter`, `paintStand`, `crowdMeshes` and `sky`; finish arch and
+  clock), `bake.ts` (bakes the light into the stadium's colours, so only
+  runners are lit), `crowd.ts` (each stand's fans merged into one mesh, the
+  cheer in the vertex shader), `runner.ts` (the tennis character with
+  jointed legs and arms), `scene-model.ts` (pure: run pose, crowd
+  excitement, clock: `spec/track-scene.test.ts`), `run-camera.ts` (its camera panel: mode, stand-still
   calibration), `practice.ts` + `practice-sim.ts` (in-page practice vs a
   pacer), `track.css`; the pure camera maths is `input/camera/run-pose.ts`;
   it reuses tennis's ready panel.
