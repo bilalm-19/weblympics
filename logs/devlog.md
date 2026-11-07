@@ -1623,3 +1623,11 @@ the format of the entries below (see CLAUDE.md, Docs).
 - **Flat icons** (phones and the fallback) redrawn with the same details.
 - **Previews:** each a small looping scene with figures doing the sport: tennis rally with a forehand, an archer drawing and releasing as a flag streams, two sprinters with pumping arms and legs on scrolling lanes with a finish line, a jab that rocks the other boxer, a set shot dropping through a net that ripples, a curving ball scattering the pins.
 - **Review note** moved to the bottom-right corner.
+
+## 2026-11-08 04:23 AEDT | design + bug | Home mock, round 7: the code box was below the fold in a laptop browser
+
+- **Decided by:** user ("i have to zoom out to 90% to see the code part at the bottom"); Claude (the cause and the fix).
+- **Cause:** the mock was checked at full-screen sizes (1920x1080), but a browser window is shorter (the tabs and address bar take about 120 px). At a 1366x657 laptop window the join box ended 3 px below the window, and the page had `overflow: hidden`, so it couldn't even be scrolled to.
+- **Fix:** the layout follows the window's height: the top padding, panel padding, button and icon sizes, card heights and the sport grid all shrink with `vh`; the logo is smaller under 760 px tall; the page may scroll as a last resort instead of hiding content. A party of 10 is a fixed grid of two rows of five whose figures shrink to fit; the phone's party strip no longer pushes the page sideways. The mock's review note is a collapsed "Mock controls" tab.
+- **Checked by script** at 1920x960 and 1536x730 (1080p browsers, 100% and 125% Windows scaling), 1366x657 (laptop browser), 1280x600, 1920x1080, 2560x1300 and 390x844, alone and with a party of 10: the join box inside the window, the panel below the logo, no horizontal overflow, at every size.
+- **Lesson for the real build:** check the home screen at browser-window heights (about 650-960 px), not only the full-screen viewports in CLAUDE.md.
