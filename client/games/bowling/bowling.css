@@ -1,0 +1,408 @@
+/* Bowling (task 29): the frame scoreboard, the call, the after-ball read,
+   the power meter, the tie vote and the end card, laid over the alley's
+   canvas like the other games' HUDs. */
+
+.bowling .bw-board {
+  display: grid;
+  gap: 0.2rem;
+  max-width: 100%;
+  min-width: 0;
+  padding: 0.35rem 0.5rem;
+  border-radius: 10px;
+  background: #0f1720d9;
+  color: #fff;
+  font-variant-numeric: tabular-nums;
+}
+
+.bowling .bw-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.6rem;
+  font-size: 0.8rem;
+  opacity: 0.9;
+}
+
+.bowling .bw-clock {
+  font-weight: 700;
+}
+
+.bowling .bw-clock[data-low="true"] {
+  color: #ffb4a8;
+}
+
+.bowling .bw-card {
+  border-collapse: separate;
+  border-spacing: 2px;
+  table-layout: fixed;
+}
+
+.bowling .bw-card td {
+  padding: 0;
+  text-align: center;
+  vertical-align: middle;
+}
+
+.bowling .bw-card .bw-name {
+  max-width: 6.5rem;
+  padding: 0 0.4rem 0 0.35rem;
+  border-left: 4px solid var(--seat);
+  text-align: left;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.9rem;
+}
+
+.bowling .bw-card tr[data-turn="true"] .bw-name::after {
+  content: " ◀";
+  color: var(--seat);
+}
+
+.bowling .bw-frame {
+  width: 2.6rem;
+  border-radius: 4px;
+  background: #ffffff1a;
+}
+
+.bowling .bw-frame:last-of-type,
+.bowling .bw-frame:nth-of-type(6) {
+  width: 3.3rem;
+}
+
+.bowling .bw-frame.is-current {
+  outline: 2px solid #ffe066;
+}
+
+.bowling .bw-marks {
+  display: flex;
+  justify-content: flex-end;
+  font-size: 0.72rem;
+  line-height: 1.1;
+}
+
+.bowling .bw-marks i {
+  min-width: 0.9rem;
+  font-style: normal;
+  border-left: 1px solid #ffffff33;
+}
+
+.bowling .bw-frame b {
+  display: block;
+  min-height: 1.1rem;
+  font-size: 0.85rem;
+}
+
+.bowling .bw-tie {
+  min-width: 1.6rem;
+  font-size: 0.75rem;
+  color: #ffe066;
+}
+
+.bowling .bw-total {
+  min-width: 2.2rem;
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+
+/* the call after a ball */
+.bowling .bw-call {
+  position: absolute;
+  left: 50%;
+  top: 34%;
+  transform: translate(-50%, -50%);
+  padding: 0.3rem 1.3rem;
+  border-radius: 12px;
+  background: #0f1720dd;
+  color: #fff;
+  font-size: clamp(1.8rem, 7vw, 3.4rem);
+  font-weight: 800;
+  white-space: nowrap;
+  pointer-events: none;
+  animation: bw-pop 0.25s ease-out;
+}
+
+.bowling .bw-call[data-kind="strike"] {
+  color: #ffe066;
+}
+
+.bowling .bw-call[data-kind="spare"] {
+  color: #8ce99a;
+}
+
+.bowling .bw-call[data-kind="gutter"] {
+  color: #ffb4a8;
+}
+
+.bowling .bw-call[hidden] {
+  display: none;
+}
+
+@keyframes bw-pop {
+  from {
+    transform: translate(-50%, -50%) scale(0.6);
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bowling .bw-call {
+    animation: none;
+  }
+}
+
+/* the after-ball read: speed against the zone, and the curve */
+.bowling .bw-read {
+  position: absolute;
+  left: 50%;
+  bottom: calc(max(1rem, env(safe-area-inset-bottom)) + 7.6rem);
+  transform: translateX(-50%);
+  width: min(24rem, calc(100% - 1.5rem));
+  display: grid;
+  gap: 0.25rem;
+  padding: 0.4rem 0.7rem;
+  border-radius: 10px;
+  background: #0f1720d9;
+  color: #fff;
+  font-size: 0.85rem;
+  pointer-events: none;
+}
+
+.bowling .bw-read[hidden] {
+  display: none;
+}
+
+.bowling .bw-read-speed {
+  display: grid;
+  gap: 0.2rem;
+}
+
+.bowling .bw-read-bar {
+  position: relative;
+  height: 0.5rem;
+  border-radius: 999px;
+  background: #ffffff22;
+}
+
+.bowling .bw-read-zone {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  border-radius: 999px;
+  background: #51cf6699;
+}
+
+.bowling .bw-read-zone[hidden] {
+  display: none;
+}
+
+.bowling .bw-read-mark {
+  position: absolute;
+  top: -0.2rem;
+  width: 0.25rem;
+  height: 0.9rem;
+  margin-left: -0.125rem;
+  border-radius: 2px;
+  background: #fff;
+}
+
+/* your turn: the curve now, the keys, and the power meter */
+.bowling .bw-aim {
+  position: absolute;
+  left: 50%;
+  bottom: calc(max(1rem, env(safe-area-inset-bottom)) + 5.6rem);
+  transform: translateX(-50%);
+  display: flex;
+  gap: 0.75rem;
+  max-width: calc(100% - 1.5rem);
+  padding: 0.2rem 0.7rem;
+  border-radius: 999px;
+  background: #0f1720b3;
+  color: #fff;
+  font-size: 0.85rem;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.bowling .bw-aim[hidden],
+.bowling .bw-meter[hidden] {
+  display: none;
+}
+
+.bowling .bw-meter {
+  position: absolute;
+  left: 50%;
+  bottom: calc(max(1rem, env(safe-area-inset-bottom)) + 4.4rem);
+  width: min(18rem, 70vw);
+  height: 0.6rem;
+  transform: translateX(-50%);
+  border-radius: 999px;
+  background: #0f172099;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.bowling .bw-meter span {
+  position: relative;
+  display: block;
+  height: 100%;
+  width: 0;
+  background: #ffd43b;
+}
+
+.bowling .bw-meter-zone {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  background: #51cf6655;
+}
+
+.bowling .bw-meter-zone[hidden] {
+  display: none;
+}
+
+/* the tie vote and the end card: small dialogs in the middle, clear of the scoreboard */
+.bowling .bw-panel {
+  position: absolute;
+  left: 50%;
+  top: 46%;
+  transform: translate(-50%, -50%);
+  width: min(26rem, calc(100% - 1.5rem));
+  box-sizing: border-box;
+  padding: 0.9rem 1rem;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--bg) 94%, transparent);
+  box-shadow: 0 8px 30px #0008;
+  text-align: center;
+}
+
+.bowling .bw-panel[hidden] {
+  display: none;
+}
+
+.bowling .bw-panel h2 {
+  margin: 0 0 0.4rem;
+  font-size: 1.25rem;
+}
+
+.bowling .bw-panel p {
+  margin: 0.3rem 0;
+}
+
+.bowling .bw-vote .row {
+  display: flex;
+  justify-content: center;
+  gap: 0.6rem;
+  margin: 0.5rem 0;
+}
+
+.bowling .bw-vote .row[hidden] {
+  display: none;
+}
+
+.bowling .bw-vote button {
+  min-height: 48px;
+  min-width: 7rem;
+}
+
+.bowling .bw-vote button[aria-pressed="true"] {
+  outline: 3px solid var(--accent);
+}
+
+.bowling .bw-end-title {
+  font-size: 1.6rem;
+}
+
+/* the buttons: start spot, curve, and the big Bowl */
+.bowling .bw-controls {
+  gap: 0.4rem;
+}
+
+.bowling .bw-controls button {
+  flex: 0 1 5.5rem;
+  min-height: 3.2rem;
+  touch-action: none;
+  user-select: none;
+}
+
+.bowling .bw-controls .bw-bowl {
+  flex: 0 1 9rem;
+}
+
+.bowling .camera-panel {
+  z-index: 5;
+}
+
+@media (max-width: 600px) {
+  .bowling .bw-board {
+    padding: 0.3rem 0.35rem;
+  }
+
+  .bowling .bw-card .bw-name {
+    max-width: 3.4rem;
+    font-size: 0.78rem;
+    padding: 0 0.2rem;
+  }
+
+  .bowling .bw-frame {
+    width: 1.75rem;
+  }
+
+  .bowling .bw-frame:last-of-type,
+  .bowling .bw-frame:nth-of-type(6) {
+    width: 2.3rem;
+  }
+
+  .bowling .bw-marks {
+    font-size: 0.62rem;
+  }
+
+  .bowling .bw-marks i {
+    min-width: 0.58rem;
+  }
+
+  .bowling .bw-frame b {
+    font-size: 0.75rem;
+  }
+
+  .bowling .bw-total {
+    min-width: 1.7rem;
+    font-size: 0.95rem;
+  }
+
+  .bowling .bw-aim-keys {
+    display: none;
+  }
+
+  .bowling .bw-controls {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .bowling .bw-controls[hidden] {
+    display: none;
+  }
+
+  .bowling .bw-controls button {
+    min-width: 0;
+    min-height: 2.9rem;
+    padding: 0.2rem;
+    font-size: 0.9rem;
+  }
+
+  .bowling .bw-controls .bw-bowl {
+    grid-column: 1 / -1;
+    min-height: 3.4rem;
+  }
+
+  .bowling .bw-aim {
+    bottom: calc(max(1rem, env(safe-area-inset-bottom)) + 8.6rem);
+  }
+
+  .bowling .bw-meter {
+    bottom: calc(max(1rem, env(safe-area-inset-bottom)) + 7.4rem);
+  }
+
+  .bowling .bw-read {
+    bottom: calc(max(1rem, env(safe-area-inset-bottom)) + 10.6rem);
+  }
+}
