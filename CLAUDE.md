@@ -53,6 +53,10 @@ lazily and only when a player enters a game. Video never leaves the browser.
   unlimited; `BasketballSnapshot` is what a view draws), `bot.ts` (aims
   inside `makeWindow` plus noise), `index.ts` (adapter, closed `asInput`).
   `server/rewind.ts` `lateShotTicks` turns a seat's round trip into its grace.
+  Its camera (part 3): `client/input/camera/shoot-pose.ts` (pure: ready,
+  aim, the push, the aim lock; `spec/basketball-shoot-pose.test.ts`) and
+  `client/games/basketball/shoot-camera.ts` (its panel: setup steps, the
+  ready glow, the `?debug` readout and 1-8 recorder).
   `shared/look.ts`
   is the fixed palette and hat/hair list for a player's look (task 18).
 - `server/` `index.ts` (http + ws + `/readme/`), `rooms.ts` (live rooms with
@@ -357,7 +361,16 @@ lazily and only when a player enters a game. Video never leaves the browser.
   ticks), none if unmeasured. Formats: "shootout" (rated between two
   people) and "unlimited" (a seeded random spot each turn, counts points,
   makes and the longest make, no winner, unrated). The physics numbers are
-  first guesses until the camera's recordings.
+  first guesses until the camera's recordings. Camera (`ShootDetector` in
+  `shoot-pose.ts`): it sends the same `set`, `aim` and `shoot` a key does.
+  A wrist held still at the chest is `set`; the hands' sideways offset is
+  the aim, the player's right aiming right; a wrist rising fast from the
+  chest past the face, against the shoulder line (so a jump adds nothing),
+  is the shot, its peak upward speed the power, both hands their mean; the
+  aim locks where it was when the rise began; a push that stops low (a chest
+  pass) is scaled down by its rise. One shot a turn, nothing off-turn, a
+  hand lost mid-push never fires. Every number in `DEFAULT_SHOOT` is a guess
+  until task 32's eight recordings.
 - Camera is used for gameplay only. Every camera action has a keyboard/mouse
   equivalent, and the lobby and room work with no camera at all.
 - Webcam is the default (task 15, `e2e/webcam-default.e2e.ts`): a seated
