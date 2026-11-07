@@ -1614,3 +1614,12 @@ the format of the entries below (see CLAUDE.md, Docs).
 - **Party back to 2D:** the flat SVG figures are the party at every size; the 3D characters are dropped from the home screen (the round-4 face swap with them). 3D stays only for the small spinning card icons, still loaded after the menu and only on a capable device.
 - **Fixes:** the icons vanished on every click because each render rebuilt the cards and wiped their canvases; the cards are now built once and only their selected state changes (checked: all six icon canvases have pixels after a click). The archery target rocks instead of spinning, so it never turns edge-on. The mock had six made-up people; it now has ten, and a party of more than five wraps to two rows with smaller nameplates; at 10 the title reads "full (10 of 10)" and the invite slot goes.
 - **Checked:** 1920x1080 and 390x844, no horizontal overflow, no page errors.
+
+## 2026-11-08 04:17 AEDT | design | Home mock, round 6: icons never cover a name; better icons and previews
+
+- **Decided by:** user (in full screen the icons covered the sport names; the basketball details didn't look good; the track preview "isnt even a race track", model a shoe; the tennis ball had no detail; the review note covered the basketball card); Claude (the fixes).
+- **Cards:** a grid with the icon in its own column (on a phone, its own row above the name), so it can't overlap; names stay on one line. Checked by script at 1920x1080, 2560x1440, 1366x768 and 390x844: no icon over any name, no horizontal overflow.
+- **3D icons:** a running shoe shown side-on (extruded upper, white midsole, red spike plate with spikes, laces, a stripe; it rocks rather than spins); a tennis ball with its real seam (the closed "tennis ball curve" as a tube on the surface); a basketball with two great-circle seams and two curved side seams as tubes; the archery target with an arrow in the gold; a lathed bowling pin with neck stripes.
+- **Flat icons** (phones and the fallback) redrawn with the same details.
+- **Previews:** each a small looping scene with figures doing the sport: tennis rally with a forehand, an archer drawing and releasing as a flag streams, two sprinters with pumping arms and legs on scrolling lanes with a finish line, a jab that rocks the other boxer, a set shot dropping through a net that ripples, a curving ball scattering the pins.
+- **Review note** moved to the bottom-right corner.
