@@ -12,7 +12,8 @@ const exactly = (m: Record<string, unknown>, keys: readonly string[]): boolean =
 
 /**
  * Validates one seat's input (ADR 003's closed set): exactly `{t:"set"}`,
- * `{t:"aim",aim}` or `{t:"shoot",power,aim,at}` with finite numbers. Anything
+ * `{t:"aim",aim}`, `{t:"shoot",power,aim,at}` with finite numbers, or the
+ * tie vote `{t:"tie",choice:"draw"|"continue"}` (user, 2026-11-08). Anything
  * else, or any extra field, is dropped whole. The seat comes from the
  * connection, never the payload; the sim clamps power and aim, and ignores a
  * seat whose turn it isn't and a second shot in a turn.
@@ -29,6 +30,8 @@ export function asInput(seat: Seat, input: unknown): BasketballInput | null {
       return exactly(m, ["t", "power", "aim", "at"]) && num(m.power) && num(m.aim) && num(m.at)
         ? { t: "shoot", seat, power: m.power, aim: m.aim, at: m.at }
         : null;
+    case "tie":
+      return exactly(m, ["t", "choice"]) && (m.choice === "draw" || m.choice === "continue") ? { t: "tie", seat, choice: m.choice } : null;
     default:
       return null;
   }
@@ -71,8 +74,9 @@ function makeInstance(s: BasketballState): BasketballInstance {
       return step(s, parsed);
     },
     snapshot: () => snapshot(s),
+    // a draw (voted, or the vote ran out) has no winner; unlimited never ends
     finished: () =>
-      s.phase === "over" && s.winner !== null ? { winner: s.winner, score: [s.totals[0], s.totals[1]], format: s.format } : null,
+      s.phase === "over" && s.format !== "unlimited" ? { winner: s.winner, score: [s.totals[0], s.totals[1]], format: s.format } : null,
     // the bot's messages go through `asInput` like a person's, so they leave
     // as the wire shape: the seat comes from where the room puts them
     botInputs: (seat) => botInputs(s, seat).map(({ seat: _seat, ...wire }) => wire),

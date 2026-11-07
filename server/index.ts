@@ -320,6 +320,7 @@ wss.on("connection", (ws: WebSocket, req: IncomingMessage) => {
         break;
       case "set":
       case "shoot":
+      case "tie":
         client.room?.hoop(client, msg);
         break;
       case "step":

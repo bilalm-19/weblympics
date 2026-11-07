@@ -79,6 +79,15 @@ function shootAs(s: ReturnType<typeof seated>, c: Fake, power: number) {
   s.run(4500);
 }
 
+/** Both seats swish all ten shots: level, so the room reaches the tie vote. */
+function playLevel(s: ReturnType<typeof seated>) {
+  for (let i = 0; i < 10; i++) {
+    const shooter = state(s.a).turn === 0 ? s.a : s.b;
+    shootAs(s, shooter, powerFor(state(s.a).spot, "swish"));
+  }
+  expect(state(s.a).phase).toBe("tie-vote");
+}
+
 /** Seat 0 swishes, seat 1 misses, through all ten shots. */
 function playOneSided(s: ReturnType<typeof seated>) {
   for (let i = 0; i < 10; i++) {
@@ -192,6 +201,41 @@ describe("basketball rooms", () => {
     expect(isRated(s.records[0])).toBe(true);
   });
 
+  it("a level shootout asks both players through the room; a spectator's vote is ignored; a draw vote ends it as a rated draw", () => {
+    const s = seated("shootout", { rated: true });
+    playLevel(s);
+    const w = client("w");
+    s.room.join(w, true);
+    s.room.hoop(w, { t: "tie", choice: "draw" });
+    s.run(100);
+    expect(state(w)).toMatchObject({ phase: "tie-vote", vote: { votes: [null, null] } });
+    expect(parseClientMsg(JSON.stringify({ t: "tie", choice: "continue" }))).toEqual({ t: "tie", choice: "continue" });
+    expect(parseClientMsg(JSON.stringify({ t: "tie", choice: "maybe" }))).toBeNull();
+    expect(parseClientMsg(JSON.stringify({ t: "tie", choice: "draw", seat: 0 }))).toBeNull();
+    s.room.hoop(s.a, { t: "tie", choice: "continue" });
+    s.run(100);
+    expect(state(s.b).vote!.votes).toEqual(["continue", null]);
+    s.room.hoop(s.b, { t: "tie", choice: "draw" });
+    s.run(100);
+    expect(s.records).toHaveLength(1);
+    expect(s.records[0]).toMatchObject({ game: "basketball", format: "shootout", winner: null, draw: true, score: [19, 19] });
+    expect(isRated(s.records[0])).toBe(true);
+  });
+
+  it("both continue through the room: a sudden-death round decides it", () => {
+    const s = seated();
+    playLevel(s);
+    s.room.hoop(s.a, { t: "tie", choice: "continue" });
+    s.room.hoop(s.b, { t: "tie", choice: "continue" });
+    s.run(100);
+    expect(state(s.a)).toMatchObject({ phase: "aim", suddenDeath: true, turn: 1 });
+    shootAs(s, s.b, powerFor(4, "miss"));
+    shootAs(s, s.a, powerFor(4, "swish"));
+    s.run(500);
+    expect(s.records).toHaveLength(1);
+    expect(s.records[0]).toMatchObject({ game: "basketball", winner: 0, score: [19, 19] });
+  });
+
   it("unlimited counts points and the best basket, and leaving stores it unrated", () => {
     const s = seated("unlimited");
     const spot = state(s.a).spot;
@@ -274,5 +318,25 @@ describe("basketball ratings", () => {
     }
     const row = db.prepare("SELECT game, rated FROM matches").get() as { game: string; rated: number };
     expect(row).toEqual({ game: "basketball", rated: 1 });
+  });
+
+  it("a drawn shootout between two accounts is stored as a rated draw and moves no rating", () => {
+    const db = freshDb();
+    const p = account(db);
+    const q = account(db);
+    const s = seated("shootout", { rated: true });
+    playLevel(s);
+    // nobody votes: the 15 s vote clock runs out to a draw
+    s.run(16_000);
+    expect(s.records).toHaveLength(1);
+    const m = { ...s.records[0], tokens: [p, q] as [string, string] };
+    expect(m).toMatchObject({ winner: null, draw: true });
+    expect(recordResult(db, m)).toEqual({ rated: true, delta: 0 });
+    for (const sport of ["basketball", "tennis", "archery", "track", "boxing"]) {
+      expect(ratingOf(db, p, sport).rating).toBe(START_RATING);
+      expect(ratingOf(db, q, sport).rating).toBe(START_RATING);
+    }
+    const row = db.prepare("SELECT game, rated, winner FROM matches").get() as { game: string; rated: number; winner: number | null };
+    expect(row).toEqual({ game: "basketball", rated: 1, winner: null });
   });
 });

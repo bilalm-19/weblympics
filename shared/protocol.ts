@@ -96,6 +96,9 @@ export type ClientMsg =
   | { t: "set" }
   | { t: "aim"; aim: number }
   | { t: "shoot"; power: number; aim: number; at: number }
+  // the vote after a level game (user, 2026-11-08: "draw" or "continue"),
+  // bowling's and basketball's
+  | { t: "tie"; choice: "draw" | "continue" }
   // movement mode for the sender's own seat: "auto" (the server walks you to
   // the ball, the default) or "tilt" (only your own moves); anything else is
   // a bad message
@@ -210,6 +213,9 @@ export function parseClientMsg(raw: string): ClientMsg | null {
       if (![power, aim, at].every((v) => typeof v === "number" && Number.isFinite(v))) return null;
       return { t: "shoot", power: power as number, aim: aim as number, at: at as number };
     }
+    case "tie":
+      if (!onlyKeys(m, ["t", "choice"])) return null;
+      return m.choice === "draw" || m.choice === "continue" ? { t: "tie", choice: m.choice } : null;
     case "mode":
       return m.mode === "auto" || m.mode === "tilt" ? { t: "mode", mode: m.mode } : null;
     case "pause":

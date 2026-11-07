@@ -72,6 +72,8 @@ export const MAX_LATE_TICKS = 9;
 export const RESULT_TICKS = 120;
 /** A finished practice match stays up this long before the next starts. */
 export const OVER_TICKS = 240;
+/** User, 2026-11-08: a level shootout asks both players "draw or play on"; 15 s, and no vote counts as draw. */
+export const VOTE_TICKS = 15 * 60;
 /** The ball's path in the snapshot keeps one point every this many ticks. */
 export const PATH_EVERY = 2;
 /** Unlimited keeps this many recent shots in the snapshot. */
@@ -129,7 +131,8 @@ export interface ShotResult {
   lost?: "time";
 }
 
-export type Phase = "aim" | "flight" | "result" | "over";
+export type Phase = "aim" | "flight" | "result" | "tie-vote" | "over";
+export type Vote = "draw" | "continue";
 
 export interface Ball {
   pos: Vec3;
@@ -174,6 +177,10 @@ export interface BasketballState {
   /** The longest make per seat, metres (0 if none). */
   longest: [number, number];
   winner: Seat | null;
+  /** The match ended level: a seat voted draw, or the vote ran out. */
+  draw: boolean;
+  /** In "tie-vote": each seat's vote so far. */
+  votes: [Vote | null, Vote | null];
   matches: number;
   /** Each seat's grace after the buzzer, ticks (set by the room from the measured round trip; 0 by default). */
   lag: [number, number];
@@ -211,18 +218,24 @@ export interface BasketballSnapshot {
   attempts: [number, number];
   longest: [number, number];
   winner: Seat | null;
+  /** The match ended level: a seat voted draw, or the vote ran out. */
+  draw: boolean;
+  /** In "tie-vote": each seat's vote so far and ticks left; else null. */
+  vote: { votes: [Vote | null, Vote | null]; ticksLeft: number } | null;
   matches: number;
 }
 
 export type BasketballInput =
   | { t: "set"; seat: Seat }
   | { t: "aim"; seat: Seat; aim: number }
-  | { t: "shoot"; seat: Seat; power: number; aim: number; at: number };
+  | { t: "shoot"; seat: Seat; power: number; aim: number; at: number }
+  | { t: "tie"; seat: Seat; choice: Vote };
 
 export type BasketballEvent =
   | ({ type: "basket" } & Omit<ShotResult, "window">)
   | { type: "spot"; round: number; spot: number; suddenDeath: boolean }
-  | { type: "match"; winner: Seat; score: [number, number] };
+  | { type: "tieVote"; votes: [Vote | null, Vote | null] }
+  | { type: "match"; winner: Seat | null; draw: boolean; score: [number, number] };
 
 export const other = (seat: Seat): Seat => (seat === 0 ? 1 : 0);
 const clamp = (v: number, lo: number, hi: number): number => Math.min(hi, Math.max(lo, v));
@@ -435,6 +448,8 @@ function freshMatch(s: BasketballState, ev: BasketballEvent[]): void {
   s.attempts = [0, 0];
   s.longest = [0, 0];
   s.winner = null;
+  s.draw = false;
+  s.votes = [null, null];
   s.turn = 0;
   startRound(s, 0, ev);
 }
@@ -471,6 +486,8 @@ export function createState(seed: number, options: StateOptions = {}): Basketbal
     attempts: [0, 0],
     longest: [0, 0],
     winner: null,
+    draw: false,
+    votes: [null, null],
     matches: 0,
     lag: [0, 0],
     rng: seed >>> 0,
@@ -519,6 +536,8 @@ export function snapshot(s: BasketballState): BasketballSnapshot {
     attempts: [s.attempts[0], s.attempts[1]],
     longest: [s.longest[0], s.longest[1]],
     winner: s.winner,
+    draw: s.draw,
+    vote: s.phase === "tie-vote" ? { votes: [s.votes[0], s.votes[1]], ticksLeft: Math.max(0, VOTE_TICKS - s.phaseTick) } : null,
     matches: s.matches,
   };
 }
@@ -537,6 +556,7 @@ export function cloneState(s: BasketballState): BasketballState {
     makes: [s.makes[0], s.makes[1]],
     attempts: [s.attempts[0], s.attempts[1]],
     longest: [s.longest[0], s.longest[1]],
+    votes: [s.votes[0], s.votes[1]],
     lag: [s.lag[0], s.lag[1]],
   };
 }
@@ -584,15 +604,36 @@ function land(s: BasketballState, made: boolean, power: number, aim: number, ev:
   ev.push({ type: "basket", ...rest });
 }
 
-function finishMatch(s: BasketballState, winner: Seat, ev: BasketballEvent[]): void {
+function finishMatch(s: BasketballState, winner: Seat | null, ev: BasketballEvent[]): void {
   s.winner = winner;
+  s.draw = winner === null;
   s.phase = "over";
   s.phaseTick = 0;
   s.matches++;
-  ev.push({ type: "match", winner, score: [s.totals[0], s.totals[1]] });
+  s.ball = null;
+  ev.push({ type: "match", winner, draw: winner === null, score: [s.totals[0], s.totals[1]] });
 }
 
-/** After a result: the other seat's turn, the next spot, sudden death or the end. */
+/** Level after the five spots or a sudden-death round (user, 2026-11-08): both vote to draw or to play on. */
+function startVote(s: BasketballState): void {
+  s.phase = "tie-vote";
+  s.phaseTick = 0;
+  s.votes = [null, null];
+  s.ball = null;
+  s.path = [];
+}
+
+/** The vote is in (or its clock ran out): any "draw", or no vote, draws; both "continue" shoot a sudden-death round. */
+function settleVote(s: BasketballState, ev: BasketballEvent[]): void {
+  ev.push({ type: "tieVote", votes: [s.votes[0], s.votes[1]] });
+  if (s.votes[0] === "continue" && s.votes[1] === "continue") {
+    s.votes = [null, null];
+    return startRound(s, Math.max(SPOTS.length, s.round + 1), ev);
+  }
+  finishMatch(s, null, ev);
+}
+
+/** After a result: the other seat's turn, the next spot, a tie vote or the end. */
 function advance(s: BasketballState, ev: BasketballEvent[]): void {
   s.turnInRound++;
   if (s.format === "unlimited") {
@@ -608,21 +649,25 @@ function advance(s: BasketballState, ev: BasketballEvent[]): void {
   if (s.round < SPOTS.length - 1) return startRound(s, s.round + 1, ev);
   if (s.round === SPOTS.length - 1) {
     if (s.totals[0] !== s.totals[1]) return finishMatch(s, s.totals[0] > s.totals[1] ? 0 : 1, ev);
-    return startRound(s, s.round + 1, ev);
+    return startVote(s);
   }
-  // sudden death: a make against a miss wins; both or neither shoots again
+  // sudden death: a make against a miss wins; both or neither, vote again
   const [a, b] = s.shots.slice(-2);
   if (a.made !== b.made) return finishMatch(s, a.made ? a.seat : b.seat, ev);
-  startRound(s, s.round + 1, ev);
+  startVote(s);
 }
 
 export function step(s: BasketballState, inputs: readonly BasketballInput[]): BasketballEvent[] {
   const ev: BasketballEvent[] = [];
   s.tick++;
   s.phaseTick++;
+  for (const input of inputs) {
+    // one vote per seat per vote, only while voting
+    if (input.t === "tie" && s.phase === "tie-vote" && s.votes[input.seat] === null) s.votes[input.seat] = input.choice;
+  }
   if (s.phase === "aim") {
     for (const input of inputs) {
-      if (s.phase !== "aim" || input.seat !== s.turn) continue;
+      if (input.t === "tie" || s.phase !== "aim" || input.seat !== s.turn) continue;
       if (input.t === "set") {
         if (!s.set) {
           s.set = true;
@@ -663,6 +708,8 @@ export function step(s: BasketballState, inputs: readonly BasketballInput[]): Ba
     // the decided ball keeps falling (through the net, or to the floor) for the view
     if (s.ball) flyTick(s.ball, s.contact, true);
     if (s.phaseTick >= RESULT_TICKS) advance(s, ev);
+  } else if (s.phase === "tie-vote" && (s.votes.includes("draw") || (s.votes[0] !== null && s.votes[1] !== null) || s.phaseTick >= VOTE_TICKS)) {
+    settleVote(s, ev);
   } else if (s.phase === "over" && s.endless && s.phaseTick >= OVER_TICKS) {
     freshMatch(s, ev);
   }

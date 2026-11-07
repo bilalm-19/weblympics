@@ -2,7 +2,7 @@
 // late-shot grace, scoring, sudden death, unlimited, the closed message set
 // and the bot. The flight itself is spec/basketball-physics.test.ts.
 import { describe, expect, it } from "vitest";
-import { BOT_SHOOT_TICK, botInputs } from "../shared/games/basketball/bot.ts";
+import { BOT_SHOOT_TICK, BOT_VOTE_TICK, botInputs } from "../shared/games/basketball/bot.ts";
 import { asInput, basketball, basketballFrom } from "../shared/games/basketball/index.ts";
 import {
   AUTO_CLOCK_TICKS,
@@ -12,6 +12,7 @@ import {
   SHOT_CLOCK_TICKS,
   SPOTS,
   SWISH_BONUS,
+  VOTE_TICKS,
   cloneState,
   createState,
   makeWindow,
@@ -30,9 +31,8 @@ const rimIn = (spot: number) => powerFor(spot, "rimIn");
 /** Plays the five spots: seat 0 shoots `p0(state)`, seat 1 `p1(state)`; stops at sudden death or the end. */
 function playSpots(s: BasketballState, p0: (s: BasketballState) => number, p1: (s: BasketballState) => number) {
   const out = [];
-  while (!s.suddenDeath && s.phase !== "over") {
+  while (s.phase !== "tie-vote" && s.phase !== "over") {
     toTurn(s);
-    if (s.suddenDeath || (s.phase as string) === "over") break;
     out.push(shoot(s, s.turn === 0 ? p0(s) : p1(s)));
     for (let j = 0; j < RESULT_TICKS + 1 && s.phase === "result"; j++) step(s, []);
   }
@@ -222,18 +222,102 @@ describe("basketball shot clock", () => {
   });
 });
 
-describe("basketball sudden death", () => {
-  /** Both seats shoot the same at every spot, so it's level after five. */
+describe("basketball tie vote and sudden death", () => {
+  /** Both seats shoot the same at every spot, so it's level after five: the vote. */
   function level(seed = 5): BasketballState {
     const s = createState(seed);
     playSpots(s, swish, swish);
-    expect(s.suddenDeath).toBe(true);
+    expect(s.phase).toBe("tie-vote");
     expect(s.totals[0]).toBe(s.totals[1]);
     return s;
   }
+  /** Both seats vote to play on. */
+  function playOn(s: BasketballState): void {
+    step(s, [
+      { t: "tie", seat: 0, choice: "continue" },
+      { t: "tie", seat: 1, choice: "continue" },
+    ]);
+  }
 
-  it("a tie goes to the deep spot, a make against a miss wins, and it isn't added to the score", () => {
+  it("a level shootout asks both players; the snapshot shows the votes and the vote clock", () => {
     const s = level();
+    expect(snapshot(s).vote).toEqual({ votes: [null, null], ticksLeft: VOTE_TICKS });
+    expect(snapshot(s).draw).toBe(false);
+    step(s, [{ t: "tie", seat: 1, choice: "continue" }]);
+    expect(snapshot(s)).toMatchObject({ phase: "tie-vote", vote: { votes: [null, "continue"], ticksLeft: VOTE_TICKS - 1 } });
+  });
+
+  it("either seat choosing draw ends it as a draw, with no winner", () => {
+    for (const seat of [0, 1] as const) {
+      const s = level();
+      const ev = step(s, [{ t: "tie", seat, choice: "draw" }]);
+      expect(ev).toContainEqual({ type: "tieVote", votes: seat === 0 ? ["draw", null] : [null, "draw"] });
+      expect(ev).toContainEqual({ type: "match", winner: null, draw: true, score: [s.totals[0], s.totals[1]] });
+      expect(snapshot(s)).toMatchObject({ phase: "over", winner: null, draw: true, vote: null });
+      expect(basketballFrom(s).finished()).toEqual({ winner: null, score: [s.totals[0], s.totals[1]], format: "shootout" });
+    }
+    // one continue and one draw is still a draw
+    const s = level();
+    step(s, [{ t: "tie", seat: 0, choice: "continue" }]);
+    step(s, [{ t: "tie", seat: 1, choice: "draw" }]);
+    expect(s).toMatchObject({ phase: "over", draw: true, winner: null });
+  });
+
+  it("no vote within 15 s counts as draw", () => {
+    const s = level();
+    step(s, [{ t: "tie", seat: 0, choice: "continue" }]);
+    for (let i = 1; i < VOTE_TICKS - 1; i++) step(s, []);
+    expect(s.phase).toBe("tie-vote");
+    step(s, []);
+    expect(s).toMatchObject({ phase: "over", draw: true, winner: null });
+  });
+
+  it("ignores a second vote, a vote out of the vote, and a malformed one", () => {
+    // before the vote: nothing happens
+    const early = createState(5);
+    step(early, [{ t: "tie", seat: 0, choice: "draw" }]);
+    expect(early.phase).toBe("aim");
+    expect(early.votes).toEqual([null, null]);
+    // a seat's first vote stands
+    const s = level();
+    step(s, [{ t: "tie", seat: 0, choice: "continue" }]);
+    step(s, [{ t: "tie", seat: 0, choice: "draw" }]);
+    expect(s.phase).toBe("tie-vote");
+    expect(s.votes).toEqual(["continue", null]);
+    // malformed votes never reach the sim
+    for (const junk of [{ t: "tie" }, { t: "tie", choice: "win" }, { t: "tie", choice: "draw", seat: 1 }, { t: "tie", choice: "draw", extra: 1 }]) {
+      expect(asInput(1, junk)).toBeNull();
+    }
+    expect(asInput(1, { t: "tie", choice: "draw" })).toEqual({ t: "tie", seat: 1, choice: "draw" });
+    // after the match: nothing happens
+    step(s, [{ t: "tie", seat: 1, choice: "draw" }]);
+    expect(s.phase).toBe("over");
+    step(s, [{ t: "tie", seat: 1, choice: "continue" }]);
+    expect(s).toMatchObject({ phase: "over", draw: true });
+  });
+
+  it("the bot votes continue after 1 s, and never off the vote", () => {
+    const s = level();
+    for (let i = 0; i < BOT_VOTE_TICK; i++) {
+      expect(botInputs(s, 1)).toEqual([]);
+      step(s, []);
+    }
+    expect(botInputs(s, 1)).toEqual([{ t: "tie", seat: 1, choice: "continue" }]);
+    step(s, botInputs(s, 1));
+    expect(s.votes).toEqual([null, "continue"]);
+    expect(botInputs(s, 1)).toEqual([]);
+    // through the adapter: the wire shape, which the closed asInput takes
+    const t = level();
+    const g = basketballFrom(t);
+    for (let i = 0; i <= BOT_VOTE_TICK; i++) g.step(g.botInputs(1).map((input) => ({ seat: 1 as Seat, input })));
+    expect((g.snapshot() as BasketballSnapshot).vote!.votes).toEqual([null, "continue"]);
+  });
+
+  it("both continue: a sudden-death round from the deep spot; a make against a miss wins, not added to the score", () => {
+    const s = level();
+    playOn(s);
+    expect(s.phase).toBe("aim");
+    expect(s.suddenDeath).toBe(true);
     expect(s.spot).toBe(DEEP_SPOT);
     expect(s.turn).toBe(1); // round 5: the first shooter keeps alternating
     const before: [number, number] = [s.totals[0], s.totals[1]];
@@ -250,10 +334,11 @@ describe("basketball sudden death", () => {
     expect(s.attempts).toEqual([5, 5]);
   });
 
-  it("both make or both miss: again, the first shooter alternating", () => {
+  it("a level sudden-death round (both make or both miss) votes again, the first shooter alternating", () => {
     const s = level();
     const firsts: Seat[] = [];
     for (let round = 0; round < 3; round++) {
+      playOn(s);
       toTurn(s);
       firsts.push(s.turn);
       const p = round === 1 ? powerFor(DEEP_SPOT, "swish") : miss(DEEP_SPOT);
@@ -262,10 +347,24 @@ describe("basketball sudden death", () => {
       toTurn(s);
       shoot(s, p);
       for (let j = 0; j < RESULT_TICKS + 1 && s.phase === "result"; j++) step(s, []);
-      expect(s.phase).toBe("aim");
-      expect(s.suddenDeath).toBe(true);
+      expect(s.phase).toBe("tie-vote");
+      expect(snapshot(s).vote).toEqual({ votes: [null, null], ticksLeft: VOTE_TICKS });
     }
     expect(firsts).toEqual([1, 0, 1]);
+    // and a draw then ends it
+    step(s, [{ t: "tie", seat: 0, choice: "draw" }]);
+    expect(s).toMatchObject({ phase: "over", draw: true, winner: null });
+  });
+
+  it("unlimited never votes and never ends", () => {
+    const s = createState(5, { format: "unlimited", endless: true });
+    for (let i = 0; i < 10; i++) {
+      toTurn(s);
+      shoot(s, swish(s));
+      for (let j = 0; j < RESULT_TICKS + 1 && s.phase === "result"; j++) step(s, []);
+      expect(s.phase).not.toBe("tie-vote");
+    }
+    expect(basketballFrom(s).finished()).toBeNull();
   });
 });
 

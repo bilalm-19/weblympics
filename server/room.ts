@@ -316,11 +316,12 @@ export class Room {
   }
 
   /**
-   * Basketball's set, aim and shot (task 32), in arrival order. Rebuilt field
-   * by field, so nothing else reaches the game; the game ignores a seat whose
-   * turn it isn't and a second shot in a turn, flies the ball and scores it.
+   * Basketball's set, aim, shot and tie vote (task 32), in arrival order.
+   * Rebuilt field by field, so nothing else reaches the game; the game ignores
+   * a seat whose turn it isn't, a second shot in a turn and a second vote,
+   * flies the ball and scores it.
    */
-  hoop(c: Client, msg: Extract<ClientMsg, { t: "set" | "shoot" } | { t: "aim"; aim: number }>): void {
+  hoop(c: Client, msg: Extract<ClientMsg, { t: "set" | "shoot" | "tie" } | { t: "aim"; aim: number }>): void {
     if (c.seat === null) return;
     const w = this.hoopWindow[c.seat];
     if (this.ticks - w.start >= 60) {
@@ -329,7 +330,13 @@ export class Room {
     }
     if (++w.count > HOOP_PER_SECOND) return;
     const input =
-      msg.t === "set" ? { t: "set" } : msg.t === "aim" ? { t: "aim", aim: msg.aim } : { t: "shoot", power: msg.power, aim: msg.aim, at: msg.at };
+      msg.t === "set"
+        ? { t: "set" }
+        : msg.t === "aim"
+          ? { t: "aim", aim: msg.aim }
+          : msg.t === "tie"
+            ? { t: "tie", choice: msg.choice }
+            : { t: "shoot", power: msg.power, aim: msg.aim, at: msg.at };
     this.pending.push({ seat: c.seat, input });
   }
 

@@ -333,11 +333,18 @@ lazily and only when a player enters a game. Video never leaves the browser.
   (free throw 4.6 m, elbow 5.5, wing three 6.75, top three 7.25, deep 9),
   worth 2/2/3/3/4, one shot each per spot, alternating, the first shooter
   swapping each spot; a swish (no rim, no board) adds 1 to any make, so a
-  swished money ball is 5. A tie goes to sudden death from the deep spot (a
-  make against a miss wins, the first shooter alternating, not added to the
-  score). Clients send exactly `set`, `aim` {aim} and `shoot` {power 0..1,
-  aim -1..1, their own timestamp}; anything else or any extra field is
-  dropped whole, and so is an off-turn message or a second shot in a turn.
+  swished money ball is 5. A level shootout asks both players, as bowling
+  does (user, 2026-11-08): phase "tie-vote", each seat sends `tie` {choice
+  "draw"|"continue"} once; either "draw" ends it as a draw (`winner: null`,
+  recorded `draw`, rated between two accounts with no rating change); only
+  both "continue" plays a sudden-death round from the deep spot (a make
+  against a miss wins, the first shooter alternating, not added to the
+  score), and a level round votes again. 15 s to vote (`VOTE_TICKS`), no
+  vote counts as "draw"; the bot votes "continue" after 1 s; off-phase,
+  second and malformed votes and spectators' are ignored. Clients send
+  exactly `set`, `aim` {aim}, `shoot` {power 0..1, aim -1..1, their own
+  timestamp} and `tie`; anything else or any extra field is dropped whole,
+  and so is an off-turn message or a second shot in a turn.
   The server flies the ball (fixed release and launch angle, gravity,
   substeps, a rim circle and a bounded board with fixed restitution); a make
   is the ball's centre crossing down through the rim plane inside the rim.
