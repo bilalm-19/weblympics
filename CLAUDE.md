@@ -365,7 +365,7 @@ scroll, controls reachable, canvas not clipped. Check both for any UI change.
 - When another session is editing the tree, stage files by name and check
   the commit against a clean build of HEAD (a `git worktree` on another
   port), since the shared working tree also builds in their unfinished work. Ask before every push (pushing to main deploys once the repo is public).
-- Agents (user, 2026-11-07): each task is discussed with the user, then
+- Agents: each task is discussed with the user, then
   built by agents, one git worktree and one branch each, never `main`. An
   agent runs its app on its assigned port with its own data folder
   (`pnpm build && PORT=82NN DATA_DIR=./data-82NN pnpm start`) and always
