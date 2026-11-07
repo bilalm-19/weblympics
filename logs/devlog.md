@@ -1479,3 +1479,10 @@ the format of the entries below (see CLAUDE.md, Docs).
 - **Bowling rules agent** (port 8202, branch `bowling-rules`): brief was task 29's item 1 against ADR 004, keeping its registry, CLAUDE.md and devlog edits small since basketball touches the same files, and to report the strike rates (pocket at speed, straight vs curving, slow ball). Mid-build Claude sent it the user's tie rule (a "tie-vote" phase, `{ t: "tie", choice }`, either draw ends it as a rated draw, both continue bowls a tie frame, 15 s clock with no vote as draw, the bot continues, the specs to add).
 - **Persona agents** (the reader and the skipper, two each for basketball's two review runs and for bowling's): told not to read any file, given only the screen wording or the button labels; their answers are in the review entries.
 - **Why logged:** the briefs are where Claude's own choices enter the build (interfaces, ports, what to test); the user wants them visible, not only the agents' results.
+
+## 2026-11-08 00:39 AEDT | milestone | Basketball camera agent finished (branch basketball-camera, c709077)
+
+- **Decided by:** agent (the detector and its numbers, all first guesses); Claude (accepting it for the merge).
+- **Result:** `pnpm check` 48 files, 791 tests, exit 0 (27 new in `spec/basketball-shoot-pose.test.ts`); `e2e/camera` + `e2e/home` 46 passed, exit 0 (plain `pnpm e2e`: its branch predates `e2e:gpu`).
+- **Agent's addition beyond the brief:** a hand must rest in the chest zone 200 ms before a push counts, because a wave up from the hip read as a shot. Told to the user; theirs to keep or drop.
+- **Not yet checked:** the panel has never run in a browser (no view until the scene branch is merged); every number waits on the user's eight recordings.
