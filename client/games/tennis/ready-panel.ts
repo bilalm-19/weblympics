@@ -12,6 +12,7 @@ export const FORMAT_LABELS: Record<RoomFormat, string> = {
   stages: "Eight stages",
   race: "Race",
   bout: "Bout",
+  game: "Five frames",
   unlimited: "Unlimited",
 };
 
@@ -21,6 +22,7 @@ const FORMAT_NOTES: Record<RoomFormat, string> = {
   stages: "One arrow each per stage, 10 m to 50 m, the wind getting stronger. Highest total wins.",
   race: "One 100 m sprint, first across the line wins.",
   bout: "Three rounds of 30 seconds. A knockout wins at once, else the most damage dealt; a tie is a draw.",
+  game: "Five frames each, real ten-pin scoring. Highest total wins; a tie is a draw unless you both play on.",
   unlimited: "Play as long as you like; points and best rally are counted. No winner, not rated.",
 };
 

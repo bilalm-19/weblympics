@@ -144,6 +144,9 @@ const HOSTILE: ClientMsg[] = [
   { t: "format", format: "unlimited" },
   { t: "rated", rated: true },
   { t: "pause", paused: true },
+  { t: "aim", aim: -0.5 },
+  { t: "throw", speed: 0.7, aim: 0.2, spin: -0.5, at: 0 },
+  { t: "tie", choice: "draw" },
 ];
 
 function hostile(room: Room, c: Client): void {
@@ -151,6 +154,7 @@ function hostile(room: Room, c: Client): void {
     if (m.t === "swing") room.swing(c, m);
     else if (m.t === "move") room.move(c, m.x);
     else if (m.t === "mode") room.mode(c, m.mode);
+    else if ((m.t === "aim" && !("yaw" in m)) || m.t === "throw" || m.t === "tie") room.bowl(c, m);
     else if (m.t === "aim" || m.t === "release") room.aim(c, m);
     else if (m.t === "step") room.step(c, m);
     else if (m.t === "ready") room.ready(c, m.ready);
@@ -187,6 +191,7 @@ describe("hostile client: a spectator's input is rejected and changes nothing", 
     ["tennis", "oneSet"],
     ["archery", "stages"],
     ["track", "race"],
+    ["bowling", "game"],
   ] as const) {
     it(`${game}: swing, move, mode, aim, release, step, ready, format, rated and pause from a spectator`, () => {
       const quiet = playWith(game, format, false, false);
