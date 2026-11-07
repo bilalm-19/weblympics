@@ -1,6 +1,6 @@
 # 31 Track and archery looks
 
-Status: planned (2026-11-05); no longer waits on 28 (user, 2026-11-08). Not started.
+Status: planned (2026-11-05); no longer waits on 28 (user, 2026-11-08). Archery half built on branch `archery-looks-31` (agent, 2026-11-08): range, flags, crowd, the archer over the shoulder; end card unchanged until 28. Track half: see its own branch.
 Model: Sonnet (one agent per game, in parallel)
 Waits on: nothing (user, 2026-11-08). Uses tennis's character and crowd pieces directly, as boxing, basketball and bowling do; a simple end card now, task 28's podium later.
 

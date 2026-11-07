@@ -114,7 +114,13 @@ lazily and only when a player enters a game. Video never leaves the browser.
   "auto" (default: the server walks you to the ball, `autoTargetX` in
   `sim.ts`) and "tilt" (lean to move); keys and buttons move you in either
   (task 2). Archery (task 22) is `games/archery/`: `view.ts` (range, sight,
-  wind dial, target card, score; mouse, keys, hold button), `range.ts`,
+  wind dial, target card, score; mouse, keys, hold button), `range.ts`
+  (task 31: mown range, trees, hills, butts, shooting line, a small stand
+  of tennis's instanced crowd that cheers a 10 or bullseye, flags that
+  stream with the snapshot's wind; `cues.ts` is their pure maths),
+  `archer.ts` + `archer-pose.ts` (pure; the tennis character holding the
+  bow, posed from outside; another's turn and spectators see it over the
+  shoulder: `spec/archery-look.test.ts`),
   `bow.ts` (pure: bow-hold landmarks to aim, draw, release),
   `bow-camera.ts` (its camera panel; loads the hand model too),
   `bow-model.ts` (the first-person bow), `practice.ts` + `practice-sim.ts`
