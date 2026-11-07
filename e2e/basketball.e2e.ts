@@ -124,6 +124,24 @@ test("practice opens the camera setup first, then plays shots on keys in the pag
   await expect(page.locator("#options-title")).toHaveText("Basketball");
 });
 
+// Bug (full e2e, mobile, 2026-11-08): the arrow keys turned the aim only per
+// drawn frame (each capped at 0.1 s), so on a starved frame rate a short hold
+// barely moved it. The time held now counts, as archery's keys do.
+test("a short hold of an arrow key turns the aim by the time held, even at two frames a second", async ({ page }) => {
+  await openBasketball(page);
+  await startPractice(page);
+  await expect(page.locator(".hud .status")).toHaveText(/Your shot/);
+  await page.evaluate(() => {
+    const raf = window.requestAnimationFrame.bind(window);
+    window.requestAnimationFrame = (cb) => window.setTimeout(() => raf(cb), 500);
+  });
+  await page.keyboard.down("ArrowRight");
+  await page.waitForTimeout(300);
+  await page.keyboard.up("ArrowRight");
+  // 0.3 s at 0.9 a second is 0.27; frame by frame it was at most 0.1
+  await expect.poll(async () => Number(await canvas(page).getAttribute("data-aim")), { timeout: 5_000 }).toBeGreaterThan(0.2);
+});
+
 test("vs the bot: the server takes the turns, flies every ball and plays to the end card", async ({ page }) => {
   test.setTimeout(150_000);
   const sent: Record<string, unknown>[] = [];
@@ -207,11 +225,16 @@ test("a room offers Shootout and Unlimited; a spectator sees the match with no c
   await expect.poll(async () => Number(await canvas(watcher).getAttribute("data-frames"))).toBeGreaterThan(10);
   await expect(watcher.locator(".hud .status")).toHaveText(/shooting/);
 
-  // the host shoots; the watcher sees the shot land and the call
-  await expect(page.locator(".hud .status")).toHaveText(/Your shot/);
-  await expect(guest.locator(".hud .status")).toHaveText("Their shot, watch");
-  await holdShoot(page, 250);
-  await expect(canvas(watcher)).toHaveAttribute("data-shots", "1", { timeout: 15_000 });
+  // whoever's turn it is shoots (a slow watcher setup can run the host's
+  // 20 s turn out); the other sees "Their shot, watch", and the watcher sees
+  // the shot land and the call
+  const before = Number((await canvas(watcher).getAttribute("data-shots")) ?? 0);
+  const hostTurn = /Your shot/.test((await page.locator(".hud .status").textContent()) ?? "");
+  const [shooter, other] = hostTurn ? [page, guest] : [guest, page];
+  await expect(shooter.locator(".hud .status")).toHaveText(/Your shot/);
+  await expect(other.locator(".hud .status")).toHaveText("Their shot, watch");
+  await holdShoot(shooter, 250);
+  await expect.poll(async () => Number((await canvas(watcher).getAttribute("data-shots")) ?? 0), { timeout: 15_000 }).toBeGreaterThan(before);
   await expect(watcher.locator(".bb-call")).toBeVisible();
   await insideViewport(watcher, watcher.locator("canvas"));
   await insideViewport(watcher, badge);

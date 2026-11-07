@@ -195,7 +195,23 @@ export function startBasketball(root: HTMLElement, conn: GameLink, info: RoomInf
   let shotSent = false;
   let holdSince: number | null = null;
   const held = new Set<string>();
-  const aimHeld = new Map<string, number>();
+  // per held aim key or button: its direction, when it went down and how much aim frames have applied;
+  // on release the rest of the time held is applied, so a short hold turns the
+  // same on a slow frame rate (as archery's arrow keys)
+  const aimHeld = new Map<string, { dir: number; since: number; applied: number }>();
+  const pressAim = (key: string, dir: number) => {
+    aimHeld.set(key, { dir, since: performance.now(), applied: 0 });
+    setAim(aim);
+  };
+  const releaseAim = (key: string) => {
+    const h = aimHeld.get(key);
+    if (!aimHeld.delete(key) || !h) return;
+    const missed = ((performance.now() - h.since) / 1000) * KEY_AIM_RATE - h.applied;
+    if (missed > 0 && myTurn() && !shotSent && !shootCam.on()) {
+      setAim(aim + h.dir * missed);
+      flushAim(performance.now(), true);
+    }
+  };
   // the shooter's arms: when a shot started (for the animation), per seat
   const shotStarted: [number | null, number | null] = [null, null];
   // sound, only after a user gesture (sound.ts)
@@ -258,10 +274,8 @@ export function startBasketball(root: HTMLElement, conn: GameLink, info: RoomInf
       else endHold("Space");
       return;
     }
-    if (down) {
-      aimHeld.set(e.code, performance.now());
-      setAim(aim);
-    } else aimHeld.delete(e.code);
+    if (down) pressAim(e.code, e.code === "ArrowLeft" ? -1 : 1);
+    else releaseAim(e.code);
   };
   const keydown = onKey(true);
   const keyup = onKey(false);
@@ -301,10 +315,9 @@ export function startBasketball(root: HTMLElement, conn: GameLink, info: RoomInf
     b.addEventListener("pointerdown", (e) => {
       sounds.unlock();
       b.setPointerCapture(e.pointerId);
-      aimHeld.set(key, performance.now());
-      setAim(aim);
+      pressAim(key, Number(b.dataset.aim));
     });
-    for (const type of ["pointerup", "pointercancel", "lostpointercapture"]) b.addEventListener(type, () => aimHeld.delete(key));
+    for (const type of ["pointerup", "pointercancel", "lostpointercapture"]) b.addEventListener(type, () => releaseAim(key));
     b.addEventListener("contextmenu", (e) => e.preventDefault());
   }
 
@@ -606,7 +619,10 @@ export function startBasketball(root: HTMLElement, conn: GameLink, info: RoomInf
       // keys and aim buttons: aim turns while held
       if (myTurn() && !shotSent && !shootCam.on() && aimHeld.size > 0) {
         let dir = 0;
-        for (const k of aimHeld.keys()) dir += k === "ArrowLeft" || k === "Btn-1" ? -1 : 1;
+        for (const h of aimHeld.values()) {
+          dir += h.dir;
+          h.applied += KEY_AIM_RATE * dt;
+        }
         if (dir) setAim(aim + dir * KEY_AIM_RATE * dt);
       }
       flushAim(now);
