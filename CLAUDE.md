@@ -365,4 +365,17 @@ scroll, controls reachable, canvas not clipped. Check both for any UI change.
 - When another session is editing the tree, stage files by name and check
   the commit against a clean build of HEAD (a `git worktree` on another
   port), since the shared working tree also builds in their unfinished work. Ask before every push (pushing to main deploys once the repo is public).
+- Agents (user, 2026-11-07): each task is discussed with the user, then
+  built by agents, one git worktree and one branch each, never `main`. An
+  agent runs its app on its assigned port with its own data folder
+  (`pnpm build && PORT=82NN DATA_DIR=./data-82NN pnpm start`) and always
+  sets `APP_URL=http://localhost:82NN` for `pnpm check` and `pnpm e2e`:
+  without it the tests hit :8080, the user's dev server on `main`, and pass
+  or fail on code the agent never ran. Ports: 8080/5173 the user's dev
+  server, 8201-8298 agents, 8299 the integration branch. Restart the app
+  before each check. E2e is heavy (software-rendered browsers): run it alone
+  or with one other agent at most, and re-run a lone failure by itself
+  before calling it a bug. Agents commit on their branch only and never
+  push; Claude merges on an integration branch, runs the full checks there,
+  then moves `main`.
 - Never commit secrets or `mise.local.toml`.
