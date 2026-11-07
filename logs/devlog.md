@@ -1564,3 +1564,8 @@ the format of the entries below (see CLAUDE.md, Docs).
 - **Why this is right:** (1) push beats polling: the server sends a hit the moment it happens, where polling waits to be asked and costs a request per player per update (30 a second for tennis); (2) the server owns the game, so a client can't claim a hit or score (CLAUDE.md's first rule); (3) running ahead on the client makes it smooth at the screen's frame rate despite the network; (4) one connection serves rooms, spectators and, in task 34, friends and parties.
 - **Accepted:** the turn-based games (archery, basketball, bowling) use the same 30 a second though little changes in a turn; the messages are small and one path keeps the room code game-agnostic.
 - **On screen vs logs:** names are always shown in full in the game and the friends list; only the server's log file replaces a player with a per-run hash (`who`), as `spec/stats-logging.test.ts` requires.
+
+## 2026-11-08 03:02 AEDT | decision | Nothing is left for after the deadline
+
+- **Decided by:** user ("we arent leaving stuff after the deadline"), answering Claude's suggestion to leave tasks 19, 27, 25 and 9 until after noon Monday.
+- **Effect:** every open task is planned to finish before the deadline (19 crowd and sound, 27 hurdles, 25 swing feel, 9 menu polish, 28 podium, 34 friends and parties, the boxing fixes), alongside the merges, README and ship. Claude to plan the waves so the shared files (protocol, room, menu, character) merge cleanly and the e2e load stays within the headless limit.
