@@ -1544,3 +1544,9 @@ the format of the entries below (see CLAUDE.md, Docs).
 - **Rule:** an account's name becomes a chosen name plus a random 4-digit tag, e.g. `Sam#4821`. Several accounts may share a name; the name and tag together are unique. If every tag for that name is taken (all 10,000), the user is told to pick another name. Friendships, ratings and history stay stored by the hidden account id, never the name; the id is never shown.
 - **Party modes:** leader picks, winner stays on, both swap out, randomise.
 - **Changes this means (not built):** a schema step giving each existing account a tag, the name rules and the unique index (today "unique ignoring case" in CLAUDE.md and `spec/accounts.test.ts`), and everywhere a name is looked up. Where the tag shows (friends list and profile only, or everywhere) is still open.
+
+## 2026-11-08 02:47 AEDT | decision + process | Tasks 33 and 34 written; customisation and track/archery looks agents started
+
+- **Decided by:** user (the tag shows only in the friends list, profile and requests, "in games keep it clean"; a rename keeps the tag if free; demo accounts get fixed tags; "parallelise what you can"); Claude (the task files and the briefs).
+- **Task 33** (customisation): more look fields and a cleaner editor; a schema step maps every stored task-18 look to the new shape. **Task 34** (friends, status, parties, name tags): designed, built only if basketball and bowling merge cleanly by Sunday evening.
+- **Sent:** a customisation agent (port 8207, branch `customise-33`), and two task-31 agents, track looks (port 8208, branch `track-looks-31`) and archery looks (port 8209, branch `archery-looks-31`). To keep the merge small, the task-31 agents may not edit `client/games/tennis/character.ts` or `shared/look.ts` (the customisation agent owns them); they add the run cycle and the bow pose in their own game folders. All told to run e2e headless (`pnpm e2e --workers=1`) and to take before and after screenshots.
