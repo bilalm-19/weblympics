@@ -1,142 +1,117 @@
 ---
 name: review-game-build
-description: Reviews a playable Weblympics game against the project's idea of good, the course brief, CLAUDE.md's rules and the 256 MB server, including play-throughs by fresh persona agents who never see the code. Use when the user asks to review, audit or check a game (tennis, archery, track, boxing, or a new one), or "is <game> ready to ship". Reports findings and a verdict (ship / fix first / pull from the menu) in the chat.
+description: Reviews whether a built Weblympics game's camera controls are intuitive, without a webcam: what the code needs from your body versus the real sport's move, what the screen tells a newcomer versus what the code needs, and what goes wrong (moves that misfire, clashes, no feedback). Use when the user asks to review, audit or check a game (tennis, archery, track, boxing, or a new one), or "is <game> intuitive". Reports per control in the chat, and asks for a ?debug recording where the evidence runs out.
 ---
 
 # Review a built game
 
-Find what stops a game from meeting the project's idea of good or the brief,
-ranked by how much it would cost in marking. Report in the chat. Don't fix
-anything unless the user asks; a review that also edits loses its outside
-view.
+Judge whether each camera control is one a newcomer would get right, from
+the code, the screen and the user's recordings. No agent plays on a
+webcam: the user's playtests judge feel; this review tells them what to look
+at. Report in the chat. Don't fix anything unless asked; a review that also
+edits loses its outside view.
 
 Argument: the game's registry id (`tennis`, `archery`, `track`, `boxing`).
 If none is given, ask which.
 
 ## 1. Read first
 
-- `docs/game-review-criteria.md`: criteria A to F, the personas, the
-  verdicts. Apply them; don't re-invent them.
-- `README.md`, `CLAUDE.md` (the game's paragraphs under Layout and Rules),
-  the game's task file and ADR, and the last entries about it in
-  `logs/devlog.md` (grep the game's name). Note any open playtest finding:
-  the review checks whether it is still true.
+- `docs/game-review-criteria.md` (criteria, personas, verdicts) and
+  `docs/camera-playtest.md` (how recordings are made).
+- `README.md` and the game's paragraphs in `CLAUDE.md`: the controls as
+  promised.
+- The game's camera code: its pose file in `client/input/camera/`
+  (`pose.ts` tennis, `run-pose.ts` track, `box-pose.ts` boxing) or in the
+  game's folder (`bow.ts` archery), and its camera panel
+  (`client/games/<game>/*-camera.ts`, or `client/input/camera/index.ts`).
+- Recordings in `docs/playtest/<game>-*.txt`, the game's ADR, and the last
+  devlog entries naming it (`grep -n <game> logs/devlog.md`). Note every open
+  playtest finding.
 
-## 2. Run the app on a spare port
+## 2. The controls in plain words
 
-Never use 8080 or 5173 (the user's own dev processes). Build if `dist/` is
-older than the last commit, then:
+List each player action the camera reads (a stroke, a jab, a guard, a lean,
+a step, a draw, a release). For each, write:
+- **What the code needs:** the measure and its numbers, in body terms ("your
+  palm must look 1.35x bigger than its resting size", "shoulders tilted 8
+  degrees past where they were in the first second"), with `file:line`.
+- **Where the number came from:** a recording (cite the file and the row),
+  or a guess (say so).
+- **The real move:** what a person who knows the sport does for this action.
+- **Gap:** where the two differ (a move nobody would make, a move people make
+  that doesn't count, a move they'd make bigger or smaller than the
+  threshold).
 
-```bash
-PORT=8191 DATA_DIR=$(mktemp -d) pnpm start   # run_in_background
-```
+Count the actions a player has to learn, held states included (criterion
+A2).
 
-Find and stop it later by port (`ss -ltnp | grep :8191`), never by name.
+## 3. What the screen tells a newcomer
 
-## 3. Persona play-throughs (criteria A, B, D)
+Collect every word and picture a new player gets about the camera, from the
+code: the camera setup steps, training or practice prompts, the HUD's hints,
+any on-screen silhouette or demo. Quote them.
 
-Run personas 1 to 3 from the criteria as **fresh agents in parallel**
-(general-purpose), one each. Each prompt holds only:
-- the persona, word for word from the criteria;
-- the URL (`http://localhost:8191/`, or the watch link for the spectator:
-  open a vs-bot room yourself first and pass its `#/watch/CODE`);
-- the game to play, by its name on the menu;
-- the browser recipe below;
-- "Do not read any file in the repository, and do not look at page source,
-  scripts or network traffic. You only know what is on the screen."
+Then start one **fresh agent** (general-purpose) with only persona 1 from the
+criteria and those quoted words, in the order a player meets them. Tell it:
+"Do not read any file. You only know this text." Ask it, for each action
+the game needs: what exactly would you do with your body, how big, how
+fast, and from where (sitting or standing, how far from the laptop)?
 
-Browser recipe for the persona agent:
-> Write throwaway Playwright scripts (`.mjs`) in a temp dir outside the repo
-> and run them with `node` from the repo root. Load Playwright with
-> `const { chromium } = createRequire(process.cwd() + "/")("@playwright/test")`
-> (`createRequire` from `node:module`; plain `playwright` doesn't resolve).
-> Launch chromium with
-> args `--use-fake-device-for-media-stream`, `--use-fake-ui-for-media-stream`,
-> `--use-gl=angle`, `--use-angle=swiftshader`, `--enable-unsafe-swiftshader`
-> and the persona's viewport (laptop 1920x1080; phone 390x844 with
-> `isMobile` and `hasTouch`). Keep one browser open across steps if you can,
-> or replay your steps each run. After each action, save a screenshot and
-> look at it, and read `page.locator('body').ariaSnapshot()` to see what's
-> on the screen. Act only through what you see: roles and visible text.
-> The fake webcam shows a test pattern, not a person, so any camera move
-> won't be read; note what the screen told you to do with your body and
-> whether you could tell how to do it, then play on keys or buttons.
+Compare its answers with step 2's "what the code needs". Each mismatch is a
+place a new player fails.
 
-Each persona reports:
-- seconds and steps from opening the URL to the first action that counted;
-- every point they were unsure, with the words on screen at that moment;
-- whether they found out how to play without leaving the page;
-- whether they finished a match (or for a spectator, could tell who was
-  winning), and what they'd tell their friend;
-- screenshots of each stall (paths).
+## 4. What goes wrong
 
-Persona 4 (the marker) is yours, not an agent's: open `/readme/`, check that
-it says enough to get two browsers into this game, and that a finished match
-is still there (match history or leaderboard) after a server restart on the
-same `DATA_DIR`.
+From the code and the recordings:
+- **False reads:** does normal play cross a threshold? Check the recorded
+  "moving, no action" and neighbouring moves against each threshold (a
+  guard read as jabs, a sway read as a lean, a wind-up read as a swing).
+- **Missed reads:** is the real move's typical value only just past the
+  threshold, or is the body part lost on many frames (the "seen" share)?
+- **Clashes:** does one control silently block another (leaning stops
+  punching, a guard stops a swing)? Does the player see why?
+- **Feedback:** after a move, does the screen show what was read (or that
+  nothing was), quickly enough to correct the next one?
+- **Body and setup:** does it assume standing, a full-body view, good light,
+  one handedness, or a mirrored picture? A laptop webcam with the player
+  seated sees to mid-chest.
 
-## 4. Code and harness checks (criteria C, F)
+## 5. Ask for a recording where the evidence runs out
 
-While the personas run, check yourself:
-- **C1-C3:** the game's client message types in `shared/` (its adapter and
-  the protocol parser): list them, confirm none carries a claim, that extra
-  fields are dropped, and where the rate caps are. Point at the spec that
-  holds each.
-- **C5:** the sim takes no `Date.now()` or `Math.random()` (grep it).
-- **F1:** every camera threshold in the game's pose file: from a recording
-  (cite it) or a guess (list it as open).
-- **F2/F3:** for each rule CLAUDE.md states about this game, find the spec
-  that checks it and the README sentence that promises it; list any rule
-  with no spec, any README claim with no rule, and anything the app does
-  that none of them mention.
-- Run the game's own tests only: `APP_URL=http://localhost:8191 pnpm vitest run spec/<game>`
-  and `APP_URL=http://localhost:8191 pnpm e2e --workers=1 e2e/<game>`. Gate on the
-  exit code. Report red as red.
+When a finding can't be settled from the code and the existing recordings,
+name the recording that would settle it, following
+`docs/camera-playtest.md`: the moves to record, one at a time (for example
+"relaxed", "guard held, no punch", "lean left and hold", "jab, head"), what
+measure to look at and what it should show. If the game has no `?debug`
+recorder yet (only boxing has one, in `client/games/boxing/box-camera.ts`),
+say that one is needed and what it should record for this game. If one
+summary line per move isn't enough to replay a move through the detector,
+say a per-frame trace is needed.
 
-## 5. Server cost (criteria E)
-
-With the app on 8191: read `/stats`, then open 5 vs-bot rooms of this game
-(a Playwright script, five pages, each starting practice vs the bot on
-keys), wait 20 s, read `/stats` three times, 5 s apart. Report RSS per room
-over the idle reading, `loop.avgMs` and `loop.maxMs`, and the projected RSS
-at 10 rooms against the 256 MB limit. Local numbers are a lower bound; say
-so. Tell the user if a reading on the live site would settle it (they can
-run `curl https://comp4020-final-bilalm004.fly.dev/stats`).
-
-## 6. Clean up
-
-Close browsers, stop the 8191 server by its PID, delete the temp `DATA_DIR`
-and the persona scripts.
-
-## 7. Report
+## 6. Report
 
 ```
-## <Game>: <ship | fix first | pull from the menu>
+## <Game>: <intuitive | fix the instructions | change controls>
 
-<two sentences: the verdict and the one or two reasons that decide it>
+<two sentences: the verdict and what decides it>
 
-### Blockers (cost marks under the brief)
-1. <finding> (<criterion>) — evidence: <file:line, screenshot, persona quote> — fix: <smallest change>
+| Action | What the code needs | Real move | Screen says | Fresh agent would | Result |
+|---|---|---|---|---|---|
+| Jab | palm 1.35x resting size (box-pose.ts:NN, recorded) | ... | ... | ... | intuitive / instructions / change move |
 
-### Concerns
-...
+### Problems, worst first
+1. <what a newcomer would do and why it fails> — evidence: <file:line,
+   recording row, quote> — smallest fix: <instruction wording, threshold
+   from which recording, or a different move>
 
-### Passes
-<criteria that passed, one line each with the evidence>
-
-| Criterion | Result |
-|---|---|
-| A1 ... | pass/concern/fail |
-
-**Personas:** <one line each: time to first action, finished or not, the
-quote that matters most>
-**Server:** idle <x> MB, +<y> MB per room, loop avg/max <a>/<b> ms
-**Tests:** <command>: <passed>/<total>, exit <code>
-**Still open from the devlog:** <playtest findings still true, or fixed>
+**Inputs to learn:** <n> (<list>)
+**Guesses still in the controls:** <numbers with no recording>
+**Recordings to make:** <move list and what each should show, or "none">
+**For your next playtest:** <3-5 things to try and watch for>
+**Open playtest findings:** <from the devlog: still explained by the code,
+or fixed>
 ```
 
-Rank blockers by marking weight: a broken viewport, the core interaction
-failing, or a README claim the app doesn't keep come before polish. Say what
-you could not check (a real webcam, two real people) rather than guessing.
-If a finding shows a rule missing from `docs/game-review-criteria.md`,
+Rule and control choices are the user's: recommend, don't decide. If a
+finding shows a rule missing from `docs/game-review-criteria.md`,
 `CLAUDE.md` or `spec/`, say which file it belongs in.

@@ -36,13 +36,16 @@ Each criterion is pass, concern or fail, with evidence.
 - **A2 Few inputs.** Count the distinct actions a player must learn. Up to 3
   is easy, 4 to 5 needs on-screen help, 6 or more is a concern unless
   practice teaches them in order. Held states (a guard, a lean) count.
-- **A3 First action fast.** A new player does something that counts within
-  about 30 seconds of the game opening, on keys and on the camera.
-- **A4 Learnable on the page.** Keys or buttons are shown in the HUD; a
-  practice or training mode exists; the camera setup shows the move.
-  Nothing needs the README to be understood.
-- **A5 Fails kindly.** A missed or unread move says why (or the game shows
-  what it read), so the player can correct it.
+- **A3 Screen matches code.** What the camera setup, training and HUD tell
+  a newcomer to do is what the code actually measures, at the size and
+  speed it needs. Nothing needs the README to be understood.
+- **A4 No false or silent reads.** Normal play (a guard, a sway, a wind-up)
+  doesn't cross a threshold; the real move clears it with room; one
+  control doesn't silently block another.
+- **A5 Fails kindly.** After a move the screen shows what was read (or that
+  nothing was), quickly enough to correct the next one.
+- **A6 Fits a laptop webcam.** Works seated, seeing to mid-chest, either
+  hand, ordinary light.
 
 ### B. Together
 - **B1 Two people, live.** It is a two-seat game in a room, both players see
@@ -65,7 +68,9 @@ Each criterion is pass, concern or fail, with evidence.
   can be tested.
 
 ### D. Works for everyone
-- **D1 Keyboard equivalent** for every camera action, and phone buttons.
+- **D1 Fallback.** Keys or buttons exist so a game can be played with no
+  camera (CLAUDE.md requires it; the marker's phone-sized window has none).
+  It only has to work; it is not what the review judges.
 - **D2 Both viewports**: 1920x1080 and 390x844, no horizontal scroll,
   controls reachable, canvas not clipped.
 - **D3 No camera needed** to reach the lobby, the room or a game.
@@ -94,8 +99,9 @@ Measured 2026-11-07 (deploy 11): idle RSS 106 MB (41%), cold start about
 
 ## Personas
 
-Each play-through is done by a fresh agent that has not read the code, given
-only what that person would have.
+A fresh agent that has not read the code is given only what that person
+would see (the on-screen words, or the pitch) and says what they would do.
+No agent plays on a webcam; the user's playtests judge feel.
 
 1. **Casual friend, laptop.** Sent an invite link by a friend, never seen the
    site, has a webcam, will give up after about a minute of confusion.
@@ -108,4 +114,4 @@ only what that person would have.
 ## Verdicts
 
 - **Idea:** build / build with changes (listed) / drop.
-- **Build:** ship / fix first (the listed blockers) / pull from the menu.
+- **Build:** intuitive / fix the instructions / change controls.
