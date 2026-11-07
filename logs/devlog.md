@@ -1645,3 +1645,12 @@ the format of the entries below (see CLAUDE.md, Docs).
 - **Built:** an eight-lane stadium (tartan, numbers, blocks, infield, flags, a long side stand and an end stand with tennis's crowd, a finish arch with a race clock); runners as the tennis character with jointed arms and legs following the server's speed; the crowd cheering harder near the line. `character.ts` and `shared/look.ts` untouched; `stadium.ts` gained small exports (`sky`, `paintStand`, `crowdMeshes`, `FAN_SHIRTS`), tennis unchanged.
 - **Frame rate:** the first version ran at about a quarter of today's; after merging each stand's fans into one mesh, baking the light into the stadium's colours and dropping the sky gradient, it measured about equal to before on the software renderer (desktop 17-36 fps against 21-35 before, mobile 60), on a machine loaded by other agents.
 - **Open:** no e2e checks a custom look on track (read from the code only); the podium waits on task 28.
+
+## 2026-11-08 04:46 AEDT | milestone | Archery looks agent finished (task 31, branch archery-looks-31, 650fa9c)
+
+- **Decided by:** agent (the scene and its choices); Claude (accepting it for the merge).
+- **Result:** `pnpm check` 45 files, 725 tests, exit 0 (new `spec/archery-look.test.ts`); `e2e/archery` 16 of 16 and `e2e/spectate` + `e2e/home` 38 of 38, exit 0. The full e2e wasn't run; tennis's must run at integration, since `stadium.ts` changed.
+- **Built:** an outdoor range (striped grass, hills, trees, butts in the other lanes, a wooden shooting line), flags that stream with the snapshot's own wind so they agree with the dial, a small stand of tennis's crowd that jumps on a 10 or a bullseye, and the archer as the tennis character holding the bow. Your own turn stays first person; the other's turn, and every turn for a spectator, is a view from behind the line. Gameplay, messages, the sim and the sight preview unchanged; `character.ts` and `shared/look.ts` untouched.
+- **Bug its new spec found:** at full draw with the aim tipped down the bow hand was 1 cm out of reach; the arms were lengthened slightly.
+- **Frame rate:** the first version ran at half of main's on desktop; after a plain sky and unlit, merged ground, hills and clouds, alternating rounds measured desktop 37-60 fps against main's 30-49 at 10 m, about equal at 40 m, phone 60.
+- **Merge note:** both task-31 branches changed `stadium.ts` (track exported `sky`, `paintStand`, `crowdMeshes`, `FAN_SHIRTS`; archery exported `crowd()` with an optional layout), and bowling's exported `crowdMeshes` too: expect a conflict there.
