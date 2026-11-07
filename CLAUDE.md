@@ -356,9 +356,16 @@ scroll, controls reachable, canvas not clipped. Check both for any UI change.
 - Changes to `shared/`, `server/`, the protocol, the db or `spec/`: run
   `pnpm check` without being asked.
 - UI or layout changes: run `pnpm e2e` (both viewports) without being asked.
-  Use `pnpm e2e --workers=1` here: in parallel, several software-rendered
-  1080p browsers starve the frame rate, and the trail and camera tests fail
-  on code that passes one at a time.
+- E2e runs headless: `pnpm e2e --workers=1`, and at most one or two runs at
+  once across all sessions and agents. The browsers draw on the CPU
+  (SwiftShader), and in parallel several 1080p ones starve the frame rate,
+  so the trail and camera tests fail on code that passes alone (measured: 3
+  of 48 failed with 4 workers). Re-run a lone failure by itself before
+  calling it a bug. `pnpm e2e:gpu` uses the laptop's GPU (1.8x faster, 48 of
+  48 green with 4 workers) but needs visible browser windows under WSLg
+  (off-screen and minimised windows still show; headless falls back to
+  SwiftShader), which take over the user's screen: only with the user's OK,
+  e.g. when they're away.
 - Never commit or push on red. Commit when green, in small commits with clear
   messages. Gate on the test command's own exit code, never on a
   pipe into `grep` (the pipe's status is grep's, so red can look green).
@@ -373,13 +380,7 @@ scroll, controls reachable, canvas not clipped. Check both for any UI change.
   without it the tests hit :8080, the user's dev server on `main`, and pass
   or fail on code the agent never ran. Ports: 8080/5173 the user's dev
   server, 8201-8298 agents, 8299 the integration branch. Restart the app
-  before each check. Agents run e2e headless, plain `pnpm e2e --workers=1`,
-  one or two runs at once at most. `pnpm e2e:gpu` (the laptop's GPU, 1.8x
-  faster, green with 4 workers where SwiftShader failed 3 of 48) needs
-  visible browser windows under WSLg (off-screen and minimised windows stay
-  on screen; headless falls back to SwiftShader), and they take over the
-  user's screen: only with the user's OK, e.g. when they're away. Re-run a
-  lone failure by itself before calling it a bug. Agents commit on their branch only and never
-  push; Claude merges on an integration branch, runs the full checks there,
-  then moves `main`.
+  before each check; e2e as in the rule above. Agents commit on their
+  branch only and never push; Claude merges on an integration branch, runs
+  the full checks there, then moves `main`.
 - Never commit secrets or `mise.local.toml`.
