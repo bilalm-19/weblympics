@@ -1529,3 +1529,11 @@ the format of the entries below (see CLAUDE.md, Docs).
 - **Task 31:** track and archery looks can use tennis's character and crowd pieces directly, as boxing, basketball and bowling do, with a simple end card until task 28's podium. Task file and overview updated.
 - **New ideas from the user, to discuss next:** friends (add, invite to a match), online / away / offline status, a party system (several people together, games stay 1v1, the others spectate; public or invite-only), and a cleaner customisation and looks UI.
 - **Parked for later (not now):** removing the leaderboard and Elo for just "matches played", and removing non-default play options (e.g. in tennis), keeping leaning as optional. Written in `tasks/parked.md`.
+
+## 2026-11-08 02:37 AEDT | decision | Social features: no party chat; who plays next has three modes; more look options
+
+- **Decided by:** user (each point below); Claude (the proposals they answered).
+- **No party chat** (user): "the point is for friends to play, they can contact each other themselves, the friends list is just ease of invite". So no chat of any kind, neither free text nor preset phrases: nothing to moderate, nothing to store.
+- **Who plays next in a party** (user): the leader picks, or chooses "rotate" or "randomise".
+- **Customisation** (user): a cleaner UI with more options: clothes, eyewear, smiles, facial hair, eye shape, nose shape and more.
+- **Open:** how to tell apart people with the same name when adding friends (Claude: chosen names are already unique ignoring case on the server; guests' pseudonyms aren't chosen, and guests can't be friended).
