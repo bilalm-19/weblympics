@@ -149,12 +149,14 @@ export interface Player {
    * body, the torso parts above the hips, the head with every hair or hat
    * part, and the top and skin materials (setLook recolours them).
    */
-  parts: { body: Group; upper: Mesh[]; head: Mesh[]; top: MeshLambertMaterial; skin: MeshLambertMaterial };
+  parts: { body: Group; upper: Mesh[]; head: Mesh[]; top: MeshLambertMaterial; skin: MeshLambertMaterial; arm: Group; hand: Group };
 }
 
 export interface PlayerOptions {
   /** false builds no arms and no racket, for a sport that adds its own (boxing). Default true. */
   arms?: boolean;
+  /** false keeps the arms but leaves the racket out, for a sport that holds something else (bowling). Default true. */
+  racket?: boolean;
 }
 
 const DOWN = new Vector3(0, -1, 0);
@@ -272,7 +274,7 @@ export function makePlayer(look: Look, racketColor: number, opts: PlayerOptions 
   const wrist = new Group();
   wrist.position.y = -0.29;
   const roll = new Group();
-  roll.add(racket(racketColor));
+  if (opts.racket !== false) roll.add(racket(racketColor));
   wrist.add(roll);
   elbow.add(foreSleeve, hand, wrist);
   arm.add(upperSleeve, elbow);
@@ -306,7 +308,8 @@ export function makePlayer(look: Look, racketColor: number, opts: PlayerOptions 
   return {
     group,
     setLook,
-    parts: { body, upper: [torso, shoulders, neck], head: headGroup, top, skin: skinMat },
+    // `arm` (shoulder pivot) and `hand` (its wrist), for a sport that poses the arm and puts something else in it (bowling's ball)
+    parts: { body, upper: [torso, shoulders, neck], head: headGroup, top, skin: skinMat, arm, hand: wrist },
     follow(pose, backhand, side) {
       body.scale.x = side;
       body.rotation.y = 0;

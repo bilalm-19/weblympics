@@ -445,8 +445,16 @@ export interface CrowdHandle {
 }
 
 function crowd(scene: Object3D): CrowdHandle {
-  const layout = crowdLayout();
-  const rand = rng(43);
+  return crowdMeshes(scene, crowdLayout());
+}
+
+/**
+ * The instanced crowd for any seat layout: tennis's stands, or bowling's
+ * seating behind the approach (task 29). Seeded, so a layout always looks
+ * the same.
+ */
+export function crowdMeshes(scene: Object3D, layout: CrowdLayout, seed = 43): CrowdHandle {
+  const rand = rng(seed);
   const n = layout.seats.length;
   const bodies = new InstancedMesh(new BoxGeometry(0.42, 0.55, 0.32), new MeshLambertMaterial({ color: 0xffffff, flatShading: true }), n);
   const heads = new InstancedMesh(new IcosahedronGeometry(0.17, 0), new MeshLambertMaterial({ color: 0xffffff, flatShading: true }), n);
