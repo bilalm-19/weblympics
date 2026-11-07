@@ -47,6 +47,7 @@ One flat list. Start at the top; a task only waits on the ones named.
 | 32 | [Basketball](32-basketball.md): a turn-by-turn shoot-off from 5 spots, the server flies the ball off a real rim and board, one camera push (ADR 003) | - | Opus |
 | 33 | [Customisation](33-customisation.md): many more look options (face, hair, clothes, eyewear) and a cleaner editor | - | Opus |
 | 34 | [Friends, status, parties and name tags](34-friends-parties.md): add by Name#1234 or link, online/away/offline, parties that rotate, no chat | 29, 32 merged | Opus |
+| 35 | [One way to play, guides, training](35-one-way-to-play-guides-training.md): tennis's non-default controls removed, both players on the same input, a pull-up guide with an outline figure per sport, guided training per sport | 29, 31, 32, 33 merged | Opus |
 
 Tasks 10 (README) and 11 (ship) are set aside by the user for now. Task 7 now
 waits on 17 and is per-sport with a host-set rated option. How the new tasks

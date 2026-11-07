@@ -1575,3 +1575,10 @@ the format of the entries below (see CLAUDE.md, Docs).
 - **Decided by:** user (music made in the browser; "aww" and groans instead of boos; all games, each with its own sounds: "tennis swing and ball bounce, boxing gloves hits and bell"; "sure sounds good" to the placed crowd); Claude (the shared module, the per-game sound lists, how spectators hear it).
 - **How the crowd sounds:** one crowd: everyone hears the winner's cheer and the loser's "aww" together, each panned and weighted to where its stand is on that screen; a spectator hears seat 1's side on the left. Worked out on each screen from the snapshot, as the point call is; no network message.
 - **Task 19** widened accordingly (shared `client/audio/`, per-game sounds, home-screen jazz loop from Web Audio, music and effects toggles).
+
+## 2026-11-08 03:15 AEDT | decision | Task 35: one way to play, a guide per sport, guided training per sport
+
+- **Decided by:** user (remove "Follow my arm" and "Aim by pointing", keep leaning optional; "make keyboard vs camera not allowed", clarified as both players in a room must match; a pull-up guide per sport with an outline figure and the tracked body parts highlighted, also in training; practice modes for the other sports, clarified as guided training like tennis's); Claude (the design and the split).
+- **Note:** this brings forward part of the idea parked earlier today (fewer options); the leaderboard removal stays parked.
+- **Same input:** a lobby rule, so every game gets it; the server can't prove which input a player uses, so it is a fair-play rule for honest players, stated as such.
+- **Waits on:** the guides go into every game's view, which the track, archery, customisation and bowling agents are editing now; starting it after their merges avoids conflicts in the same files. Two agents then: one way to play (A) and guides plus training (B), in separate files.
