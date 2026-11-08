@@ -1,4 +1,5 @@
 import {
+  BoxGeometry,
   CanvasTexture,
   ConeGeometry,
   CylinderGeometry,
@@ -18,6 +19,7 @@ import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 import { bakeLighting } from "./bake.ts";
 import type { BakeLights } from "./bake.ts";
 import { cheer, cheerUniforms, mergeFans } from "./crowd.ts";
+import type { Runner } from "./runner.ts";
 import { FAN_SHIRTS, PALETTE, Painter, fanMeshes, paintStand, sky } from "../tennis/stadium.ts";
 import { OCCUPANCY, TIERS, TIER_DEPTH, TIER_RISE, WALL_H, rng, seatColumns, standToArena } from "../tennis/crowd-layout.ts";
 import type { Stand } from "../tennis/crowd-layout.ts";
@@ -329,4 +331,85 @@ export function buildTrack(scene: Scene, length: number): TrackScene {
       scene.remove(group, hemi, sun);
     },
   };
+}
+
+// ---------------------------------------------------------------------------
+// Hurdles (task 27). Kept apart from the track and the runner above so the
+// scenery (task 31) can change those freely: the view calls these on its own,
+// and the jump pose only moves a runner's outer group.
+
+const HURDLE_HEIGHT = 0.84;
+
+export interface HurdleRow {
+  /** Shows each hurdle in a lane standing ("up", "cleared") or knocked down ("down"); `dt` animates the fall. */
+  update(seat: 0 | 1, marks: readonly string[], dt: number): void;
+  dispose(): void;
+}
+
+/** One hurdle from primitives: two white uprights, feet and a striped bar; it pivots at its base so it can tip over. */
+function makeHurdle(): Group {
+  const pivot = new Group();
+  const flat = (color: number) => new MeshLambertMaterial({ color, flatShading: true });
+  const white = flat(0xf4f4f4);
+  const black = flat(0x22262e);
+  const width = LANE_WIDTH * 0.8;
+  for (const z of [-width / 2, width / 2]) {
+    const post = new Mesh(new BoxGeometry(0.05, HURDLE_HEIGHT, 0.05), white);
+    post.position.set(0, HURDLE_HEIGHT / 2, z);
+    const foot = new Mesh(new BoxGeometry(0.5, 0.04, 0.06), black);
+    foot.position.set(-0.2, 0.02, z);
+    pivot.add(post, foot);
+  }
+  // the bar in stripes, so it reads at a distance
+  const stripes = 5;
+  for (let i = 0; i < stripes; i++) {
+    const seg = new Mesh(new BoxGeometry(0.04, 0.12, width / stripes), i % 2 ? white : black);
+    seg.position.set(0, HURDLE_HEIGHT - 0.06, -width / 2 + (i + 0.5) * (width / stripes));
+    pivot.add(seg);
+  }
+  return pivot;
+}
+
+/** Both lanes' hurdles at `obstacles` (metres along the track), added to `scene`. */
+export function buildHurdles(scene: Scene, obstacles: readonly number[]): HurdleRow {
+  const group = new Group();
+  const rows: Group[][] = [[], []];
+  for (const seat of [0, 1] as const) {
+    for (const x of obstacles) {
+      const h = makeHurdle();
+      h.position.set(x, 0, laneZ(seat));
+      group.add(h);
+      rows[seat].push(h);
+    }
+  }
+  scene.add(group);
+  return {
+    update(seat, marks, dt) {
+      rows[seat].forEach((h, i) => {
+        // knocked down: it tips forward, down the track, until it lies flat
+        if (marks[i] === "down") h.rotation.z += (-Math.PI / 2 + 0.08 - h.rotation.z) * Math.min(1, dt * 9);
+        else h.rotation.z = 0;
+      });
+    },
+    dispose() {
+      scene.remove(group);
+    },
+  };
+}
+
+/**
+ * A runner's jump on top of the run cycle: the whole figure lifts over the
+ * bar and leans into it. `t` 0..1 through the flight, or null on the ground.
+ * It moves only the runner's outer group, so any runner model works.
+ */
+export function jumpPose(r: Runner, t: number | null): void {
+  if (t === null) {
+    r.group.position.y = 0;
+    r.group.rotation.z = 0;
+    return;
+  }
+  const k = Math.min(1, Math.max(0, t));
+  r.group.position.y = Math.sin(Math.PI * k) * 0.75;
+  // lean forward on the way up, level out coming down
+  r.group.rotation.z = -0.35 * Math.sin(Math.PI * k);
 }

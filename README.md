@@ -31,7 +31,7 @@ Webcam is the default; "Use keyboard instead" plays on keys. In tennis: by defau
 
 In archery: hold an imaginary bow. Your front hand aims, pulling the other back sets strength, snapping it forward shoots. A dot shows the landing without wind; reading the wind is up to you.
 
-In track: run on the spot (arms or knees), or alternate A and D. Only footsteps are sent; the server turns their rhythm into speed and ignores the same foot twice or faster-than-human steps.
+In track: run on the spot (arms or knees), or alternate A and D. Only footsteps are sent; the server turns their rhythm into speed and ignores the same foot twice or faster-than-human steps. In hurdles, throw both arms up (or hop) or press Space to jump; the server decides if you cleared it.
 
 In bowling: Left/Right pick the start spot, Up/Down the curve; hold Space (or Bowl) and let go. The server rolls ball and pins.
 

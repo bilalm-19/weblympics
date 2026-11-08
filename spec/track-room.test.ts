@@ -1,5 +1,6 @@
 // Track (task 26) through the same Room, Lobby and protocol as tennis and
 // archery, with a fake clock and fake sockets like spec/archery-room.test.ts.
+import { DatabaseSync } from "node:sqlite";
 import { describe, expect, it } from "vitest";
 import type { TrackSnapshot } from "../shared/games/track/sim.ts";
 import { SET_TICKS } from "../shared/games/track/sim.ts";
@@ -8,7 +9,7 @@ import type { LobbyView, RoomFormat, ServerMsg } from "../shared/protocol.ts";
 import { Room } from "../server/room.ts";
 import type { Client } from "../server/room.ts";
 import { asRoomFormat } from "../server/rooms.ts";
-import { isRated } from "../server/schema.ts";
+import { insertMatch, isRated, migrate, parseSetsColumn } from "../server/schema.ts";
 import type { MatchRecord } from "../server/schema.ts";
 
 const COUNTDOWN = 100;
@@ -192,5 +193,123 @@ describe("track rooms", () => {
     expect(state(a).lanes[1].steps).toBeGreaterThan(20);
     expect(s.records.length).toBeGreaterThan(0);
     expect(s.records.every((r) => r.practice && !isRated(r))).toBe(true);
+  });
+});
+
+// Task 27: the event picker (sprint or hurdles), jumps through the room, and
+// the stored row naming the event, for the stats task.
+function eventRace(event: "sprint" | "hurdles", format: RoomFormat = "race") {
+  const s = setup(format);
+  const a = client("a");
+  const b = client("b");
+  s.room.join(a);
+  s.room.join(b);
+  if (event === "hurdles") expect(s.room.event(a, "hurdles")).toBeNull();
+  s.room.ready(a, true);
+  s.room.ready(b, true);
+  s.run(COUNTDOWN + 50);
+  s.run(SET_TICKS * 17 + 50);
+  return { ...s, a, b };
+}
+
+describe("track rooms: the event (task 27)", () => {
+  it("the sprint by default; the host picks hurdles, which clears both ready flags; the other seat can't", () => {
+    const s = setup();
+    const a = client("a");
+    const b = client("b");
+    s.room.join(a);
+    s.room.join(b);
+    expect(lobby(a)!.event).toBe("sprint");
+    expect(state(a).event).toBe("sprint");
+    s.room.ready(a, true);
+    s.room.ready(b, true);
+    expect(s.room.event(b, "hurdles")).toMatch(/only the host/);
+    expect(s.room.event(a, "hurdles")).toBeNull();
+    const v = lobby(b)!;
+    expect(v.event).toBe("hurdles");
+    expect(v.seats.map((x) => x!.ready)).toEqual([false, false]);
+    expect(state(b).event).toBe("hurdles");
+    expect(state(b).obstacles).toHaveLength(10);
+  });
+
+  it("a game without events refuses one; the event can't change mid-match", () => {
+    const tennis = new Room("TENN", "tennis", false, "oneSet", { record: () => {}, clock: () => 0, log: () => {}, timer: false, timing: {}, onDestroy: () => {} });
+    const t = client("t");
+    tennis.join(t);
+    expect(tennis.lobbyView().event).toBeNull();
+    expect(tennis.event(t, "hurdles")).toMatch(/no such event/);
+    const s = seated();
+    expect(s.room.event(s.a, "hurdles")).toMatch(/started/);
+  });
+
+  it("jumps go through the room; the server judges each hurdle from its own sim", () => {
+    const s = eventRace("hurdles");
+    s.run(6000, stepper(s, s.a, 130));
+    // never jumped: every hurdle reached so far is down
+    const lane = state(s.b).lanes[0];
+    expect(lane.distance).toBeGreaterThan(state(s.b).obstacles[0]);
+    expect(lane.cleared).toBe(0);
+    expect(lane.hit).toBeGreaterThan(0);
+    s.room.step(s.a, { t: "jump", at: s.now() });
+    s.run(50);
+    expect(state(s.b).lanes[0].jumps).toBe(1);
+  });
+
+  for (const event of ["sprint", "hurdles"] as const) {
+    it(`a finished ${event} race's stored row says "${event}", with each seat's time${event === "hurdles" ? " and hurdles" : ""}`, () => {
+      const s = eventRace(event);
+      const fast = stepper(s, s.a, 125);
+      const slow = stepper(s, s.b, 170);
+      s.run(40_000, () => {
+        fast();
+        slow();
+      });
+      expect(s.records).toHaveLength(1);
+      const r = s.records[0];
+      expect(r).toMatchObject({ game: "track", format: "race", winner: 0 });
+      expect(r.detail!.event).toBe(event);
+      const times = r.detail!.times as [number, number];
+      expect(times[0]).toBeLessThan(times[1]);
+      if (event === "hurdles") {
+        expect(r.detail!.cleared).toEqual([0, 0]);
+        expect(r.detail!.hit).toEqual([10, 10]);
+      } else expect(r.detail!.cleared).toBeUndefined();
+      // through the real table: the event is in the row's JSON column, and the sets still read as before
+      const db = new DatabaseSync(":memory:");
+      migrate(db);
+      insertMatch(db, r);
+      const row = db.prepare("SELECT game, sets FROM matches").get() as { game: string; sets: string };
+      expect(row.game).toBe("track");
+      expect(JSON.parse(row.sets).event).toBe(event);
+      const parsed = parseSetsColumn(row.sets);
+      expect(parsed.sets).toEqual([]);
+      expect(parsed.detail).toMatchObject({ event, times });
+      db.close();
+    });
+  }
+
+  it("unlimited hurdles' row (stored on leaving) says hurdles too, with the best times", () => {
+    const s = eventRace("hurdles", "unlimited");
+    // knocking every hurdle down is slow, and the other runner never starts: the race ends 5 s after a finish
+    s.run(40_000, stepper(s, s.a, 125));
+    s.room.leave(s.b);
+    expect(s.records).toHaveLength(1);
+    expect(s.records[0]).toMatchObject({ format: "unlimited", winner: null });
+    expect(s.records[0].detail).toMatchObject({ event: "hurdles" });
+    expect((s.records[0].detail!.times as Array<number | null>)[0]).toBeGreaterThan(0);
+  });
+
+  it("practice vs the bot: the player switches the event any time and the race restarts", () => {
+    const s = setup("race", true);
+    const a = client("a");
+    s.room.join(a);
+    s.run(3000);
+    expect(s.room.event(a, "hurdles")).toBeNull();
+    s.run(50);
+    expect(state(a).event).toBe("hurdles");
+    expect(state(a).lanes[1].distance).toBeLessThan(1);
+    s.run(15_000);
+    // the bot jumps its hurdles
+    expect(state(a).lanes[1].jumps).toBeGreaterThan(0);
   });
 });

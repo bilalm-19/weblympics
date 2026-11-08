@@ -6,7 +6,7 @@
 // can run it on a throwaway file (spec/ratings.test.ts).
 import type { DatabaseSync } from "node:sqlite";
 import { DELETED_NAME, isTombstone } from "./accounts.ts";
-import { insertMatch } from "./schema.ts";
+import { insertMatch, parseSetsColumn } from "./schema.ts";
 import type { MatchRecord } from "./schema.ts";
 
 export const START_RATING = 1000;
@@ -190,7 +190,8 @@ export function history(db: DatabaseSync, player: string, limit = 20): HistoryRo
     const token = them === 0 ? r.p0 : r.p1;
     const name = them === 0 ? r.n0 : r.n1;
     const opponent = r.practice ? "Bot" : isTombstone(token) ? DELETED_NAME : (name ?? (token ? DELETED_NAME : "Nobody"));
-    const sets = (JSON.parse(r.sets) as Array<[number, number]>).map(([a, b]) => (me === 0 ? [a, b] : [b, a]) as [number, number]);
+    // task 27: a track row's column is an object holding the detail and the sets
+    const sets = parseSetsColumn(r.sets).sets.map(([a, b]) => (me === 0 ? [a, b] : [b, a]) as [number, number]);
     return {
       endedAt: r.ended_at,
       sport: r.game,

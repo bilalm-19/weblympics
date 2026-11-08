@@ -301,6 +301,11 @@ wss.on("connection", (ws: WebSocket, req: IncomingMessage) => {
         if (refused) send(client, { t: "error", message: refused });
         break;
       }
+      case "event": {
+        const refused = client.room ? client.room.event(client, msg.event) : "not in a room";
+        if (refused) send(client, { t: "error", message: refused });
+        break;
+      }
       case "rated": {
         const refused = client.room ? client.room.setRated(client, msg.rated) : "not in a room";
         if (refused) send(client, { t: "error", message: refused });
@@ -325,6 +330,7 @@ wss.on("connection", (ws: WebSocket, req: IncomingMessage) => {
         client.room?.turn(client, msg);
         break;
       case "step":
+      case "jump":
         client.room?.step(client, msg);
         break;
       case "punch":

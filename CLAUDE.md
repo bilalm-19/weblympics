@@ -27,10 +27,12 @@ lazily and only when a player enters a game. Video never leaves the browser.
   (task 22) is `shared/games/archery/`: `sim.ts` (stages, seeded wind,
   flight, rings; `predictHit` with no wind is the client's preview),
   `bot.ts` (`solveAim` plus noise), `index.ts` (adapter). Track (task 26,
-  sprint; hurdles is task 27) is `shared/games/track/`: `sim.ts` (lanes,
-  steps to cadence to speed, the cadence cap, finish times; an `obstacles`
-  list, empty for the sprint), `bot.ts` (target cadence plus noise),
-  `index.ts` (adapter). Boxing (task 30) is `shared/games/boxing/`:
+  sprint; task 27, hurdles) is `shared/games/track/`: `sim.ts` (lanes,
+  steps to cadence to speed, the cadence cap, finish times; the `obstacles`
+  list, empty for the sprint and ten hurdles for hurdles; the jump, its cap
+  and the stumble), `bot.ts` (target cadence plus noise; one jump per
+  hurdle plus noise), `index.ts` (adapter, closed `asInput` for `jump`,
+  `asEvent`, `raceDetail` for the match row). Boxing (task 30) is `shared/games/boxing/`:
   `sim.ts` (jabs in the air with a wind-up, `judge` of guard and slip at
   landing, the held lean (slip), health, the per-hand recovery and
   the punch cap, rounds, KO, decision, draw), `bot.ts` (guards the right
@@ -173,17 +175,22 @@ lazily and only when a player enters a game. Video never leaves the browser.
   `bow-camera.ts` (its camera panel; loads the hand model too),
   `bow-model.ts` (the first-person bow), `practice.ts` + `practice-sim.ts`
   (in-page practice), `archery.css`; it reuses tennis's ready panel. Track
-  (task 26) is `games/track/`: `view.ts` (side-on chase camera, race board,
-  A/D, arrows and two tap buttons), `lane.ts` (task 31's stadium from
-  tennis's `Painter`, `paintStand`, `fanMeshes` and `sky`; finish arch and
-  clock), `bake.ts` (bakes the light into the stadium's colours, so only
-  runners are lit), `crowd.ts` (each stand's fans merged into one mesh, the
-  cheer in the vertex shader), `runner.ts` (the tennis character with
-  jointed legs and arms), `scene-model.ts` (pure: run pose, crowd
-  excitement, clock: `spec/track-scene.test.ts`), `run-camera.ts` (its camera panel: mode, stand-still
-  calibration), `practice.ts` + `practice-sim.ts` (in-page practice vs a
-  pacer), `track.css`; the pure camera maths is `input/camera/run-pose.ts`;
-  it reuses tennis's ready panel.
+  (task 26) is `games/track/`: `view.ts` (side-on chase camera, race board
+  with hurdles cleared, A/D, arrows and two tap buttons, Space and a Jump
+  button in hurdles, a Sprint/Hurdles switch in practice), `lane.ts` (task
+  31's stadium from tennis's `Painter`, `paintStand`, `fanMeshes` and `sky`;
+  finish arch and clock; hurdles, the falling hurdle and the jump pose in
+  their own functions at the end, task 27), `bake.ts` (bakes the light into
+  the stadium's colours, so only runners are lit), `crowd.ts` (each stand's
+  fans merged into one mesh, the cheer in the vertex shader), `runner.ts`
+  (the tennis character with jointed legs and arms), `scene-model.ts`
+  (pure: run pose, crowd excitement, clock: `spec/track-scene.test.ts`),
+  `run-camera.ts` (its camera panel: mode, stand-still calibration, the
+  jump), `practice.ts` + `practice-sim.ts` (in-page practice vs a pacer,
+  either event), `track.css`; the pure camera maths is
+  `input/camera/run-pose.ts` (steps, and `JumpTracker`:
+  `spec/track-jump-pose.test.ts`); it reuses tennis's ready panel, which
+  shows an event picker when given events.
 - `spec/*.test.ts` vitest against the running app, plus the sim unit tests.
 - `e2e/*.e2e.ts` Playwright at both viewports, fake webcam.
 
@@ -292,7 +299,7 @@ lazily and only when a player enters a game. Video never leaves the browser.
   (`spec/rally-fixes.test.ts`, task 12).
 - Game logic stays deterministic (seed + input stream) so it can be tested.
 - Tennis, archery (task 22) and track (tasks 26-27, one game with two
-  events: the sprint is playable, hurdles is task 27) are the games; boxing
+  events: the sprint and hurdles) are the games; boxing
   (task 30, a "maybe") is playable on keys, buttons or the camera in a 3D ring;
   basketball (task 32, asked for on 2026-11-07) is playable on keys, the
   mouse and buttons in a park court; its camera is part 3;
@@ -345,6 +352,28 @@ lazily and only when a player enters a game. Video never leaves the browser.
   is a step; stand back), measured in shoulder widths from a stand-still
   calibration. "elbows" is the provisional default until a real-webcam
   playtest picks one.
+- Hurdles (task 27; `spec/track-hurdles.test.ts`, `spec/track-jump-pose.test.ts`,
+  `e2e/track-hurdles.e2e.ts`): track's second event, the host's pick like
+  the format ("sprint" default or "hurdles", `event` message, `LobbyView.event`;
+  a change clears both ready flags; in practice the player switches it any
+  time and the race restarts). Ten hurdles per lane, 8.5 m apart from 13 m.
+  Clients send exactly `jump` {their own timestamp}; any extra field drops
+  it whole. A jump keeps you in the air 0.4 s from the tick it arrives,
+  costs 1 m/s, and is ignored in the air, before the gun, in the sprint, or
+  faster than the jump cap (500 ms by its timestamp, and a server bucket of
+  one refilling at 2 a second). In the air as you reach a hurdle clears it;
+  on the ground knocks it down and leaves 40% of your speed. These numbers
+  are guesses for the playtest. The bot jumps once per hurdle with seeded
+  timing noise, so it sometimes hits one. No rating of its own (user,
+  2026-11-08: ratings are going, match stats only): it is the `track` sport,
+  rated exactly as the sprint. A track match row says which event: its
+  `sets` JSON column holds `{ event, times, cleared, hit, sets }` (no schema
+  step; `parseSetsColumn` reads either shape). Keys: Space or the Jump button.
+  Camera: elbows mode, both arms up together; knees mode, a hop on the spot
+  (the shoulder/hip midpoint rising fast above its stand-still height). A
+  running pump, a jogging step or one arm up never reads as a jump. Numbers
+  in `DEFAULT_JUMP` are guesses until the recordings ("Hurdles' moves" in
+  `docs/camera-playtest.md`).
 - Boxing's design is `docs/adr/002-boxing-judged-at-landing.md` (user,
   2026-11-05). The camera slip's numbers are first guesses until a lean is recorded. Camera
   numbers come from recordings (`docs/camera-playtest.md`), never guesses.

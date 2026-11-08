@@ -5,7 +5,7 @@
 
 import { DEFAULT_LOOKS } from "../shared/look.ts";
 import type { Look } from "../shared/look.ts";
-import type { LobbyView, Phase, RoomFormat } from "../shared/protocol.ts";
+import type { LobbyView, Phase, RoomEvent, RoomFormat } from "../shared/protocol.ts";
 
 export type Seat = 0 | 1;
 
@@ -43,6 +43,8 @@ const other = (s: Seat): Seat => (s === 0 ? 1 : 0);
 export class Lobby {
   readonly practice: boolean;
   format: RoomFormat;
+  /** Task 27: the host's event (track: sprint or hurdles), null for a game without events. */
+  event: RoomEvent | null = null;
   /** Task 7: the host's "rated" option (off by default). */
   rated = false;
   seats: [SeatInfo | null, SeatInfo | null] = [null, null];
@@ -129,6 +131,21 @@ export class Lobby {
     if (format === this.format) return "same";
     this.format = format;
     for (const s of this.seats) if (s && !s.bot) s.ready = false;
+    this.recount(now);
+    return "ok";
+  }
+
+  /**
+   * Task 27: the host picks the event before play; like the format, it
+   * clears both ready flags. In practice vs the bot the player may switch it
+   * any time (nobody is waiting on them; the room restarts the race).
+   */
+  setEvent(seat: Seat, event: RoomEvent, now: number): "ok" | "same" | "not host" | "started" {
+    if (this.practice ? seat !== 0 || !this.seats[0] : this.host !== seat) return "not host";
+    if (this.inMatch && !this.practice) return "started";
+    if (event === this.event) return "same";
+    this.event = event;
+    for (const s of this.seats) if (s && !s.bot) s.ready = this.practice;
     this.recount(now);
     return "ok";
   }
@@ -231,6 +248,7 @@ export class Lobby {
       phase: this.phase(),
       match: this.inMatch,
       format: this.format,
+      event: this.event,
       host: this.host,
       seats: [seat(0), seat(1)],
       countdown: this.countdownUntil === null ? null : secs(this.countdownUntil),
