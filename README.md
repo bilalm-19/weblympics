@@ -10,7 +10,7 @@ Weblympics is a homage to the Wii and Kinect sports games I grew up on in the 20
 
 ## What "good" means here
 
-What made the Wii and Kinect games fun was that they were casual and easy enough for any age, with little skill gap because the mechanics were simple, and nothing rewarded being "good". Weblympics follows that and works in tight spaces. Good here means a stranger can load the page and be playing with a friend within a minute, with no tutorial or account.
+What made the Wii and Kinect games fun was that they were casual and easy enough for any age, with little skill gap because the mechanics were simple, and nothing rewarded being a "pro". Weblympics follows that and works in tight spaces. Good here means a stranger can load the page and be playing with a friend within a minute, with no tutorial or account.
 
 - **One simple move per sport.** The move is the real one: swing, throw, run on the spot, jab, push. Never a combination or a button chart.
 - **Easy to play, hard to dominate.** Webcam tracking is noisy and lag is real, so I cut precise controls and kept forgiving ones. Games are also more enjoyable when both players feel on par, for example in longer tennis rallies.
@@ -25,22 +25,25 @@ What made the Wii and Kinect games fun was that they were casual and easy enough
 
 ## Playing with friends
 
-Invite a friend by their short **Name#1234** tag, or share a **room code** they type in, so nobody pastes long links. Parties hold up to 10: the leader picks the game and who plays next, two sit and the rest watch. Friends show as online, away or offline, and you can hide.
+Invite a friend by their short **Name#1234** tag, or share a **room code** they type in, so nobody pastes long links, and the hassle of sending party codes to friends is removed. Parties hold up to 10: the leader picks the game and who plays next, two sit and the rest watch (until their go). Friends show as online, away or offline, and you can hide.
 
 ![Friends panel: your Name#1234 tag, add by tag, status, invite](docs/media/friends.png)
-![A party of two with a slot to invite a friend](docs/media/party.png)
 ![The invite pop-up a friend sees: Join or Not now](docs/media/invite.png)
+![A party of two with a slot to invite a friend](docs/media/party.png)
+![The party controls: pick the game, who plays next, and who can find the party](docs/media/party-controls.png)
 
 ## Controls
 
 The webcam is the default, and "Use keyboard instead" is always available.
 
-- **Tennis:** palm to the screen is a forehand, the back of your hand a backhand. The game walks you to the ball.
-- **Archery:** hold an imaginary bow. Your front hand aims, pulling the other back sets strength, and letting go shoots.
-- **Track:** run on the spot (arms or knees), or alternate A and D. Hurdles: throw both arms up, or press Space.
-- **Bowling:** pick the start spot and curve, then hold and let go.
-- **Boxing:** jab to the head or body, and defend with a high guard, a low guard or a lean.
-- **Basketball:** push up towards the hoop, and a bar shows your power against the green.
+- **Tennis:** swing, palm out for a forehand, back of the hand for a backhand.
+- **Archery:** hold an imaginary bow, pull back to draw, let go to shoot.
+- **Track:** run on the spot.
+- **Bowling:** choose your spot, hold and let go.
+- **Boxing:** jab, guard high or low, or lean away.
+- **Basketball:** push up towards the hoop.
+
+Every rule and key is in [`docs/game-rules.md`](docs/game-rules.md).
 
 A tennis rally and a basketball shot, played with the camera:
 
@@ -50,14 +53,10 @@ https://github.com/user-attachments/assets/62c12614-b6a5-4fbd-aae0-314ca9b8b712
 
 ## Many people, live, and still there tomorrow
 
-- **Multi-user.** Each browser is its own person, told apart by a cookie the server sets (guest or passkey account), never by what a page claims. A room has two seats and up to 10 watchers.
-- **Real-time.** The server steps the match 60 times a second and pushes each snapshot over one WebSocket, so a swing shows on every screen without a reload. Nothing polls.
-- **Persistent.** Accounts, friends, camera settings and finished matches are in SQLite on the Fly volume, so they survive a restart or redeploy. Live rooms and parties are in memory, so a restart ends a match in progress.
+- **Multi-user.** Each browser is its own person, told apart by a cookie the server sets (guest or passkey account). A room has two seats and up to 10 watchers.
+- **Real-time.** Updates are pushed over a WebSocket, so a swing, a score or a friend coming online shows on every screen live, with no reload.
+- **Persistent.** Accounts, friends, settings and finished matches are in SQLite on the Fly volume, so they survive a restart or redeploy. Live rooms and parties are in memory, so a restart ends a match in progress.
 
-## How it works, and what is enforced
+## What is enforced, and what is judged
 
-The server owns the ball and the score. Clients send only moves (a swing, step, punch or throw), never video, and render what the server says.
-
-If the ball was hittable on your screen when you swung, it counts, checked against the server's own record. This is lag compensation, as in Counter-Strike ([Bernier, GDC 2001](https://www.semanticscholar.org/paper/Latency-Compensating-Methods-in-Client-Server-and-Bernier/330071040ca858ca710a24a03915366fcd46f021)), but capped at 150 ms. At a 150 ms round trip, 100% of on-time swings hit, against 76% without it ([ADR 001](docs/adr/001-who-wins-under-lag.md)).
-
-**Enforced by checks in `spec/`:** server-owned hits, the lag numbers, no video leaving the browser (the page's Content Security Policy only lets it connect to this server and the pose model's download hosts, checked by `privacy.test.ts`), logs without names or tokens, and room and friend rules. **Judged by people:** whether a move feels natural. I playtested each sport with peers and changed it until newcomers managed (see `PROCESS.md`).
+**Enforced in `spec/`:** server-owned hits, the lag numbers ([ADR 001](docs/adr/001-who-wins-under-lag.md)), no video leaving the browser (the page's Content Security Policy allows only this server and the pose model's hosts), logs without names, and room and friend rules. **Judged by people:** whether a move feels natural, which I playtested with peers. Sources and how I judged it are in [`PROCESS.md`](PROCESS.md).
