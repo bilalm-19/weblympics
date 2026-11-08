@@ -17,7 +17,7 @@ import { MAX_PARTY, MAX_WATCHERS } from "../shared/protocol.ts";
 import type { ClientMsg, FriendView, PartyMsg, PartyView, ServerMsg, ShownStatus } from "../shared/protocol.ts";
 import { findByTag, getPlayer, lookOf } from "./accounts.ts";
 import type { Player } from "./accounts.ts";
-import { GUESTS_CANT, areFriends, friendIds, parseNameTag, publicCard, requestIds } from "./friends.ts";
+import { areFriends, friendIds, parseNameTag, publicCard, requestIds } from "./friends.ts";
 import { who } from "./log.ts";
 import { Party } from "./party.ts";
 import { send } from "./room.ts";
@@ -42,7 +42,10 @@ const SOCIAL_PER_SECOND = 20;
 
 type Doing = FriendView["doing"];
 const OFFLINE = JSON.stringify(["offline", null]);
-export const GUESTS_PARTY = "Guests can't join parties: a guest has no lasting identity. Create an account with a passkey (profile, top right) first.";
+/** A guest may join, lead and share a party by its link (user, 2026-11-08); inviting by Name#1234 needs a lasting name. */
+export const GUESTS_INVITE = "Guests can't invite by name: a guest has no lasting identity. Copy the party link and send it instead, or create an account with a passkey (profile, top right).";
+/** Public parties are listed to the leader's friends; a guest has none. */
+export const GUESTS_PUBLIC = "Only an account can make a party public to friends: a guest has no friends list. Share the party link instead.";
 
 export class Social {
   private deps: SocialDeps;
@@ -262,7 +265,7 @@ export class Social {
 
   /** Asks a friend (exact Name#1234) to join your party, or your room. Only friends; never a stranger. */
   private invite(c: Client, raw: string): void {
-    if (!this.accounts.get(c.token)) return this.notice(c, GUESTS_CANT);
+    if (!this.accounts.get(c.token)) return this.notice(c, GUESTS_INVITE);
     const nt = parseNameTag(raw);
     const them = nt && findByTag(this.deps.db, nt.name, nt.tag);
     if (!them || !areFriends(this.deps.db, c.token, them.token)) return this.notice(c, "You can only invite your friends.");
@@ -287,17 +290,23 @@ export class Social {
 
   // ---- parties ----
 
+  /**
+   * The party link's code: 128 random bits, like a friend link's, so it
+   * can't be guessed. It lives only in memory with its party, works for
+   * anyone (guest or account, several people) while the party exists, and
+   * is never logged.
+   */
   private newCode(): string {
     let code = "";
-    do code = randomBytes(9).toString("base64url");
+    do code = randomBytes(16).toString("base64url");
     while (this.parties.has(code));
     return code;
   }
 
   private party(c: Client, msg: PartyMsg): void {
     const token = c.token;
-    // accounts only, like friends: a party is built from friends and links
-    if (!this.accounts.get(token)) return this.notice(c, GUESTS_PARTY);
+    // guests too (user, 2026-11-08): they join and share by the link and may
+    // lead; only the friends-based parts (invite by name, public) need an account
     const mine = this.partyOf.get(token);
     if (msg.act !== "leave") this.partyTab.set(token, c);
     switch (msg.act) {
@@ -336,6 +345,7 @@ export class Social {
     let changed = false;
     switch (msg.act) {
       case "public":
+        if (msg.public && !this.isAccount(token)) return this.notice(c, GUESTS_PUBLIC);
         changed = mine.setPublic(token, msg.public);
         break;
       case "game":
@@ -351,6 +361,7 @@ export class Social {
         break;
       case "lead":
         changed = mine.makeLeader(token, msg.id);
+        if (changed) this.guestLeaderPrivate(mine);
         break;
       case "start":
         return this.start(c, mine);
@@ -362,6 +373,16 @@ export class Social {
     }
   }
 
+  /** An account, as its socket said, else from the database (a member offline within the grace). */
+  private isAccount(token: string): boolean {
+    return this.accounts.get(token) ?? getPlayer(this.deps.db, token)?.account ?? false;
+  }
+
+  /** A public party whose crown passed to a guest goes back to invite only: a guest has no friends to list it to. */
+  private guestLeaderPrivate(party: Party): void {
+    if (party.public && party.size > 0 && !this.isAccount(party.leader)) party.public = false;
+  }
+
   private leaveParty(token: string): void {
     const party = this.partyOf.get(token);
     if (!party) return;
@@ -369,6 +390,7 @@ export class Social {
     this.partyTab.delete(token);
     const wasLeader = party.isLeader(token);
     const empty = party.leave(token);
+    if (wasLeader) this.guestLeaderPrivate(party);
     this.deps.log("party_leave", { who: who(token), size: party.size });
     if (empty) {
       this.parties.delete(this.codeOf.get(party)!);

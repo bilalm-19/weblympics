@@ -29,6 +29,12 @@ export interface PartyActions {
   games: { id: string; name: string }[];
   /** Watch the party's current match (it never takes a seat). */
   onWatch(room: string): void;
+  /**
+   * Signed in (the welcome's word): an account sees the friends to invite
+   * and "Public to friends"; a guest has no friends list, so shares the
+   * party link (user, 2026-11-08). The server checks both again.
+   */
+  account(): boolean;
 }
 
 export const partyUrl = (code: string): string => `${location.origin}/#/party/${code}`;
@@ -42,7 +48,7 @@ const nextNames = (p: PartyView): [string, string] | null => {
 /** "Ana vs Ben play next" or why nobody can yet. */
 export function nextText(p: PartyView): string {
   const n = nextNames(p);
-  return n ? `Next: ${n[0]} vs ${n[1]}` : "Invite a friend: a match needs two.";
+  return n ? `Next: ${n[0]} vs ${n[1]}` : "Invite someone: a match needs two.";
 }
 
 export function partyButton(social: SocialState, actions: PartyActions): HTMLButtonElement {
@@ -112,7 +118,7 @@ export function openParty(opener: HTMLElement | null, social: SocialState, actio
       title.textContent = "Party";
       const start = el("button", { type: "button", class: "pt-primary", text: "Start a party" });
       start.addEventListener("click", () => send({ t: "party", act: "create" }));
-      body.replaceChildren(el("p", { class: "fr-note", text: "Play with up to 9 friends: two play, the rest watch, and the party moves to the next match together." }), start);
+      body.replaceChildren(el("p", { class: "fr-note", text: "Play with up to 9 others: two play, the rest watch, and the party moves to the next match together. Share the party link to bring people in." }), start);
       return;
     }
     const me = p.members.find((m) => m.you);
@@ -135,12 +141,14 @@ export function openParty(opener: HTMLElement | null, social: SocialState, actio
         b.addEventListener("click", () => send({ t: "party", act: "mode", mode }));
         modes.append(b);
       }
+      // public means listed to the leader's friends: only an account has any
       const vis = el("div", { class: "pt-modes", role: "radiogroup", "aria-label": "Who can find the party" });
       for (const pub of [false, true]) {
         const b = el("button", { type: "button", role: "radio", "aria-checked": String(p.public === pub), text: pub ? "Public to friends" : "Invite only" });
         b.addEventListener("click", () => send({ t: "party", act: "public", public: pub }));
         vis.append(b);
       }
+      const account = actions.account();
       const startMatch = el("button", { type: "button", class: "pt-primary", text: p.room ? "Start the next match" : "Start the match" });
       startMatch.disabled = !p.next;
       startMatch.addEventListener("click", () => {
@@ -151,8 +159,12 @@ export function openParty(opener: HTMLElement | null, social: SocialState, actio
         el("label", { class: "pt-field" }, el("span", { text: "Game" }), game),
         el("div", { class: "pt-field" }, el("span", { text: "Who plays next" }), modes),
         el("p", { class: "pt-note", text: MODE_WORDS[p.mode].note + (p.mode === "pick" ? " Tick two members." : "") }),
-        el("div", { class: "pt-field" }, el("span", { text: "Who can find it" }), vis),
-        el("p", { class: "pt-note", text: p.public ? "Your friends see it in their friends list and can join." : "Only people you invite, or who have the link, can join." }),
+        ...(account
+          ? [
+              el("div", { class: "pt-field" }, el("span", { text: "Who can find it" }), vis),
+              el("p", { class: "pt-note", text: p.public ? "Your friends see it in their friends list and can join." : "Only people you invite, or who have the link, can join." }),
+            ]
+          : [el("p", { class: "pt-note", text: "Only people with the party link can join." })]),
         startMatch,
       );
     } else {
@@ -167,10 +179,24 @@ export function openParty(opener: HTMLElement | null, social: SocialState, actio
       parts.push(watch);
     }
 
-    // invite: friends who are around and not in the party yet
+    // the party link, for every member (guests too): whoever has it may join
+    const copy = el("button", { type: "button", class: "pt-secondary", text: "Copy party link" });
+    copy.addEventListener("click", () => {
+      navigator.clipboard?.writeText(partyUrl(p.code)).then(
+        () => (status.textContent = "Party link copied: whoever has it can join."),
+        () => (status.textContent = `Party link: ${partyUrl(p.code)}`),
+      );
+    });
+    const full = p.members.length >= MAX_PARTY;
+    // invite: an account's friends who are around and not in the party yet;
+    // a guest has no friends list, so only the link (user, 2026-11-08)
     const inParty = new Set(p.members.map((m) => m.name));
     const around = social.state.friends.filter((f) => f.status !== "offline" && !inParty.has(f.name));
-    if (p.members.length < MAX_PARTY) {
+    if (!actions.account()) {
+      parts.push(el("h3", { class: "fr-group", text: "Invite" }), el("p", { class: "pt-note", text: full ? "The party is full: the link works again when someone leaves." : "Send the party link to whoever you want to play with." }), copy);
+    } else if (full) {
+      parts.push(el("h3", { class: "fr-group", text: "Invite" }), el("p", { class: "pt-note", text: "The party is full: the link works again when someone leaves." }), copy);
+    } else {
       const invites = el("ul", { class: "pt-invites", "aria-label": "Invite friends" });
       for (const f of around) {
         const sent = invited.has(tagged(f));
@@ -184,13 +210,6 @@ export function openParty(opener: HTMLElement | null, social: SocialState, actio
         });
         invites.append(el("li", { class: "fr-row" }, el("span", { class: "fr-who" }, el("span", { class: "fr-name", text: f.name })), b));
       }
-      const copy = el("button", { type: "button", class: "pt-secondary", text: "Copy party link" });
-      copy.addEventListener("click", () => {
-        navigator.clipboard?.writeText(partyUrl(p.code)).then(
-          () => (status.textContent = "Party link copied: whoever has it can join."),
-          () => (status.textContent = `Party link: ${partyUrl(p.code)}`),
-        );
-      });
       parts.push(el("h3", { class: "fr-group", text: "Invite" }), around.length ? invites : el("p", { class: "pt-note", text: "No friends online to invite. Send the party link instead." }), copy);
     }
     const leave = el("button", { type: "button", class: "pt-leave", text: "Leave party" });

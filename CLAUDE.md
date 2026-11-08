@@ -306,7 +306,8 @@ lazily and only when a player enters a game. Video never leaves the browser.
   profile panel.
 - Friends, status and parties (task 34, `tasks/34-friends-parties.md`;
   `spec/friends-*.test.ts`, `spec/party-*.test.ts`, `e2e/friends-*.e2e.ts`):
-  accounts only (a guest is told why: no lasting identity). Add by the exact
+  friends are accounts only (a guest is told why: no lasting identity); parties
+  are open to guests (user, 2026-11-08, below). Add by the exact
   Name#1234 (no search, no partial matches) or a friend link (random code,
   single use, a day, only its hash stored); the other accepts or declines;
   decline and remove are silent. `/api/friends/*` POSTs check Origin and are
@@ -329,7 +330,17 @@ lazily and only when a player enters a game. Video never leaves the browser.
   with four or more). The leader starts a match: a fresh room for the game,
   the next two sit (the room's own ready rules), the rest join as spectators;
   a finished match rotates the order. A member whose last tab closes keeps
-  their place for 30 s. No chat of any kind (user, 2026-11-08). Logs carry
+  their place for 30 s. Every member, guest or account, gets "Copy party
+  link" (`#/party/CODE`): the code is 128 random bits, in memory only, works
+  for anyone and several people while the party exists, is refused when the
+  party is full ("That party is full (10 of 10).") or has ended, and is
+  joined over the socket (a page with no socket yet joins on connect).
+  Guests (known only by `wl_guest`, shown by their pseudonym) may create,
+  join, lead (game, mode, start) and share a party, under the same leader
+  and 30 s rules; inviting by Name#1234, the friends list and "Public to
+  friends" stay accounts-only (a guest sees only the link; a public party
+  whose crown passes to a guest goes back to invite only;
+  `spec/party-social.test.ts`, `e2e/friends-party-guests.e2e.ts`). No chat of any kind (user, 2026-11-08). Logs carry
   only `who` hashes, never a name, tag, code or token.
 - Looks (tasks 18 and 33; `spec/look.test.ts`, `e2e/look.e2e.ts`): an
   account's look is fourteen enum values from `shared/look.ts` (top, top

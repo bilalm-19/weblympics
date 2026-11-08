@@ -36,7 +36,8 @@ export const gameName = (id: string): string => GAME_NAMES[id] ?? id.charAt(0).t
 
 const STATUS_WORDS: Record<ShownStatus, string> = { online: "Online", away: "Away", offline: "Offline" };
 
-export const GUEST_NOTE = "Guests can't add friends: a guest has no lasting identity. Create an account with a passkey (profile, top right) to add friends and start parties.";
+export const GUEST_NOTE = "Guests can't add friends: a guest has no lasting identity. Create an account with a passkey (profile, top right) to add friends.";
+export const GUEST_PARTY_NOTE = "You can still start a party, or join one, by its link.";
 
 /** What a friend is doing, in words. */
 export function doingText(f: FriendView): string {
@@ -88,7 +89,23 @@ export function openFriends(opener: HTMLElement | null, who: FriendsWho, social:
   dialog.append(head);
 
   if (!who.account) {
-    dialog.append(el("p", { class: "fr-note", text: GUEST_NOTE }));
+    // a guest has no friends list, but may start, lead and share a party by
+    // its link (user, 2026-11-08)
+    const bar = el("div", { class: "fr-partybar" });
+    const drawBar = () => {
+      const party = social.state.party;
+      const pb = el("button", { type: "button", class: "fr-partybtn", text: party ? `Your party · ${party.members.length} of 10` : "Start a party" });
+      pb.addEventListener("click", () => {
+        if (!social.state.party) social.link.send({ t: "party", act: "create" });
+        close();
+        actions.onParty();
+      });
+      bar.replaceChildren(pb);
+    };
+    drawBar();
+    const off = social.subscribe(() => (dialog.isConnected ? drawBar() : off()));
+    dialog.addEventListener("close", () => off());
+    dialog.append(el("p", { class: "fr-note", text: GUEST_NOTE }), el("p", { class: "fr-note", text: GUEST_PARTY_NOTE }), el("div", { class: "fr-list" }, bar));
     dialog.showModal();
     head.querySelector("button")!.focus();
     return;

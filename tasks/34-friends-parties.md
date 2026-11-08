@@ -1,6 +1,6 @@
 # 34 Friends, status, parties and name tags
 
-Status: built on branch `friends-34` (agent, 2026-11-08): schema step 7 (to renumber after integrate-rest's step), server, client, specs and e2e green on the agent's own port. Not merged. Designed with the user (2026-11-08); proposals 1-3 and 5 accepted, parties amended (4).
+Status: on main (schema step 8). Follow-up built on branch `party-guests` (agent, 2026-11-08): guests join, lead and share parties by the party link; not merged. Designed with the user (2026-11-08); proposals 1-3 and 5 accepted, parties amended (4).
 Model: Opus 5.5
 Waits on: the basketball and bowling merges (they change the protocol and rooms).
 
@@ -26,9 +26,18 @@ Waits on: the basketball and bowling merges (they change the protocol and rooms)
   hidden account id, never shown on screen or in links; a friend link
   carries its own random, single-use, expiring code.
 
+- **Guests in parties** (user, 2026-11-08, changing the agent's
+  accounts-only choice): a guest may join a party by its link, copy and
+  share the link, and be its leader (game, who plays next, start). Inviting
+  by Name#1234, the friends list and public parties listed to friends stay
+  accounts-only, since they need a lasting name. The party link is a random
+  128-bit code kept in memory with the party, reusable while it lives,
+  refused when the party is full or ended, never logged.
+
 ## Design (Claude's proposal, to confirm)
 - **Accounts only:** guests can't friend or be friended (no lasting
-  identity); one passkey makes an account.
+  identity); one passkey makes an account. (Parties: see "Guests in
+  parties" above.)
 - **Friend requests:** exact name#tag only, no search or partial matches
   (nobody can browse the players); a request shows the sender's name, tag
   and character picture. Unfriend and decline are silent.
@@ -71,3 +80,8 @@ Waits on: the basketball and bowling merges (they change the protocol and rooms)
 - [~] `pnpm check` green; e2e run for the friends files plus `home` and
       `accounts` only (another agent was running e2e); the whole suite runs
       at the merge.
+- [x] Guests in parties: `spec/party-social` (guest leader, guest joins by
+      code, full party refuses the code, bad and old codes refused, guest
+      can't invite by Name#1234 or go public, codes not logged) and
+      `e2e/friends-party-guests` at both viewports; `pnpm check` 1050/1050,
+      `e2e/friends` 14/14 on :8236.
