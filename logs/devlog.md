@@ -2132,3 +2132,10 @@ Merged home-36 (home screen redesign) onto main's tennis-fixes. Checked: no conf
 - Specs: deleted `spec/ratings.test.ts`, `spec/rated-match.test.ts`, `e2e/leaderboard.e2e.ts`; edited the room specs of every game, `spec/db.test.ts` (new "schema v10" test opens a v9 database with a rating row and migrates it), `friends-rules`, `rooms`, `spectate`, `e2e/home.e2e.ts`, `e2e/flow.ts`. CLAUDE.md Ratings rules rewritten as "No ratings", README and docs/accounts.md updated.
 - Not built (task 37 bullets 2-4): per-sport stats, head-to-head, profile stats.
 - Why: user decision 2026-11-08 (match stats instead of ratings). Who: user (decided), agent (built).
+
+## 2026-11-09 - decision - CLAUDE.md trimmed from 811 to 141 lines (user asked: "it never should have been that long")
+- What: the per-game and per-feature rules (27 bullets) moved verbatim to `docs/game-rules.md`, and the file-by-file Layout (240 lines) to `docs/layout.md`. CLAUDE.md keeps the rules that cut across the project and a short Layout map. Every old non-blank line is in the new CLAUDE.md or one of the two docs (checked by script; the one exception is the Layout heading, renamed on purpose), and every spec named in the rules still exists.
+- Why: it grew from 10 lines (28 Sep) to 384 (7 Nov) to 771 (8 Nov): 12 agent branches each added their game's rules and files, and the merges kept all of them, because the file told agents to "update this when it changes" and said nothing about keeping it short. It is loaded into every session, so length costs context and makes the rules less likely to be followed.
+- Guard: the Layout section now says to keep the file short and to put game detail in `docs/`. Whether agents follow it is untested.
+- Not done: the README is 810 words against its own 400-600 target (it was 808 before today's work).
+- Who: user (asked), Claude (did it).
