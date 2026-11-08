@@ -256,7 +256,9 @@ describe("swing levels", () => {
       { distance: 2.2, ms: 300 },
     ].map(({ distance, ms }) => {
       const d = new SwingDetector(DEFAULT_SWING);
-      const events = swingFrames(0, { from: -0.8, distance, ms }).map((f) => {
+      // a swing starts from a hand at rest (the backhand fix): still first
+      const rest = Array.from({ length: 10 }, (_, i) => ({ t: -330 + i * 33, lm: pose({ across: -0.8 }) }));
+      const events = [...rest, ...swingFrames(0, { from: -0.8, distance, ms })].map((f) => {
         const lm = f.lm;
         return d.update(f.t, wrist(lm, bodyFrame(lm, ASPECT)!, "right", ASPECT)!).swing;
       });
@@ -515,7 +517,10 @@ describe("one swing counts once (task 25: the double-count)", () => {
    * (right hand) winds back toward negative across and hits toward positive;
    * a backhand the opposite. `recoveryGrip` is what the hand shows coming back.
    */
-  function stroke(t0: number, o: { kind?: "forehand" | "backhand"; windupMs?: number; strokeMs?: number; backMs?: number; reach?: number; recoveryGrip?: "forehand" | "backhand" } = {}): Frame[] {
+  function stroke(
+    t0: number,
+    o: { kind?: "forehand" | "backhand"; windupMs?: number; strokeMs?: number; backMs?: number; reach?: number; wind?: number; windupGrip?: "forehand" | "backhand"; recoveryGrip?: "forehand" | "backhand" } = {},
+  ): Frame[] {
     const kind = o.kind ?? "forehand";
     const s = kind === "forehand" ? 1 : -1;
     const rest = -0.5 * s;
@@ -523,7 +528,7 @@ describe("one swing counts once (task 25: the double-count)", () => {
     const frames: Frame[] = [];
     let t = t0;
     let a = rest;
-    let grip: "forehand" | "backhand" = kind;
+    let grip: "forehand" | "backhand" = o.windupGrip ?? kind;
     const move = (to: number, ms: number) => {
       const n = Math.max(1, Math.round(ms / 33));
       const from = a;
@@ -540,17 +545,20 @@ describe("one swing counts once (task 25: the double-count)", () => {
         frames.push({ t, lm: pose({ across: a, grip }) });
       }
     };
-    move(rest - 0.6 * s, o.windupMs ?? 250);
+    const wind = o.wind ?? 0.6;
+    move(rest - wind * s, o.windupMs ?? 250);
+    grip = kind;
     hold(33);
-    move(rest - 0.6 * s + reach * s, o.strokeMs ?? 300);
+    move(rest - wind * s + reach * s, o.strokeMs ?? 300);
     hold(150);
     grip = o.recoveryGrip ?? kind;
     move(rest, o.backMs ?? 400);
     hold(700);
     return frames;
   }
-  const still = (t0: number, ms: number, grip: "forehand" | "backhand" = "forehand"): Frame[] =>
-    Array.from({ length: Math.round(ms / 33) }, (_, i) => ({ t: t0 + i * 33, lm: pose({ across: grip === "forehand" ? -0.5 : 0.5, grip }) }));
+  /** still at a stroke's rest (`at`, default the grip's own), showing `grip` */
+  const still = (t0: number, ms: number, grip: "forehand" | "backhand" = "forehand", at: "forehand" | "backhand" = grip): Frame[] =>
+    Array.from({ length: Math.round(ms / 33) }, (_, i) => ({ t: t0 + i * 33, lm: pose({ across: at === "forehand" ? -0.5 : 0.5, grip }) }));
   const play = (frames: Frame[]) => {
     const c = new CameraController(DEFAULT_CALIBRATION);
     return frames.map((f) => c.update({ t: f.t, landmarks: f.lm, aspect: ASPECT }).swing).filter((s) => s !== null);
@@ -610,6 +618,85 @@ describe("one swing counts once (task 25: the double-count)", () => {
 
   it("the camera cooldown stays 300 ms (user's decision)", () => {
     expect(DEFAULT_SWING.cooldownMs).toBe(300);
+  });
+
+  // The backhand fix after task 25 (user, 2026-11-08: "if im holding
+  // backhand, it seems to keep swinging, backhand is pretty hard to hit").
+  // Task 25 ended a sweep at every turn-back and started the next at once, so
+  // a hand moving back and forth was a string of half-swings, and the grip's
+  // hitting direction then counted the half that matched. A swing now starts
+  // from rest, or straight after a wind-up that did and goes further than it.
+  const sway = (grip: "forehand" | "backhand", amp: number, hz: number, ms = 3000): Frame[] => {
+    const rest = grip === "forehand" ? -0.5 : 0.5;
+    return Array.from({ length: Math.round(ms / 33) }, (_, i) => ({ t: i * 33, lm: pose({ across: rest + amp * Math.sin((i * 33 * 2 * Math.PI * hz) / 1000), grip }) }));
+  };
+
+  it("in play: holding the backhand grip with the hand drifting 0.35 shoulder-widths each way is no swing", () => {
+    // the user's report: main read 5 light backhands in these 3 s
+    expect(play(sway("backhand", 0.35, 1.6))).toHaveLength(0);
+  });
+
+  it.each(["forehand", "backhand"] as const)("in play and in calibration: a hand swaying back and forth is never a swing, however wide or quick (%s grip)", (grip) => {
+    for (const amp of [0.2, 0.35, 0.5, 0.7]) {
+      for (const hz of [0.8, 1.2, 1.6, 2.4]) {
+        const frames = sway(grip, amp, hz);
+        expect(play(frames), `amp ${amp}, ${hz} Hz`).toHaveLength(0);
+        expect(calibrate(frames, grip), `amp ${amp}, ${hz} Hz`).toHaveLength(0);
+      }
+    }
+  });
+
+  it("in play: a backhand whose take-back shows the palm is one backhand, at full strength", () => {
+    // main read only a light forehand here (the wind-up), and took the backhand for its recovery
+    const swings = play([...still(0, 600, "forehand", "backhand"), ...stroke(600, { kind: "backhand", windupGrip: "forehand" })]);
+    expect(swings.map((s) => s.kind)).toEqual(["backhand"]);
+    expect(swings[0].level).toBe(2);
+  });
+
+  it.each(shapes)("in play: either stroke is one of its own kind whatever the hand shows on the take-back (%o)", (shape) => {
+    for (const kind of ["forehand", "backhand"] as const) {
+      const other = kind === "forehand" ? "backhand" : "forehand";
+      for (const windupGrip of [kind, other] as const) {
+        const swings = play([...still(0, 600, windupGrip, kind), ...stroke(600, { ...shape, kind, windupGrip })]);
+        expect(swings.map((s) => s.kind), `${kind}, take-back showing ${windupGrip}`).toEqual([kind]);
+      }
+    }
+  });
+
+  it("in play and in calibration: two backhands about 2 s apart count twice, a palm-up take-back or not", () => {
+    const first = stroke(600, { kind: "backhand", windupGrip: "forehand" });
+    const second = stroke(2600, { kind: "backhand" });
+    const frames = [...still(0, 600, "backhand"), ...first, ...second.filter((f) => f.t > first.at(-1)!.t)];
+    expect(play(frames).map((s) => s.kind)).toEqual(["backhand", "backhand"]);
+    expect(calibrate(frames, "backhand")).toHaveLength(2);
+  });
+
+  it("in play: soft, medium and hard backhands still read as their levels, with a take-back first", () => {
+    const levels = [
+      { reach: 0.9, strokeMs: 300 },
+      { reach: 1.4, strokeMs: 280 },
+      { reach: 2.4, strokeMs: 300 },
+    ].map(({ reach, strokeMs }) => {
+      const swings = play([...still(0, 600, "backhand"), ...stroke(600, { kind: "backhand", wind: 0.3, reach, strokeMs })]);
+      expect(swings).toHaveLength(1);
+      return swings[0].level;
+    });
+    expect(levels).toEqual([0, 1, 2]);
+  });
+
+  it("in play: a still hand with webcam jitter is no swing, and a stroke through the same jitter is one", () => {
+    let seed = 7;
+    // +-0.04 shoulder-widths of noise on the wrist each frame
+    const jitter = () => ((seed = (seed * 16807) % 2147483647) / 2147483647 - 0.5) * 0.08;
+    const shake = (frames: Frame[]) =>
+      frames.map((f) => {
+        const lm = f.lm.slice();
+        lm[LM.rightWrist] = { ...lm[LM.rightWrist], x: lm[LM.rightWrist].x + (jitter() * 0.25) / ASPECT };
+        return { t: f.t, lm };
+      });
+    expect(play(shake(still(0, 3000, "backhand")))).toHaveLength(0);
+    const swings = play(shake([...still(0, 600, "backhand"), ...stroke(600, { kind: "backhand", windupGrip: "forehand" })]));
+    expect(swings.map((s) => s.kind)).toEqual(["backhand"]);
   });
 });
 
