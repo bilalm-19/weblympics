@@ -1918,3 +1918,7 @@ the format of the entries below (see CLAUDE.md, Docs).
 - Bug (test-only): look.test.ts's v6 upgrade test timed out (5 s) under the full suite's load after gaining the step-8 rollback; alone it takes 1.2 s and passed 3 of 3. Given 20 s. Then `pnpm check` 1044/1044 and `pnpm e2e --workers=1 e2e/friends e2e/home e2e/accounts e2e/look` 52/52; main fast-forwarded. Not pushed.
 - Agent's own choices, put to the user: a friend link befriends at once; appear-offline remembered per browser; a party member keeps their place 30 s after their last tab closes; Invite on home starts a party, in a room invites to it; parties accounts only. Also an unasked 200-friend cap (MAX_FRIENDS), put to the user. Left out: "last seen" (status isn't stored past the session).
 - Who: agent (build), Claude (merge, renumbering, checks).
+
+## 2026-11-08 19:43 · decision · Friends/parties: the agent's choices settled; guests may join and lead parties by link
+- What: Claude first asked these as a list the user found unclear ("i dont get the questions"), then one at a time. User: keep the 200-friend cap; a friend link befriends at once; a party place is kept 30 s; and, changing the agent's choice, guests may join a party by link, invite by link and be its leader. Inviting by Name#1234 and parties listed to friends stay accounts-only (they need a lasting name). A small agent adds a party link (like the room invite) and lets guests in.
+- Who: user (decided), Claude (questions, brief).
