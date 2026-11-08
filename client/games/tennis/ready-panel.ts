@@ -13,6 +13,7 @@ export const FORMAT_LABELS: Record<RoomFormat, string> = {
   race: "Race",
   bout: "Bout",
   shootout: "Shootout",
+  game: "Five frames",
   unlimited: "Unlimited",
 };
 
@@ -23,6 +24,7 @@ const FORMAT_NOTES: Record<RoomFormat, string> = {
   race: "One 100 m sprint, first across the line wins.",
   bout: "Three rounds of 30 seconds. A knockout wins at once, else the most damage dealt; a tie is a draw.",
   shootout: "One shot each from five spots, 4.6 m to 9 m; the deep one is worth 4, a swish adds 1. Highest total wins.",
+  game: "Five frames each, real ten-pin scoring. Highest total wins; a tie is a draw unless you both play on.",
   unlimited: "Play as long as you like; points and best rally are counted. No winner, not rated.",
 };
 

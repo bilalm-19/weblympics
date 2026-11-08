@@ -8,8 +8,9 @@ import type { Look } from "./look.ts";
 // "race" is track's (task 26): one race, first across the line. "bout" is
 // boxing's (task 30): three rounds, a knockout or a decision on damage.
 // "shootout" is basketball's (task 32): five spots, one shot each per spot.
-export type RoomFormat = "oneSet" | "bestOfThree" | "stages" | "race" | "bout" | "shootout" | "unlimited";
-export const ROOM_FORMATS: readonly RoomFormat[] = ["oneSet", "bestOfThree", "stages", "race", "bout", "shootout", "unlimited"];
+// "game" is bowling's (task 29): five frames each, real ten-pin scoring.
+export type RoomFormat = "oneSet" | "bestOfThree" | "stages" | "race" | "bout" | "shootout" | "game" | "unlimited";
+export const ROOM_FORMATS: readonly RoomFormat[] = ["oneSet", "bestOfThree", "stages", "race", "bout", "shootout", "game", "unlimited"];
 
 // waiting (a seat is empty) -> ready-check -> countdown (3 s) -> playing;
 // paused while a dropped player's seat is held (30 s)
@@ -90,12 +91,16 @@ export type ClientMsg =
   | { t: "slip"; side: "left" | "right" | null }
   // basketball (task 32, ADR 003): "I'm set" (starts the shot clock, shows
   // the ready cue), the aim -1..1 (so others see the arrow; it shares
-  // `t: "aim"` with archery but carries only `aim`) and the shot: power 0..1,
-  // aim, and the sender's own clock (ms). Never a make or a score: the server
-  // flies the ball. A message with any extra field is dropped whole
+  // `t: "aim"` with archery but carries only `aim`; bowling's start spot is
+  // the same message) and the shot: power 0..1, aim, and the sender's own
+  // clock (ms). Never a make or a score: the server flies the ball. A message
+  // with any extra field is dropped whole
   | { t: "set" }
   | { t: "aim"; aim: number }
   | { t: "shoot"; power: number; aim: number; at: number }
+  // bowling (task 29, ADR 004): the throw (speed 0..1, aim, spin -1..1, the
+  // sender's own clock, ms). Never a pin or a score: the server rolls the ball
+  | { t: "throw"; speed: number; aim: number; spin: number; at: number }
   // the vote after a level game (user, 2026-11-08: "draw" or "continue"),
   // bowling's and basketball's
   | { t: "tie"; choice: "draw" | "continue" }
@@ -212,6 +217,12 @@ export function parseClientMsg(raw: string): ClientMsg | null {
       const { power, aim, at } = m;
       if (![power, aim, at].every((v) => typeof v === "number" && Number.isFinite(v))) return null;
       return { t: "shoot", power: power as number, aim: aim as number, at: at as number };
+    }
+    case "throw": {
+      if (!onlyKeys(m, ["t", "speed", "aim", "spin", "at"])) return null;
+      const { speed, aim, spin, at } = m;
+      if (![speed, aim, spin, at].every((v) => typeof v === "number" && Number.isFinite(v))) return null;
+      return { t: "throw", speed: speed as number, aim: aim as number, spin: spin as number, at: at as number };
     }
     case "tie":
       if (!onlyKeys(m, ["t", "choice"])) return null;

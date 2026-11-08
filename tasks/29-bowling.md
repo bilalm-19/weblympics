@@ -1,6 +1,6 @@
 # 29 Bowling
 
-Status: planned (2026-11-08). Design accepted (ADR 004); nothing built. Runs in parallel with basketball (task 32).
+Status: part 1 (rules) built on branch `bowling-rules` (2026-11-08), with the user's tie vote; parts 2-4 to do. Design accepted (ADR 004). Runs in parallel with basketball (task 32).
 Model: Opus 5.5 for every part
 Waits on: nothing. Built without task 28; its podium replaces the end card later.
 

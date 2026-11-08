@@ -63,6 +63,9 @@ const BOX_PER_SECOND = 30;
 // basketball: set, aim and shoot messages a second accepted from one seat
 // (aim is throttled by the client); past this is a flood and is dropped here
 const HOOP_PER_SECOND = 40;
+// bowling: aim, throw and tie-vote messages a second accepted from one seat
+// (aim is throttled by the client); past this is a flood and is dropped here
+const BOWL_PER_SECOND = 40;
 const MAX_CATCHUP_TICKS = 5;
 const EMPTY_ROOM_TTL_MS = 30_000;
 const BOT_SEAT: Seat = 1;
@@ -101,6 +104,10 @@ export class Room {
     { start: 0, count: 0 },
   ];
   private hoopWindow: [{ start: number; count: number }, { start: number; count: number }] = [
+    { start: 0, count: 0 },
+    { start: 0, count: 0 },
+  ];
+  private bowlWindow: [{ start: number; count: number }, { start: number; count: number }] = [
     { start: 0, count: 0 },
     { start: 0, count: 0 },
   ];
@@ -316,6 +323,20 @@ export class Room {
   }
 
   /**
+   * The turn-based games' messages, sent to this room's own game: basketball
+   * and bowling share a bare `aim` (no sight) and the `tie` vote, so the
+   * room's game decides who gets them. Another game's message (a `throw` in a
+   * basketball room, a `shoot` in a bowling one, either in tennis) is dropped.
+   */
+  turn(c: Client, msg: Extract<ClientMsg, { t: "set" | "shoot" | "throw" | "tie" } | { t: "aim"; aim: number }>): void {
+    if (this.gameId === "basketball") {
+      if (msg.t !== "throw") this.hoop(c, msg);
+    } else if (this.gameId === "bowling") {
+      if (msg.t !== "set" && msg.t !== "shoot") this.bowl(c, msg);
+    }
+  }
+
+  /**
    * Basketball's set, aim, shot and tie vote (task 32), in arrival order.
    * Rebuilt field by field, so nothing else reaches the game; the game ignores
    * a seat whose turn it isn't, a second shot in a turn and a second vote,
@@ -337,6 +358,29 @@ export class Room {
           : msg.t === "tie"
             ? { t: "tie", choice: msg.choice }
             : { t: "shoot", power: msg.power, aim: msg.aim, at: msg.at };
+    this.pending.push({ seat: c.seat, input });
+  }
+
+  /**
+   * Bowling's aim, throw and tie vote (task 29), in arrival order. Rebuilt
+   * field by field, so nothing else reaches the game; the game ignores a seat
+   * whose turn it isn't, a second throw for one ball and a second vote, and
+   * rolls the ball and the pins itself.
+   */
+  bowl(c: Client, msg: Extract<ClientMsg, { t: "throw" | "tie" } | { t: "aim"; aim: number }>): void {
+    if (c.seat === null) return;
+    const w = this.bowlWindow[c.seat];
+    if (this.ticks - w.start >= 60) {
+      w.start = this.ticks;
+      w.count = 0;
+    }
+    if (++w.count > BOWL_PER_SECOND) return;
+    const input =
+      msg.t === "aim"
+        ? { t: "aim", aim: msg.aim }
+        : msg.t === "tie"
+          ? { t: "tie", choice: msg.choice }
+          : { t: "throw", speed: msg.speed, aim: msg.aim, spin: msg.spin, at: msg.at };
     this.pending.push({ seat: c.seat, input });
   }
 
@@ -470,6 +514,14 @@ export class Room {
       // boxing: a bout won counts toward unlimited (a draw counts for nobody)
       if (e.winner !== null) this.tally.points[e.winner as Seat]++;
       this.deps.log("bout", { room: this.id, winner: e.winner, result: e.result, dealt: e.dealt });
+    } else if (e.type === "bowlGame") {
+      // bowling: a game won counts toward unlimited (a draw counts for nobody); best is the best game score
+      if (e.winner !== null) this.tally.points[e.winner as Seat]++;
+      const score = e.score as [number, number];
+      this.tally.bestRally = Math.max(this.tally.bestRally, score[0], score[1]);
+      this.deps.log("bowl_game", { room: this.id, winner: e.winner, draw: e.draw, score });
+    } else if (e.type === "bowl") {
+      this.deps.log("bowl", { room: this.id, seat: e.seat, frame: e.frame, ball: e.ball, pins: e.pins, timeout: e.timeout });
     } else if (e.type === "fault") {
       this.deps.log("fault", { room: this.id, server: e.server, reason: e.reason });
     }
