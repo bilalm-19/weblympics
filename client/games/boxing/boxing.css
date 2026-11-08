@@ -186,3 +186,16 @@
   background: #38bdf8;
   color: #0f1720;
 }
+
+/* the camera setup opens first (task 15; 2026-11-08) and is a dialog: it sits
+   above the ready panel and the buttons, which step aside while it is open
+   (as basketball's do); on a phone the ready panel otherwise covered
+   "Use keyboard instead" */
+.boxing .camera-panel {
+  z-index: 5;
+}
+
+.boxing:has(.camera-panel:not([hidden])) .ready-panel,
+.boxing:has(.camera-panel:not([hidden])) .bx-controls {
+  visibility: hidden;
+}

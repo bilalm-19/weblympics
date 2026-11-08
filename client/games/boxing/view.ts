@@ -361,6 +361,11 @@ export function startBoxing(root: HTMLElement, conn: GameLink, info: RoomInfo, o
   };
   raf = requestAnimationFrame(frame);
 
+  // Webcam by default (task 15; user, 2026-11-08): a seated player gets the
+  // camera setup first, with "Use keyboard instead" on each step, and practice
+  // stays paused until it closes; a spectator never does.
+  if (info.seat !== null) cameraButton.click();
+
   return () => {
     cancelAnimationFrame(raf);
     clearTimeout(callTimer);

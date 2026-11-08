@@ -124,6 +124,18 @@ export function createBoxCamera(view: HTMLElement, button: HTMLButtonElement, ch
     button.textContent = "Camera";
   };
 
+  /** "Use keyboard instead", Escape, or a refused camera (task 15): the keys and buttons. */
+  const useKeyboard = () => {
+    stop();
+    close();
+  };
+  const keyboardButton = `<button data-step="keys">Use keyboard instead</button>`;
+  const wire = () => panel.querySelector("[data-step=keys]")?.addEventListener("click", useKeyboard);
+  const onEscape = (e: KeyboardEvent) => {
+    if (e.key === "Escape" && !panel.hidden) useKeyboard();
+  };
+  window.addEventListener("keydown", onEscape);
+
   const fail = (message: string) => {
     stop();
     panel.innerHTML = `<h2>No camera</h2><p class="error" role="alert"></p><div class="row"><button class="primary" data-step="close">OK</button></div>`;
@@ -134,15 +146,28 @@ export function createBoxCamera(view: HTMLElement, button: HTMLButtonElement, ch
   const start = async () => {
     if (starting) return;
     starting = true;
-    panel.innerHTML = `<h2>Starting camera…</h2><p class="muted" role="status">Waiting for permission.</p>`;
+    panel.innerHTML = `<h2>Starting camera…</h2><p class="muted" role="status">Waiting for permission.</p><div class="row">${keyboardButton}</div>`;
+    wire();
     try {
       const stream = await openCamera(video);
+      if (panel.hidden) {
+        // left for the keyboard while the browser asked
+        stream.getTracks().forEach((t) => t.stop());
+        video.srcObject = null;
+        return;
+      }
       video.hidden = false;
-      panel.innerHTML = `<h2>Loading pose model…</h2><p class="muted" role="status">The first time takes a few seconds.</p>`;
+      panel.innerHTML = `<h2>Loading pose model…</h2><p class="muted" role="status">The first time takes a few seconds.</p><div class="row">${keyboardButton}</div>`;
+      wire();
       setChip("Loading…", "warn");
       // the hand model reads the fists; the pose model, every third frame,
       // only the shoulders (both every frame was choppy, playtest 3)
       session = await startPose(video, stream, onFrame, () => {}, { hands: true, poseEvery: 3 });
+      if (panel.hidden) {
+        // the keyboard was chosen while the model loaded
+        stop();
+        return;
+      }
       button.textContent = "Stop camera";
       read.hidden = false;
       panel.innerHTML = `<h2>Ready to box</h2><p role="status">Hands up by your face to guard. Jab: punch straight at the screen. Lean your shoulders to one side and hold it to slip; straighten up to come back. Sit still for a second first, so it learns your centre. Keep your shoulders in view.</p><div class="row"><button class="primary" data-step="close">Start boxing</button></div>`;
@@ -165,10 +190,10 @@ export function createBoxCamera(view: HTMLElement, button: HTMLButtonElement, ch
       <p class="muted">The video stays in this browser; only the pose is used.</p>
       <div class="row">
         <button class="primary" data-step="start">Start camera</button>
-        <button data-step="close">Use keyboard instead</button>
+        ${keyboardButton}
       </div>`;
     panel.querySelector("[data-step=start]")?.addEventListener("click", () => void start());
-    panel.querySelector("[data-step=close]")?.addEventListener("click", close);
+    wire();
   };
 
   const onButton = () => {
@@ -189,6 +214,7 @@ export function createBoxCamera(view: HTMLElement, button: HTMLButtonElement, ch
     dispose() {
       clearTimeout(punchTimer);
       button.removeEventListener("click", onButton);
+      window.removeEventListener("keydown", onEscape);
       stop();
       dock.remove();
       panel.remove();

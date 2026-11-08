@@ -464,7 +464,9 @@ lazily and only when a player enters a game. Video never leaves the browser.
   and "unlimited" (bout after bout, counts bouts won and knockouts,
   unrated). Practice vs bot is never rated. Camera
   (`spec/boxing-box-pose.test.ts`, `cameraBoxing` in `box-pose.ts`): it
-  sends the same messages a key does, never a hit. Everyone gets the trial
+  sends the same messages a key does, never a hit. A seated player's bout
+  opens the camera setup first, practice paused until it closes (task 15;
+  user, 2026-11-08; `e2e/boxing.e2e.ts`). Everyone gets the trial
   detector (`TrialDetector`, `spec/boxing-trial-detector.test.ts`; the old
   `BoxTracker` read "jabs" from depth noise in a held guard, playtest 4): the
   hand model's palm growing past its own resting size is a jab, its height
