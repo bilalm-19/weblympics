@@ -1,9 +1,16 @@
 import { AIR_TICKS, TICK_MS, nextHurdle, otherSide } from "./sim.ts";
 import type { Seat, TrackInput, TrackState } from "./sim.ts";
 
-/** The bot's cadence, steps a second, and how far each stride wanders from it. */
-export const BOT_CADENCE = 5.2;
-export const BOT_JITTER = 0.8;
+/**
+ * The bot's cadence, steps a second, and how far each stride wanders from it.
+ * With FULL_CADENCE 4 (2026-11-08), 3.2 runs about 16.4 s (15.3 to 18.0
+ * over seeds; it was 15.3 s at 5.2 against FULL_CADENCE 6). The best
+ * possible is 11.4 s, a steady 4 pumps a second runs 12.3 s and a steady 3.5
+ * runs 13.9 s, so a person pumping steadily beats it (user: the old bot was
+ * "way too fast"). Guesses until the recordings.
+ */
+export const BOT_CADENCE = 3.2;
+export const BOT_JITTER = 0.5;
 /** Ticks after the gun before the bot's first step: a human-ish reaction. */
 export const BOT_REACTION_TICKS = 12;
 

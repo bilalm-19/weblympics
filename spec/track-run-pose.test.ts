@@ -127,3 +127,92 @@ describe("elbows mode is easy on the arms", () => {
     expect(tr.update(runHeights(body(0.8, 0), ASPECT, "knees"), 0)).toEqual({ side: "left", t: 0 });
   });
 });
+
+// Playtest 2026-11-08: "pumps don't register". A step was 0.2 above the
+// stand-still rest, re-armed below 0.08 above it; with the hands held higher
+// than at calibration (or a rest saved on another day) a side never re-armed.
+// Now each side is measured from its own recent low.
+describe("adaptive steps: measured from each side's own recent low", () => {
+  /** Frames of `heights(t)` (each side's lift, shoulder widths) for `seconds` at 30 fps; the steps read. */
+  function feed(tr: RunTracker, mode: RunMode, seconds: number, heights: (t: number) => [number, number], from = 0): RunStep[] {
+    const out: RunStep[] = [];
+    for (let f = 0; f < seconds * 30; f++) {
+      const t = from + (f / 30) * 1000;
+      const [l, r] = heights(t);
+      const s = tr.update(runHeights(body(l, r), ASPECT, mode), t);
+      if (s) out.push(s);
+    }
+    return out;
+  }
+  /** Alternate pumps of `lift` on top of `base`, at `cadence` a second. */
+  const pumps =
+    (base: number, lift: number, cadence: number) =>
+    (t: number): [number, number] => {
+      const phase = (t / 1000) * cadence;
+      const k = Math.floor(phase);
+      const b = Math.sin((phase - k) * Math.PI) * lift;
+      return k % 2 === 0 ? [base + b, base] : [base, base + b];
+    };
+
+  it.each(["elbows", "knees"] as const)("%s: a small quick pump counts with the hands (or knees) held high", (mode) => {
+    // calibrated low, then held 0.5 higher, pumping a little past liftOn, 4 a second
+    const tr = calibrated(mode);
+    const lift = DEFAULT_RUN[mode].liftOn + 0.08;
+    const steps = feed(tr, mode, 3, pumps(0.5, lift, 4));
+    // main's tracker read one step here and then never re-armed
+    expect(steps.length).toBeGreaterThanOrEqual(10);
+    expect(steps.length).toBeLessThanOrEqual(13);
+  });
+
+  it("a pump counts after the rest was saved at a different height (lower or higher)", () => {
+    for (const offset of [-0.6, 0.6]) {
+      const tr = new RunTracker("elbows");
+      const r = runHeights(body(), ASPECT, "elbows")!;
+      // a rest from another day: the hands now hang `offset` away from it
+      tr.rest = { left: r.left + offset, right: r.right + offset };
+      const steps = feed(tr, "elbows", 3, pumps(0, 0.25, 4));
+      expect(steps.length, `rest ${offset}`).toBeGreaterThanOrEqual(10);
+      expect(steps.length, `rest ${offset}`).toBeLessThanOrEqual(13);
+    }
+  });
+
+  it("with no calibration at all it starts from the first frame", () => {
+    const tr = new RunTracker("elbows");
+    expect(feed(tr, "elbows", 3, pumps(0.3, 0.25, 4)).length).toBeGreaterThanOrEqual(10);
+  });
+
+  it("a fast steady pump gives steady steps, alternating", () => {
+    const tr = calibrated("elbows");
+    const steps = feed(tr, "elbows", 4, pumps(0.2, 0.25, 6));
+    expect(steps.length).toBeGreaterThanOrEqual(22);
+    expect(steps.length).toBeLessThanOrEqual(25);
+    const gaps = steps.slice(1).map((s, i) => s.t - steps[i].t);
+    // one step every 1/6 s, give or take a frame or two
+    for (const g of gaps.slice(1)) expect(Math.abs(g - 1000 / 6)).toBeLessThanOrEqual(70);
+    for (let i = 1; i < steps.length; i++) expect(steps[i].side).not.toBe(steps[i - 1].side);
+  });
+
+  it("jitter in the landmarks doesn't step, wherever the hands are held", () => {
+    for (const base of [0, 0.5, 1]) {
+      const tr = calibrated("elbows");
+      // a seeded wobble of up to ±0.04 shoulder widths on each hand, every frame
+      let seed = 7;
+      const rand = () => ((seed = (seed * 16807) % 2147483647) / 2147483647 - 0.5) * 0.08;
+      // moving the hands to a new height may read one step; holding them there reads none
+      feed(tr, "elbows", 1, () => [base, base]);
+      expect(feed(tr, "elbows", 4, () => [base + rand(), base + rand()], 1000), `held at ${base}`).toEqual([]);
+    }
+  });
+
+  it("hands drifting slowly up don't step", () => {
+    const tr = calibrated("elbows");
+    // up 0.6 over 6 s: a tenth a second, slower than the low's creep
+    expect(feed(tr, "elbows", 6, (t) => [(t / 1000) * 0.1, (t / 1000) * 0.1])).toEqual([]);
+  });
+
+  it("raising the hands and holding them there is one step at most, then pumps count from up there", () => {
+    const tr = calibrated("elbows");
+    expect(feed(tr, "elbows", 1, () => [0.6, 0.6]).length).toBeLessThanOrEqual(1);
+    expect(feed(tr, "elbows", 3, pumps(0.6, 0.22, 4), 1000).length).toBeGreaterThanOrEqual(10);
+  });
+});

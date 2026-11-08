@@ -116,7 +116,7 @@ describe("elbows mode: both arms up together is a jump", () => {
     expect(play(tracker("elbows", 0.1), 1, pose)).toHaveLength(1);
   });
 
-  it("nothing reads before calibration, or with a hand out of view", () => {
+  it("hands already up when first seen aren't a jump, and nothing reads with a hand out of view", () => {
     const j = new JumpTracker("elbows");
     expect(play(j, 1, () => ({ left: 2, right: 2 }))).toEqual([]);
     const lost = body({ left: 2, right: 2 });
@@ -156,17 +156,96 @@ describe("knees mode: jumping on the spot is a jump", () => {
     expect(play(j, 1.5, (t) => ({ kl: bump(t, 200, 500, 1.5) }))).toEqual([]);
   });
 
-  it("needs the hips in view, and a calibration", () => {
+  it("needs the hips in view; the calibration is only where it starts (2026-11-08)", () => {
     const noHips = body();
     noHips[LEGS.leftHip].visibility = 0;
     expect(torsoOf(noHips, ASPECT)).toBeNull();
-    const j = new JumpTracker("knees");
-    expect(play(j, 1.5, (t) => ({ rise: bump(t, 300, 400, 0.5) }))).toEqual([]);
     expect(torsoRestFrom([{ y: 0.5, width: 0.2 }])).toBeNull();
+    // a hop is measured from the torso's own recent low, so it reads with no calibration, once
+    expect(play(new JumpTracker("knees"), 1.5, (t) => ({ rise: bump(t, 300, 400, 0.5) }))).toHaveLength(1);
+    // and standing already high (a calibration from another day, crouched) isn't a jump in itself
+    const j = tracker("knees");
+    expect(play(j, 2, () => ({ rise: 0.4 }))).toEqual([]);
   });
 
   it("a hop is well clear of the thresholds: the numbers are guesses with room on both sides", () => {
     expect(DEFAULT_JUMP.riseOn).toBeLessThan(0.5);
     expect(DEFAULT_JUMP.riseOn).toBeGreaterThan(0.08);
+  });
+
+  it("a small hop (a third of a shoulder width) reads, as does a hop from a crouched or tall stance", () => {
+    expect(play(tracker("knees"), 1.5, (t) => ({ rise: bump(t, 300, 350, 0.33) }))).toHaveLength(1);
+    for (const base of [-0.3, 0.3]) expect(play(tracker("knees"), 3, (t) => ({ rise: base + bump(t, 1500, 400, 0.4) })), `stance ${base}`).toHaveLength(1);
+  });
+});
+
+// Playtest 2026-11-08: "arms have to go too high" and "the jumps barely
+// register". Both hands had to be 1.2 shoulder widths above the stand-still
+// rest; now about 0.6 above their own recent lows, together.
+describe("elbows mode: the easier jump (2026-11-08)", () => {
+  it("both hands up about 0.6 reads once per raise", () => {
+    const h = DEFAULT_JUMP.armsOn + 0.05;
+    const jumps = play(tracker("elbows"), 4, (t) => {
+      const a = bump(t, 200, 600, h) + bump(t, 1400, 600, h) + bump(t, 2600, 600, h);
+      return { left: a, right: a };
+    });
+    expect(jumps).toHaveLength(3);
+    expect(DEFAULT_JUMP.armsOn).toBeLessThanOrEqual(0.7);
+  });
+
+  it("raised and held is one jump", () => {
+    expect(play(tracker("elbows"), 3, (t) => (t > 300 ? { left: 0.7, right: 0.7 } : {}))).toHaveLength(1);
+  });
+
+  it("reads from the hands' own lows: with the rest saved at another height, or the hands carried high", () => {
+    for (const offset of [-0.5, 0.5]) {
+      const j = new JumpTracker("elbows");
+      const r = runHeights(body(), ASPECT, "elbows")!;
+      j.rest = { arms: { left: r.left + offset, right: r.right + offset }, torso: null };
+      // a second standing as now, then two throws of 0.7
+      const jumps = play(j, 4, (t) => {
+        const a = bump(t, 1000, 600, 0.7) + bump(t, 2400, 600, 0.7);
+        return { left: a, right: a };
+      });
+      expect(jumps, `rest ${offset}`).toHaveLength(2);
+    }
+    // hands carried at chest height (0.5 up) while running, then thrown 0.7 higher
+    const jumps = play(tracker("elbows"), 3, (t) => {
+      const a = 0.5 + bump(t, 1200, 600, 0.7);
+      return { left: a, right: a };
+    });
+    expect(jumps).toHaveLength(1);
+  });
+
+  it("running pumps never read as a jump: small, big, one hand at a time or swinging in opposition", () => {
+    // one hand at a time (half-sine bumps), small and quick to big and slow
+    for (const [lift, cadence] of [
+      [0.25, 4],
+      [0.5, 4],
+      [0.8, 6],
+      [1.2, 3],
+    ] as const)
+      expect(play(tracker("elbows"), 4, jogging(lift, cadence)), `${lift} at ${cadence}`).toEqual([]);
+    // a real arm swing: both arms always moving, in opposition, so where they cross both are up, one falling
+    for (const [amp, hz] of [
+      [0.6, 2],
+      [1.2, 2],
+      [1.4, 1],
+      [2, 1.5],
+    ] as const) {
+      const swing = (t: number) => {
+        // from one hand at the top, the other at the bottom, as a stride
+        const s = Math.cos((t / 1000) * hz * 2 * Math.PI);
+        return { left: (amp * (1 + s)) / 2, right: (amp * (1 - s)) / 2 };
+      };
+      expect(play(tracker("elbows"), 4, swing), `swing ${amp} at ${hz} Hz`).toEqual([]);
+    }
+  });
+
+  it("one arm up, even with the other pumping, is not a jump", () => {
+    for (const side of ["left", "right"] as const) {
+      const other = side === "left" ? "right" : "left";
+      expect(play(tracker("elbows"), 3, (t) => ({ [side]: bump(t, 200, 1500, 1.5), [other]: bump(t, 400, 300, 0.3) }))).toEqual([]);
+    }
   });
 });
