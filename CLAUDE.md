@@ -163,7 +163,7 @@ lazily and only when a player enters a game. Video never leaves the browser.
   `net/camera-settings.ts` (task 25: the one store every camera panel reads
   and saves; an account's from `/api/me`, a guest's in `localStorage`),
   `input/camera/power-calibration.ts` (task 25: pure soft/hard to a power
-  range, basketball now, bowling next),
+  range, for basketball's push and bowling's roll),
   `ui/leaderboard.ts` + `.css` (task 7: a tab per sport, polled each second). Camera swings have two modes,
   "classic" (default) and "follow" (character copies the arm, hit at the
   hitting line), and two aim modes, "timing" (default) and "point"; see
@@ -509,7 +509,8 @@ lazily and only when a player enters a game. Video never leaves the browser.
 - Camera settings (task 25; `spec/camera-settings.test.ts`,
   `e2e/accounts.e2e.ts`): every one (tennis's per-stroke swing thresholds,
   neutral, racket hand, swing, aim and movement mode; archery's bow hand;
-  track's mode and stand-still per mode; basketball's power range) is one
+  track's mode and stand-still per mode; basketball's power range;
+  bowling's speed range) is one
   closed shape in `shared/camera-settings.ts`. An account's are stored on the
   server (`players.camera_settings`, schema v8, `/api/camera-settings`) and
   arrive with `/api/me` on any device; a guest's stay in the browser, and a
@@ -528,7 +529,9 @@ lazily and only when a player enters a game. Video never leaves the browser.
   `spec/basketball-power-calibration.test.ts`): optional, in the camera
   setup's aim step, "push soft, then push hard" twice each; their medians
   sit at 20% and 90% of the bar (`powerRangeFrom`); a hard push under 1.5x
-  the soft keeps the defaults and says so. Never blocks a room.
+  the soft keeps the defaults and says so. Never blocks a room. Bowling has
+  the same in its swing step, "roll soft, then roll hard" onto
+  `speed0`/`speed1` (`spec/bowling-speed-calibration.test.ts`).
 - Webcam is the default (task 15, `e2e/webcam-default.e2e.ts`): a seated
   player's game (practice, room, training) opens the camera setup first, with
   "Use keyboard instead" on each step; that, Escape or a refused permission

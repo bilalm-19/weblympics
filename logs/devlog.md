@@ -1916,3 +1916,8 @@ the format of the entries below (see CLAUDE.md, Docs).
 - Schema: step 8 (main's 7 is task 33's look rewrite; this was 7 until main was merged in).
 - Not built: bowling's quick calibration (bowling not on main yet; `powerRangeFrom` is generic, so it's a small add); round 1's side settings pop-up and live swing bar.
 - Who: user (decisions in the task file), agent (build; the 20%/90% and 1.5x numbers are guesses).
+
+## 2026-11-08 19:26 · milestone · Task 25: bowling's quick speed calibration
+- What: main gained bowling (and task 33's schema 7), so main was merged in. Task 25's schema step is now 8. Bowling's camera setup has an optional "Calibrate speed" in its swing step: roll soft twice, then hard twice; the crossing speeds' medians go onto `speed0`/`speed1` through the same `powerRangeFrom` as basketball, with the same fallback and message. Saved as `bowling.speed` in the camera settings (closed, checked on the server).
+- Seen: before merging main, three basketball e2e (vs the bot, and the tie vote on a phone) failed the same way on the branch's code from before any basketball change, so not task 25's; after the merge all 44 bowling, basketball and accounts e2e pass at both viewports.
+- Who: agent; the user's round 3 decision.

@@ -40,6 +40,8 @@ export interface CameraSettings {
   track: { mode: "elbows" | "knees"; rest: { elbows: RunRestSetting | null; knees: RunRestSetting | null } };
   /** The player's own push speeds giving power 0 and power 1, or null for the defaults (task 25 round 3). */
   basketball: { power: [number, number] | null };
+  /** The player's own roll speeds giving speed 0 and speed 1, or null for the defaults (task 25 round 3). */
+  bowling: { speed: [number, number] | null };
 }
 
 /** The swing thresholds tennis starts with (`DEFAULT_SWING` in client/input/camera/pose.ts). */
@@ -62,6 +64,7 @@ export function defaultCameraSettings(): CameraSettings {
     archery: { bowHand: "left" },
     track: { mode: "elbows", rest: { elbows: null, knees: null } },
     basketball: { power: null },
+    bowling: { speed: null },
   };
 }
 
@@ -76,7 +79,7 @@ export const LIMITS = {
   across: [-3, 3],
   /** run rest heights, shoulder widths */
   rest: [-8, 3],
-  /** basketball push speeds giving power 0 and 1, shoulder widths a second */
+  /** basketball push and bowling roll speeds giving power 0 and 1, shoulder widths a second */
   power: [0, 40],
 } as const satisfies Record<string, readonly [number, number]>;
 
@@ -129,7 +132,7 @@ function tennis(v: unknown): TennisSettings | null {
   };
 }
 
-const SECTIONS = ["tennis", "archery", "track", "basketball"] as const;
+const SECTIONS = ["tennis", "archery", "track", "basketball", "bowling"] as const;
 
 /** The settings if every field is known and in range; otherwise null. Sections left out take their defaults. */
 export function parseCameraSettings(v: unknown): CameraSettings | null {
@@ -164,6 +167,16 @@ export function parseCameraSettings(v: unknown): CameraSettings | null {
       const p = pair(b.power, LIMITS.power, 1);
       if (!p) return null;
       out.basketball = { power: p };
+    }
+  }
+  if (Object.hasOwn(v, "bowling")) {
+    const b = v.bowling;
+    if (!isObj(b) || !exactly(b, ["speed"])) return null;
+    if (b.speed === null) out.bowling = { speed: null };
+    else {
+      const p = pair(b.speed, LIMITS.power, 1);
+      if (!p) return null;
+      out.bowling = { speed: p };
     }
   }
   return out;

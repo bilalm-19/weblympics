@@ -2,7 +2,18 @@ import { CameraError, openCamera, startPose } from "../../input/camera/camera.ts
 import type { CameraSession } from "../../input/camera/camera.ts";
 import type { CameraFrame } from "../../input/camera/pose.ts";
 import { BowlDetector, DEFAULT_BOWL } from "../../input/camera/bowl-pose.ts";
-import type { BowlHand, BowlRead } from "../../input/camera/bowl-pose.ts";
+import type { BowlConfig, BowlHand, BowlRead } from "../../input/camera/bowl-pose.ts";
+import { powerRangeFrom } from "../../input/camera/power-calibration.ts";
+import { cameraSettings, onCameraSettings, updateCameraSettings } from "../../net/camera-settings.ts";
+
+/** The detector's numbers with this player's saved speed range (task 25), if any. */
+function bowlConfig(): BowlConfig {
+  const s = cameraSettings().bowling.speed;
+  return s ? { ...DEFAULT_BOWL, speed0: s[0], speed1: s[1] } : { ...DEFAULT_BOWL };
+}
+
+// quick calibration: this many of each roll
+const CALIBRATE_ROLLS = 2;
 
 // Bowling's camera (task 29, ADR 004): the same webcam and local pose model
 // as the other games (video never leaves the browser), read by bowl-pose.ts
@@ -84,7 +95,9 @@ export function createBowlCamera(view: HTMLElement, button: HTMLButtonElement, c
   panel.hidden = true;
   view.append(dock, panel);
 
-  const detector = new BowlDetector();
+  const detector = new BowlDetector(bowlConfig());
+  // a sign-in, a sign-out or a reset elsewhere: the next roll uses the new range
+  const offSettings = onCameraSettings(() => (detector.cfg = bowlConfig()));
   let session: CameraSession | null = null;
   let starting = false;
   let tracking = false;
@@ -184,6 +197,58 @@ export function createBowlCamera(view: HTMLElement, button: HTMLButtonElement, c
     (panel.querySelector("[data-step=close]") as HTMLElement | null)?.focus();
   };
 
+  // Quick speed calibration (task 25 round 3): optional, camera only (speed
+  // has no key), never needed to play or to ready up. "Roll soft, then roll
+  // hard" sets where the speed bar starts and ends for this player.
+  const speedRow = () => {
+    const mine = cameraSettings().bowling.speed !== null;
+    return `<details class="advanced">
+        <summary>Speed${mine ? ": calibrated" : ""}</summary>
+        <p class="muted">Optional. Roll soft, then roll hard: the speed fits your own swing. Camera only; saved with your settings.</p>
+        <div class="row"><button data-step="calibrate">Calibrate speed</button>${mine ? `<button data-step="speed-reset">Default speed</button>` : ""}</div>
+        <p class="muted" data-speed role="status"></p>
+      </details>`;
+  };
+  const wireSpeed = () => {
+    panel.querySelector("[data-step=calibrate]")?.addEventListener("click", () => calibrate("soft", [], []));
+    panel.querySelector("[data-step=speed-reset]")?.addEventListener("click", () => {
+      updateCameraSettings((s) => (s.bowling.speed = null));
+      swingStep();
+      (panel.querySelector("[data-speed]") as HTMLElement).textContent = "Back to the default speed.";
+    });
+  };
+
+  const calibrate = (stage: "soft" | "hard", soft: number[], hard: number[]) => {
+    const list = stage === "soft" ? soft : hard;
+    panel.innerHTML = `
+      <h2>Roll ${stage}</h2>
+      <p>${stage === "soft" ? "Swing and let go gently, the slowest ball you'd roll." : "Now swing and let go hard, the fastest ball you'd roll."} ${CALIBRATE_ROLLS} times.</p>
+      <p class="muted" data-count role="status">0 of ${CALIBRATE_ROLLS}</p>
+      <div class="row"><button data-step="cancel">Cancel</button></div>`;
+    const count = panel.querySelector("[data-count]") as HTMLElement;
+    panel.querySelector("[data-step=cancel]")?.addEventListener("click", swingStep);
+    (panel.querySelector("[data-step=cancel]") as HTMLElement | null)?.focus();
+    // its own detector, always on turn and re-armed after each roll, so every roll counts once
+    const reader = new BowlDetector({ ...DEFAULT_BOWL });
+    reader.setTurn(true);
+    step = (_r, f) => {
+      const t = reader.update(f);
+      if (!t.throw) return;
+      reader.newTurn();
+      list.push(t.throw.raw);
+      count.textContent = `${list.length} of ${CALIBRATE_ROLLS}`;
+      if (list.length < CALIBRATE_ROLLS) return;
+      if (stage === "soft") return calibrate("hard", soft, hard);
+      const result = powerRangeFrom(soft, hard, { lo: DEFAULT_BOWL.speed0, hi: DEFAULT_BOWL.speed1 });
+      if (!result.fellBack) updateCameraSettings((s) => (s.bowling.speed = [result.range.lo, result.range.hi]));
+      swingStep();
+      (panel.querySelector("[data-speed]") as HTMLElement).textContent = result.fellBack
+        ? "Your soft and hard rolls came out too close together, so the default speed stays. Try again with a clearer difference."
+        : "Speed calibrated to your swing.";
+      (panel.querySelector(".advanced") as HTMLDetailsElement).open = true;
+    };
+  };
+
   // step 4: a try swing, read and shown but never sent
   const swingStep = () => {
     panel.innerHTML = `
@@ -191,12 +256,14 @@ export function createBowlCamera(view: HTMLElement, button: HTMLButtonElement, c
       <p>${SWING_WORDS}</p>
       <p>The ball leaves your hand as it comes forward past your hip. Try one: nothing is bowled yet.</p>
       <p class="muted" data-try role="status">Waiting for a swing</p>
-      <div class="row"><button class="primary" data-step="done">Start bowling</button>${keyboardButton}</div>`;
+      <div class="row"><button class="primary" data-step="done">Start bowling</button>${keyboardButton}</div>
+      ${speedRow()}`;
     const words = panel.querySelector("[data-try]") as HTMLElement;
     panel.querySelector("[data-step=done]")?.addEventListener("click", close);
     wire();
+    wireSpeed();
     (panel.querySelector("[data-step=done]") as HTMLElement | null)?.focus();
-    const trial = new BowlDetector();
+    const trial = new BowlDetector(bowlConfig());
     trial.setTurn(true);
     let shown = "";
     step = (r, f) => {
@@ -352,6 +419,7 @@ export function createBowlCamera(view: HTMLElement, button: HTMLButtonElement, c
       }
     },
     dispose() {
+      offSettings();
       button.removeEventListener("click", onButton);
       window.removeEventListener("keydown", onKey);
       stop();

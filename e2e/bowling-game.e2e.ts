@@ -274,3 +274,27 @@ test("at 390x844 nothing scrolls sideways and the canvas fills the screen", asyn
   await laidOut(page, [".hud .bw-board", ".hud button:visible", ".hud .status", ".bw-aim", ".bw-meter", ".controls"]);
   for (const b of await page.locator(".bw-controls button").all()) await insideViewport(page, b);
 });
+
+test("task 25: the camera setup offers an optional speed calibration (soft, then hard), camera only, and Cancel leaves the default", async ({ page }) => {
+  test.setTimeout(90_000);
+  await openBowling(page);
+  await page.getByRole("button", { name: "Practice", exact: true }).click();
+  const panel = page.getByRole("dialog", { name: /camera setup/i });
+  await panel.getByRole("button", { name: "Start camera" }).click();
+  // the fake webcam has no person: each wait step goes on with Next
+  await panel.getByRole("button", { name: "Next" }).click({ timeout: 60_000 });
+  await panel.getByRole("button", { name: "Next" }).click();
+  await expect(panel.getByRole("button", { name: "Start bowling" })).toBeVisible();
+  await panel.locator("summary", { hasText: "Speed" }).click();
+  await panel.getByRole("button", { name: "Calibrate speed" }).click();
+  await expect(panel.getByRole("heading", { name: "Roll soft" })).toBeVisible();
+  await expect(panel.locator("[data-count]")).toHaveText("0 of 2");
+  await insideViewport(page, panel.getByRole("button", { name: "Cancel" }));
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  await panel.getByRole("button", { name: "Cancel" }).click();
+  await expect(panel.getByRole("button", { name: "Start bowling" })).toBeVisible();
+  const saved = await page.evaluate(() => JSON.parse(localStorage.getItem("camera-settings") ?? "null") as { bowling?: { speed: unknown } } | null);
+  expect(saved?.bowling?.speed ?? null).toBeNull();
+  await panel.getByRole("button", { name: "Start bowling" }).click();
+  await expect(panel).toBeHidden();
+});

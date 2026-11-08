@@ -41,6 +41,7 @@ function custom(): CameraSettings {
   s.archery.bowHand = "right";
   s.track = { mode: "knees", rest: { elbows: null, knees: { left: -2.1, right: -2.05 } } };
   s.basketball.power = [2.5, 11];
+  s.bowling.speed = [2, 9.5];
   return s;
 }
 
@@ -91,7 +92,9 @@ describe("the closed shape (task 25)", () => {
       null,
       "x",
       [],
-      { ...custom(), bowling: { speed: [1, 2] } },
+      { ...custom(), darts: { speed: [1, 2] } },
+      { ...custom(), bowling: { speed: [1, 1.5] } },
+      { ...custom(), bowling: { speed: [3, 12], spin: 1 } },
       { ...custom(), tennis: { ...custom().tennis, extra: 1 } },
       { ...custom(), archery: { bowHand: "right", extra: true } },
       { ...custom(), tennis: { ...custom().tennis, hand: "both" } },
