@@ -50,6 +50,28 @@ head or body is split at the shoulder line, which is always in view. If the
 high and low guards don't separate on camera, the fallback is one guard that
 blocks head shots only, with a body shot getting through any guard.
 
+## Hurdles' moves
+Task 27, `client/input/camera/run-pose.ts` (`JumpTracker`, `DEFAULT_JUMP`);
+every number there is a first guess until these. Track's camera has no
+`?debug` recorder yet: adding one (like basketball's) is the first step.
+Calibrate standing still first, as in a race. Elbows mode at laptop
+distance, knees mode stood back with the hips and knees in view.
+1. **standing still**: arms relaxed, 5 s (what "nothing" looks like).
+2. **elbows: running pumps**, small and quick, as in a race. Must not read
+   as a jump.
+3. **elbows: big pumps**, as high as a tired runner flails. Must not read.
+4. **elbows: both arms up**, one throw a second or so, down between.
+5. **elbows: one arm up** (left, then right). Must not read.
+6. **knees: jogging on the spot**, knees high. Must not read.
+7. **knees: a hop on the spot**, one a second or so.
+8. **knees: rising on tiptoe** and settling. Must not read.
+
+Measures: elbows, each hand's lift above rest and the lower of the two
+(`armsOn` sits between move 3's high and move 4's low); knees, the
+shoulder/hip midpoint's rise above standing and its upward speed (`riseOn`
+and `riseSpeed` sit between move 6's high and move 7's low); jumps read:
+moves 4 and 7 one per throw or hop, all others none.
+
 ## Basketball's moves
 Task 32, `client/games/basketball/shoot-camera.ts` with `?debug`. Record
 each standing about 1 m back, then again seated at the laptop. Pushes are
