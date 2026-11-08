@@ -1,6 +1,8 @@
 # 19 Crowd reactions and sound
 
-Status: all decided (2026-11-08); starts once `integrate-rest` (bowling) is on main. Earlier: queued, to start on Opus 5.5 once the integration branch is green and
+Status: built on branch `sound-19` (2026-11-08), not merged; waiting for a
+listening playtest (the crowd, the music and every sound are synthesised first
+guesses). Earlier: all decided (2026-11-08); queued, to start on Opus 5.5 once the integration branch is green and
 merged (user, 2026-10-29). Tasks 16 and 20 are built, so both of its inputs
 exist; it must branch from the merged result, not from `main` before the merge.
 Model: Opus 5.5 for all of it (design, audio module, wiring and tests)
@@ -94,10 +96,10 @@ The crowd reacts to every point, and you hear it.
   loop.
 
 ## Done when
-- [ ] Crowd reaction table-tested: for each score change, which side cheers and
+- [x] Crowd reaction table-tested: for each score change, which side cheers and
       which is down, for seat one, seat two, bot point, and a spectator.
-- [ ] Sound module has a unit test (mute creates nothing; no audio before a
+- [x] Sound module has a unit test (mute creates nothing; no audio before a
       gesture) and the sounds are a pure function of the score event.
-- [ ] Both viewports; no horizontal scroll; the mute button reachable on a phone.
-- [ ] Frame rate not lower than before in the trail e2e test.
-- [ ] CLAUDE.md layout and README mention sound and the mute toggle.
+- [x] Both viewports; no horizontal scroll; the mute button reachable on a phone.
+- [x] Frame rate not lower than before in the trail e2e test.
+- [x] CLAUDE.md layout and README mention sound and the mute toggle.

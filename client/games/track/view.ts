@@ -12,6 +12,11 @@ import { makeRunner } from "./runner.ts";
 import { clockText, clockTime, excitement } from "./scene-model.ts";
 import { createRunCamera } from "./run-camera.ts";
 import "./track.css";
+import { audioEngine, gameSounds, mountSoundToggle } from "../../audio/index.ts";
+import type { CrowdContext } from "../../audio/crowd.ts";
+import { trackCrowd, trackCues } from "./sound.ts";
+import { TRACK_LEFT } from "./lane.ts";
+import { reactionLevel } from "../tennis/crowd-motion.ts";
 
 // The track view (task 26): a side-on chase camera on two lanes. You step by
 // alternating A/D (or the arrows), the two tap buttons, or the camera; the
@@ -104,6 +109,16 @@ export function startTrack(root: HTMLElement, conn: GameLink, info: RoomInfo, on
   resize();
 
   let snap: TrackSnapshot | null = null;
+  // task 19: sound through the shared module; the stands placed by side
+  const sounds = gameSounds();
+  const crowdCtx: CrowdContext = { viewer: info.seat, stands: "sides", practice: info.practice, leftSeat: TRACK_LEFT };
+  // the stands' finish reaction: the winner's half jumps, the other half slumps (lane.ts)
+  const motionPref = matchMedia("(prefers-reduced-motion: reduce)");
+  let finishReact: { cheer: Seat; aww: Seat | null; at: number } | null = null;
+  const leaveBtn = view.querySelector("[data-action=leave]") as HTMLElement;
+  const disposeToggle = mountSoundToggle(audioEngine(), leaveBtn.parentElement as HTMLElement, leaveBtn);
+  // the crowd's murmur follows the stands' excitement (set each frame)
+  let loudNow = 0.06;
   let names: [string | null, string | null] = [null, null];
   let lobby: LobbyView | null = null;
   const label = (seat: Seat) => (seat === info.seat ? "You" : (names[seat] ?? (opts.local && seat === 1 ? "Pacer" : `Player ${seat + 1}`)));
@@ -293,6 +308,13 @@ export function startTrack(root: HTMLElement, conn: GameLink, info: RoomInfo, on
       }
       // a hurdle knocked down: the call says so for the viewer's own lane
       if (prev && info.seat !== null && prev.event === "hurdles" && next.lanes[info.seat].hit > prev.lanes[info.seat].hit) call("Hit!");
+      // task 19: "set", the gun, the steps, a hurdle down, the murmur and the finish roar (sound.ts)
+      sounds.play(trackCues(prev, next, { ...crowdCtx, murmur: loudNow }));
+      const crowdEvent = prev ? trackCrowd(prev, next, next.solo) : null;
+      if (crowdEvent?.cheer != null) {
+        finishReact = { cheer: crowdEvent.cheer, aww: crowdEvent.aww ?? null, at: performance.now() };
+        canvas.dataset.crowd = `cheer:${crowdEvent.cheer}${crowdEvent.aww != null ? ` aww:${crowdEvent.aww}` : ""}`;
+      }
       snap = next;
       canvas.dataset.phase = next.phase;
       canvas.dataset.event = next.event;
@@ -366,13 +388,17 @@ export function startTrack(root: HTMLElement, conn: GameLink, info: RoomInfo, on
       else if (finishedAt === null) finishedAt = now;
       const lead = Math.max(s.lanes[0].distance, s.lanes[1].distance) / s.length;
       const loud = excitement(lead, finishedAt === null ? null : (now - finishedAt) / 1000, s.phase === "running");
+      loudNow = loud;
       // chase the leader of the viewer's interest: my lane, or the front runner
       const focus = info.seat ?? (shown[0] >= shown[1] ? 0 : 1);
       const x = shown[focus];
       const portrait = camera.aspect < 1;
       camera.position.set(x - (portrait ? 2 : 3), portrait ? 3.2 : 2.6, portrait ? 9 : 8);
       camera.lookAt(x + (portrait ? 1.5 : 3), 0.8, 0);
-      stadium?.update(camera.position.x, loud, now / 1000, clockText(clockTime(s)));
+      const fr = finishReact;
+      const level = fr ? reactionLevel("cheer", 3, (now - fr.at) / 1000) : 0;
+      if (fr && level === 0 && now - fr.at > 1000) finishReact = null;
+      stadium?.update(camera.position.x, loud, now / 1000, clockText(clockTime(s)), fr ? { cheer: fr.cheer, aww: fr.aww, level, still: motionPref.matches } : undefined);
     }
     renderer.render(scene, camera);
     canvas.dataset.frames = String(++frames);
@@ -388,6 +414,8 @@ export function startTrack(root: HTMLElement, conn: GameLink, info: RoomInfo, on
     window.removeEventListener("keydown", onKey);
     runCam.dispose();
     disposeSpectating();
+    sounds.dispose();
+    disposeToggle();
     observer.disconnect();
     hurdleRow?.dispose();
     renderer.dispose();

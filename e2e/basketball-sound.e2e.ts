@@ -1,0 +1,14 @@
+import { expect, test } from "@playwright/test";
+import { keysIfAsked, soundToggleWorks } from "./sound-flow.ts";
+
+// Task 19: basketball's sound button in the HUD, at both viewports.
+
+test("basketball practice: the sound button is in the HUD, reachable, and works", async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: /Basketball/ }).click();
+  await expect(page.locator("#options-title")).toHaveText("Basketball");
+  await page.getByRole("button", { name: "Practice", exact: true }).click();
+  await keysIfAsked(page);
+  await expect.poll(async () => Number(await page.locator(".basketball canvas").getAttribute("data-frames"))).toBeGreaterThan(5);
+  await soundToggleWorks(page);
+});

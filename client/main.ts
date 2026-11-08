@@ -19,6 +19,7 @@ import { friendsButton, openFriends } from "./ui/friends.ts";
 import { addPartyStrip, openParty, partyButton, showInvite } from "./ui/party.ts";
 import { SocialState } from "./ui/social-state.ts";
 import { useFriendLink } from "./net/account.ts";
+import { audioEngine, homeMusic, mountSoundToggle } from "./audio/index.ts";
 import { openLeaderboard } from "./ui/leaderboard.ts";
 import { openProfile } from "./ui/profile.ts";
 
@@ -47,6 +48,21 @@ let training = false;
 let error: string | null = null;
 // the sport picked on the menu, so coming back keeps it
 let sport = "tennis";
+
+// task 19: the home screen's sound button (beside the profile button) and its music
+let disposeMenuToggle: (() => void) | null = null;
+function menuSound(): void {
+  disposeMenuToggle?.();
+  const corner = root.querySelector(".menu-corner");
+  disposeMenuToggle = corner ? mountSoundToggle(audioEngine(), corner, corner.firstElementChild) : null;
+  homeMusic().start();
+}
+/** Into a game: the music fades out and the menu's sound button goes. */
+function leaveMenu(): void {
+  disposeMenuToggle?.();
+  disposeMenuToggle = null;
+  homeMusic().stop();
+}
 
 function showMenu(): void {
   disposeGame?.();
@@ -100,6 +116,7 @@ function showMenu(): void {
   const who = { name: conn.name, tag: conn.tag, account: conn.account };
   const friends = friendsButton(who, social, friendActions);
   if (corner && friends) corner.prepend(friends, partyButton(social, partyActions));
+  menuSound();
 }
 
 function showError(e: unknown): void {
@@ -119,6 +136,7 @@ function leave(): void {
 // the camera setup's "Train first", so the camera starts again at once.
 function train(resumeCamera = false): void {
   disposeGame?.();
+  leaveMenu();
   training = true;
   error = null;
   history.replaceState(null, "", "#/train");
@@ -131,6 +149,7 @@ function train(resumeCamera = false): void {
 // Archery practice (task 22): in the page too, nothing sent to the server.
 function practiseArchery(): void {
   disposeGame?.();
+  leaveMenu();
   training = true;
   sport = "archery";
   error = null;
@@ -144,6 +163,7 @@ function practiseArchery(): void {
 // Track practice (task 26): in the page too, nothing sent to the server.
 function practiseTrack(): void {
   disposeGame?.();
+  leaveMenu();
   training = true;
   sport = "track";
   error = null;
@@ -157,6 +177,7 @@ function practiseTrack(): void {
 // Boxing practice (task 30): in the page too, nothing sent to the server.
 function practiseBoxing(): void {
   disposeGame?.();
+  leaveMenu();
   training = true;
   sport = "boxing";
   error = null;
@@ -170,6 +191,7 @@ function practiseBoxing(): void {
 // Basketball practice (task 32): in the page too, nothing sent to the server.
 function practiseBasketball(): void {
   disposeGame?.();
+  leaveMenu();
   training = true;
   sport = "basketball";
   error = null;
@@ -183,6 +205,7 @@ function practiseBasketball(): void {
 // Bowling practice (task 29): in the page too, nothing sent to the server.
 function practiseBowling(): void {
   disposeGame?.();
+  leaveMenu();
   training = true;
   sport = "bowling";
   error = null;
@@ -200,6 +223,7 @@ function enterRoom(info: RoomInfo): void {
   disposeGame?.();
   disposeStrip?.();
   roomInMatch = false;
+  leaveMenu();
   currentRoom = info.room;
   training = false;
   error = null;

@@ -60,9 +60,20 @@ function canvasTexture(w: number, h: number, draw: (g: CanvasRenderingContext2D)
   return tex;
 }
 
+/** The chase camera never turns round: seat 1's fans fill the left half of every block, for every screen. */
+export const TRACK_LEFT = 0;
+
+/** The finish reaction (task 19): which side cheers and which is down, how far in (0..1), and whether to hold still. */
+export interface StandReaction {
+  cheer: number | null;
+  aww: number | null;
+  level: number;
+  still: boolean;
+}
+
 export interface TrackScene {
-  /** Each frame: the camera's x (the sky follows it), the crowd's excitement 0..1, seconds now, and the clock's text. */
-  update(cameraX: number, excitement: number, now: number, clock: string): void;
+  /** Each frame: the camera's x (the sky follows it), the crowd's excitement 0..1, seconds now, and the clock's text; and the sides' reaction. */
+  update(cameraX: number, excitement: number, now: number, clock: string, react?: StandReaction): void;
   dispose(): void;
 }
 
@@ -231,12 +242,13 @@ function stand(group: Group, paint: Painter, s: Stand, colours: [number, number]
     { x0: 0, x1: s.length / 2, colour: colours[1] },
   ], 1, true);
   const rand = rng(seed);
-  const seats: { x: number; y: number; z: number; facing: number; colour: number }[] = [];
+  const seats: { x: number; y: number; z: number; facing: number; colour: number; side: number }[] = [];
   for (let t = 0; t < TIERS; t++) {
     const y = WALL_H + (t + 1) * TIER_RISE;
     for (const lx of seatColumns(s)) {
       if (rand() >= OCCUPANCY) continue;
-      seats.push({ ...standToArena(s, lx, y, -(t + 0.55) * TIER_DEPTH), facing: s.angle, colour: lx < 0 ? colours[0] : colours[1] });
+      // task 19: the left half (on screen) is seat 1's fans, the right half seat 2's
+      seats.push({ ...standToArena(s, lx, y, -(t + 0.55) * TIER_DEPTH), facing: s.angle, colour: lx < 0 ? colours[0] : colours[1], side: lx < 0 ? TRACK_LEFT : 1 - TRACK_LEFT });
     }
   }
   const fans = fanMeshes(seats, (seat, r) => (r() < FAN_SHARE ? seat.colour : FAN_SHIRTS[Math.floor(r() * FAN_SHIRTS.length)]), seed + 1);
@@ -245,6 +257,7 @@ function stand(group: Group, paint: Painter, s: Stand, colours: [number, number]
     fans.heads,
     seats.map(() => rand()),
     seats.map(() => rand() * Math.PI * 2),
+    seats.map((seat) => seat.side),
   );
   fans.bodies.dispose();
   fans.heads.dispose();
@@ -321,11 +334,15 @@ export function buildTrack(scene: Scene, length: number): TrackScene {
   scene.add(group);
 
   return {
-    update(cameraX, loud, now, text) {
+    update(cameraX, loud, now, text, react) {
       skyGroup.position.x = cameraX;
       clock.draw(text);
       uniforms.uLoud.value = loud;
       uniforms.uTime.value = now;
+      uniforms.uCheer.value = react?.cheer ?? -1;
+      uniforms.uAww.value = react?.aww ?? -1;
+      uniforms.uReact.value = react?.level ?? 0;
+      uniforms.uStill.value = react?.still ? 1 : 0;
     },
     dispose() {
       scene.remove(group, hemi, sun);

@@ -29,6 +29,12 @@ import { createTrajectoryAid } from "./aid.ts";
 import { createShotFx } from "./shot-fx.ts";
 import { buildStadium } from "./stadium.ts";
 import { CONTACT, STROKE_MS as SWING_MS, shotLabel } from "./stroke.ts";
+import { audioEngine, gameSounds, mountSoundToggle } from "../../audio/index.ts";
+import { crowdVoices, pointEvent, sectionSeat } from "../../audio/crowd.ts";
+import type { CrowdContext } from "../../audio/crowd.ts";
+import { CROWD_SECTIONS } from "./crowd-layout.ts";
+import { createCrowdMotion } from "./crowd-motion.ts";
+import { swingCues, tennisCues } from "./sound.ts";
 
 // where the reticle sits for a shot that won't clear the net
 const NET_MARK_Z = 0.8;
@@ -40,27 +46,6 @@ const LABEL_MS = 1100;
 // most this far: past it, something is wrong with the connection and the
 // ball should wait for the server rather than keep guessing.
 const MAX_AHEAD_TICKS = 9;
-
-let audio: AudioContext | null = null;
-
-/** A short click on every swing sent, so the hit feels instant whatever the lag. */
-function hitSound(level: Level): void {
-  try {
-    audio ??= new AudioContext();
-    const t = audio.currentTime;
-    const osc = audio.createOscillator();
-    const gain = audio.createGain();
-    osc.frequency.setValueAtTime(380 + level * 140, t);
-    osc.frequency.exponentialRampToValueAtTime(120, t + 0.07);
-    gain.gain.setValueAtTime(0.18, t);
-    gain.gain.exponentialRampToValueAtTime(0.001, t + 0.08);
-    osc.connect(gain).connect(audio.destination);
-    osc.start(t);
-    osc.stop(t + 0.09);
-  } catch {
-    // no audio (blocked or unsupported): the swing still goes
-  }
-}
 
 /** Training (task 5) runs this same view against a LocalLink; these are its only differences. */
 export interface ViewOptions {
@@ -130,7 +115,18 @@ export function startTennis(root: HTMLElement, conn: GameLink, info: RoomInfo, o
   canvas.dataset.frames = "0";
 
   const scene = new Scene();
-  buildStadium(scene, info.seat === 1);
+  const stadium = buildStadium(scene, info.seat === 1);
+  // task 19: the crowd, placed by side (client/audio/crowd.ts); training has none
+  const crowdCtx: CrowdContext = { viewer: info.seat, stands: "sides", practice: info.practice, training: !!opts.local };
+  const sectionOfFan: number[] = [];
+  for (const section of CROWD_SECTIONS) {
+    const r = stadium.crowd.layout.ranges[section];
+    for (let i = 0; i < r.count; i++) sectionOfFan[r.start + i] = sectionSeat(section, info.seat);
+  }
+  const crowdMotion = createCrowdMotion(stadium.crowd, (i) => sectionOfFan[i] as 0 | 1, () => motion.matches);
+  const sounds = gameSounds();
+  const leaveBtn = view.querySelector("[data-action=leave]") as HTMLElement;
+  const disposeToggle = mountSoundToggle(audioEngine(), leaveBtn.parentElement as HTMLElement, leaveBtn);
 
   const ball = new Mesh(new SphereGeometry(0.2, 14, 10), new MeshLambertMaterial({ color: 0xffd426, emissive: 0x4a3a00 }));
   const shadow = new Mesh(new CircleGeometry(0.22, 12), new MeshBasicMaterial({ color: 0x000000, opacity: 0.35, transparent: true }));
@@ -288,12 +284,13 @@ export function startTennis(root: HTMLElement, conn: GameLink, info: RoomInfo, o
     if (info.seat === null) return;
     advanceShown(performance.now());
     conn.send({ t: "swing", dirX, kind, level, hand, lift, timingAim, tick: shown?.tick });
-    hitSound(level);
     reticleLevel = level;
     // in follow mode the character is already copying the real swing
     if (cameraInput.arm() === null) animate(kind, hand);
     // a hint from the latest state: the server decides, a frame or two later
     const miss = snap ? missReason({ ...snap, rng: 0 }, info.seat, kind, hand) : null;
+    // the whoosh, and the hit at once if the screen expects one, so it feels instant whatever the lag
+    sounds.play(swingCues(level, miss === null));
     showStroke(kind, level, "", miss);
     showShot(info.seat, kind, miss);
     ownShot = { kind, at: performance.now() };
@@ -332,6 +329,7 @@ export function startTennis(root: HTMLElement, conn: GameLink, info: RoomInfo, o
       const timing = snap ? swingTiming({ ...snap, rng: 0 }, info.seat) : "none";
       if (timing === "ready") return send(level, aim * worldSign, kind, hand, lift, timingAim);
       if (cameraInput.arm() === null) animate(kind, hand);
+      sounds.play(swingCues(level, false));
       showStroke(kind, level, timing === "early" ? " · too early, not sent" : " · no ball to hit");
       showShot(info.seat, kind, null);
     },
@@ -386,6 +384,12 @@ export function startTennis(root: HTMLElement, conn: GameLink, info: RoomInfo, o
     banner?.show(c);
     const now = performance.now();
     for (const r of reactions(c)) reactFx.react(r.seat, r.reaction, r.weight, now);
+    // task 19: the stands, side by side, from the same call
+    if (c.winner !== null) {
+      crowdMotion.react(crowdVoices(pointEvent(c.winner, c.weight), { ...crowdCtx, practice: false }), now / 1000);
+      canvas.dataset.crowd0 = crowdMotion.state(0);
+      canvas.dataset.crowd1 = crowdMotion.state(1);
+    }
     return true;
   };
   let called = false;
@@ -420,9 +424,9 @@ export function startTennis(root: HTMLElement, conn: GameLink, info: RoomInfo, o
         measureStroke(hitter, kind, 1);
         // a serve is neither stroke
         if (next.shots > 1) showShot(hitter, kind, null);
-        // task 24: a watcher hears every hit (a player hears their own as they swing)
-        if (info.seat === null && !opts.local) hitSound(1);
       }
+      // task 19: every sound of this change (hits, bounces, net, out, fault, the crowd), from the snapshots alone
+      sounds.play(tennisCues(snap, next, crowdCtx));
       // the server recorded a touchdown (in or out): mark it
       const lb = next.lastBounce;
       if (lb && lb.tick !== snap?.lastBounce?.tick) {
@@ -520,6 +524,7 @@ export function startTennis(root: HTMLElement, conn: GameLink, info: RoomInfo, o
           p.pose(null, grip === "backhand", grip ? (cameraInput.hand() === "right" ? 1 : -1) : side, aim);
         }
       }
+      crowdMotion.update(now / 1000);
       const react = reactFx.update(now);
       for (const seat of [0, 1] as const) {
         players[seat].react(react[seat].pump, react[seat].slump);
@@ -594,6 +599,8 @@ export function startTennis(root: HTMLElement, conn: GameLink, info: RoomInfo, o
     disposeSpectating();
     banner?.dispose();
     reactFx.dispose();
+    sounds.dispose();
+    disposeToggle();
     readyPanel.dispose();
     clearInterval(camTimer);
     clearTimeout(shotTimer);
