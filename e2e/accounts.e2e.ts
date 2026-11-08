@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 import type { Page } from "@playwright/test";
-import { openProfileDialog, openProfileMenu, profileButton, shownName } from "./flow.ts";
+import { openProfileDialog, openProfileMenu, profileButton, shownName, signInDemo } from "./flow.ts";
 
 // Task 17: register a passkey, sign out, sign in again, rename, delete, on
 // Chrome's virtual authenticator (CDP WebAuthn), at both viewports. Play never
@@ -106,4 +106,54 @@ test("the profile dialog works by keyboard and Escape closes it", async ({ page 
   expect(await dialog.evaluate((d) => d.contains(document.activeElement))).toBe(true);
   await page.keyboard.press("Escape");
   await expect(dialog).toHaveCount(0);
+});
+
+// Task 25: camera settings follow an account to any device; a guest's stay in
+// the browser; Reset in the profile puts every one back to the default.
+test("camera settings: saved to the account and loaded on another device's sign-in; Reset restores the defaults", async ({ browser }) => {
+  test.setTimeout(60_000);
+  const readOwn = (p: Page) => p.evaluate(() => JSON.parse(localStorage.getItem("camera-settings-account") ?? "null") as { tennis: { move: string } } | null);
+  const one = await browser.newPage();
+  await one.goto("/");
+  await signInDemo(one, "One");
+  // the save a camera panel makes for an account (same endpoint, same body)
+  const res = await one.evaluate(async () => {
+    const r = await fetch("/api/camera-settings", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ settings: { tennis: { hand: "left", mode: "classic", aim: "timing", move: "tilt", autoNeutral: true, neutralTilt: 0, neutralAcross: -0.5, forehand: [4, 8], backhand: [5, 9] } } }) });
+    return r.status;
+  });
+  expect(res).toBe(200);
+
+  // another device: a fresh browser context signs in and gets them
+  const other = await browser.newContext({ viewport: one.viewportSize()! });
+  const two = await other.newPage();
+  await two.goto("/");
+  await signInDemo(two, "One");
+  await expect.poll(async () => (await readOwn(two))?.tennis.move).toBe("tilt");
+
+  // Reset to default from the profile dialog
+  const dialog = await openProfileDialog(two);
+  await dialog.getByRole("button", { name: /reset camera settings/i }).click();
+  await expect(dialog.getByRole("status")).toContainText(/classic swing, aim by timing/i);
+  await dialogFits(two);
+  await expect.poll(async () => readOwn(two)).toBeNull();
+  // and the account holds the defaults now (null)
+  await expect
+    .poll(async () => two.evaluate(async () => ((await (await fetch("/api/me")).json()) as { cameraSettings: unknown }).cameraSettings))
+    .toBeNull();
+  await other.close();
+  await one.close();
+});
+
+test("camera settings: a guest's are kept in this browser, and sent nowhere", async ({ page }) => {
+  const posts: string[] = [];
+  page.on("request", (r) => r.method() === "POST" && posts.push(new URL(r.url()).pathname));
+  await page.goto("/");
+  await expect(shownName(page)).not.toHaveText("");
+  const dialog = await openProfileDialog(page);
+  await expect(dialog.getByText(/kept in this browser/i)).toBeVisible();
+  await dialog.getByRole("button", { name: /reset camera settings/i }).click();
+  const saved = await page.evaluate(() => JSON.parse(localStorage.getItem("camera-settings") ?? "null") as { tennis: { mode: string; aim: string; move: string } } | null);
+  expect(saved?.tennis).toMatchObject({ mode: "classic", aim: "timing", move: "auto" });
+  expect(posts).not.toContain("/api/camera-settings");
+  await dialogFits(page);
 });

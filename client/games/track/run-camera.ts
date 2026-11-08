@@ -1,3 +1,4 @@
+import { cameraSettings, updateCameraSettings } from "../../net/camera-settings.ts";
 import { CameraError, openCamera, startPose } from "../../input/camera/camera.ts";
 import type { CameraSession } from "../../input/camera/camera.ts";
 import type { CameraFrame } from "../../input/camera/pose.ts";
@@ -30,26 +31,18 @@ export interface RunCamera {
   dispose(): void;
 }
 
-const MODE_KEY = "track-run-mode";
 // still frames needed for the calibration, and how long it may take
 const CALIBRATE_FRAMES = 20;
 const CALIBRATE_TIMEOUT_MS = 15_000;
 
-function loadMode(): RunMode {
-  try {
-    return localStorage.getItem(MODE_KEY) === "knees" ? "knees" : "elbows";
-  } catch {
-    return "elbows";
-  }
-}
-
-function saveMode(m: RunMode): void {
-  try {
-    localStorage.setItem(MODE_KEY, m);
-  } catch {
-    // storage unavailable: the default next time
-  }
-}
+// Task 25: the mode and each mode's stand-still calibration are kept with
+// every other camera setting (on the account when signed in). The stand-still
+// still runs each time the camera starts; a saved one is the fallback if it's
+// skipped.
+const loadMode = (): RunMode => cameraSettings().track.mode;
+const saveMode = (m: RunMode): void => updateCameraSettings((s) => (s.track.mode = m));
+const savedRest = (m: RunMode): RunRest | null => cameraSettings().track.rest[m];
+const saveRest = (m: RunMode, rest: RunRest): void => updateCameraSettings((s) => (s.track.rest[m] = { left: rest.left, right: rest.right }));
 
 const MODE_TEXT: Record<RunMode, { label: string; how: string; jump: string }> = {
   elbows: {
@@ -88,6 +81,7 @@ export function createRunCamera(view: HTMLElement, button: HTMLButtonElement, ch
   let mode = loadMode();
   let session: CameraSession | null = null;
   let tracker = new RunTracker(mode);
+  tracker.rest = savedRest(mode);
   // task 27: hurdles' jump, calibrated from the same stand-still frames
   let jumper = new JumpTracker(mode);
   let starting = false;
@@ -106,6 +100,7 @@ export function createRunCamera(view: HTMLElement, button: HTMLButtonElement, ch
     calibrating = null;
     if (rest) {
       tracker.rest = rest;
+      saveRest(mode, rest);
       tracker.reset();
       jumper.rest = { arms: cal ? restFrom(cal.arms) : null, torso: cal ? torsoRestFrom(cal.torsos) : null };
       jumper.reset();
@@ -226,6 +221,7 @@ export function createRunCamera(view: HTMLElement, button: HTMLButtonElement, ch
       b.addEventListener("click", () => {
         mode = b.dataset.mode as RunMode;
         tracker = new RunTracker(mode);
+        tracker.rest = savedRest(mode);
         jumper = new JumpTracker(mode);
         saveMode(mode);
         mark();

@@ -8,6 +8,7 @@ import { NAME_MAX, NAME_MIN, nameShapeProblem, normaliseName } from "../../share
 import { ApiError, addPasskey, deleteAccount, fetchMe, passkeysSupported, removePasskey, saveLook, setName, signIn, signOut } from "../net/account.ts";
 import type { Me } from "../net/account.ts";
 import { lookSvg } from "./look-preview.ts";
+import { resetCameraSettings } from "../net/camera-settings.ts";
 
 export interface ProfileHooks {
   /** Who you are changed (signed in or out, claimed, renamed, deleted): reconnect and redraw. */
@@ -257,6 +258,28 @@ export function openProfile(hooks: ProfileHooks): void {
         li.append(remove);
         list.append(li);
       });
+    }
+    // task 25: every camera setting, on the account or in this browser; one Reset for all
+    if (me) {
+      const cam = document.createElement("section");
+      cam.className = "profile-camera";
+      cam.setAttribute("aria-labelledby", "pf-camera-title");
+      cam.innerHTML = `
+        <h3 id="pf-camera-title">Camera settings</h3>
+        <p class="profile-note">${
+          me.account
+            ? "Your swing calibration, racket and bow hand, movement and run modes and basketball power are saved to this account and follow you to any device."
+            : "Your swing calibration, racket and bow hand, movement and run modes and basketball power are kept in this browser. Add a passkey to keep them on any device."
+        }</p>
+        <div class="profile-actions"><button type="button" class="profile-btn" id="pf-camera-reset">Reset camera settings to default</button></div>`;
+      cam.querySelector("#pf-camera-reset")!.addEventListener("click", () => {
+        resetCameraSettings();
+        status = "Camera settings back to the defaults: classic swing, aim by timing, auto-move.";
+        render();
+      });
+      const danger = body.querySelector(".profile-danger");
+      if (danger) danger.before(cam);
+      else body.append(cam);
     }
     const lookForm = body.querySelector<HTMLFormElement>(".look-form");
     if (lookForm && me) {

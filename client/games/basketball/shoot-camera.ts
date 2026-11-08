@@ -2,6 +2,9 @@ import { CameraError, openCamera, startPose } from "../../input/camera/camera.ts
 import type { CameraSession } from "../../input/camera/camera.ts";
 import type { CameraFrame } from "../../input/camera/pose.ts";
 import { DEFAULT_SHOOT, ShootDetector } from "../../input/camera/shoot-pose.ts";
+import type { ShootConfig } from "../../input/camera/shoot-pose.ts";
+import { powerRangeFrom } from "../../input/camera/power-calibration.ts";
+import { cameraSettings, onCameraSettings, updateCameraSettings } from "../../net/camera-settings.ts";
 import type { ShootHand, ShootRead } from "../../input/camera/shoot-pose.ts";
 
 // Basketball's camera (task 32, ADR 003): the same webcam and local pose
@@ -61,6 +64,15 @@ function addStyle(): void {
 
 const PUSH_WORDS = "Push up and towards the hoop, like a real shot. No need to jump.";
 
+/** The detector's numbers with this player's saved power range (task 25), if any. */
+function shootConfig(): ShootConfig {
+  const p = cameraSettings().basketball.power;
+  return p ? { ...DEFAULT_SHOOT, power0: p[0], power1: p[1] } : { ...DEFAULT_SHOOT };
+}
+
+// quick calibration: this many of each push
+const CALIBRATE_PUSHES = 2;
+
 export function createShootCamera(view: HTMLElement, button: HTMLButtonElement, chip: HTMLElement, cb: ShootCallbacks): ShootCamera {
   addStyle();
   const video = document.createElement("video");
@@ -84,7 +96,9 @@ export function createShootCamera(view: HTMLElement, button: HTMLButtonElement, 
   panel.hidden = true;
   view.append(dock, panel);
 
-  const detector = new ShootDetector();
+  const detector = new ShootDetector(shootConfig());
+  // a sign-in, a sign-out or a reset elsewhere: the next push uses the new range
+  const offSettings = onCameraSettings(() => (detector.cfg = shootConfig()));
   let session: CameraSession | null = null;
   let starting = false;
   let tracking = false;
@@ -93,6 +107,8 @@ export function createShootCamera(view: HTMLElement, button: HTMLButtonElement, 
   let step: ((r: ShootRead) => void) | null = null;
   let aimSent: { t: number; aim: number } | null = null;
   let lastAim = 0;
+  // set while the quick power calibration reads pushes
+  let calibrating: ((f: CameraFrame) => void) | null = null;
 
   const setChip = (text: string, state: "ok" | "warn" | "off") => {
     chip.hidden = false;
@@ -130,6 +146,7 @@ export function createShootCamera(view: HTMLElement, button: HTMLButtonElement, 
               : "Hands at your chest";
     lastAim = r.aim;
     debug?.frame(f, r);
+    calibrating?.(f);
     if (step) {
       // setup: the arrow follows the hands; nothing is set or shot
       if (r.tracking) sendAim(f.t, r.aim);
@@ -144,6 +161,7 @@ export function createShootCamera(view: HTMLElement, button: HTMLButtonElement, 
 
   const close = () => {
     step = null;
+    calibrating = null;
     panel.hidden = true;
     // the setup consumed nothing: the turn starts afresh with the camera
     detector.newTurn();
@@ -154,6 +172,7 @@ export function createShootCamera(view: HTMLElement, button: HTMLButtonElement, 
     session?.stop();
     session = null;
     step = null;
+    calibrating = null;
     tracking = false;
     detector.reset();
     aimSent = null;
@@ -189,10 +208,12 @@ export function createShootCamera(view: HTMLElement, button: HTMLButtonElement, 
       <svg class="sc-arrow" viewBox="0 0 100 64" aria-hidden="true"><g><path d="M50 4 L62 22 L54 22 L54 58 L46 58 L46 22 L38 22 Z" fill="currentColor"/></g></svg>
       <p class="muted" data-aim role="status">Straight</p>
       <p>${PUSH_WORDS}</p>
-      <div class="row"><button class="primary" data-step="done">Start shooting</button>${keyboardButton}</div>`;
+      <div class="row"><button class="primary" data-step="done">Start shooting</button>${keyboardButton}</div>
+      ${powerRow()}`;
     const g = panel.querySelector(".sc-arrow g") as SVGGElement;
     const words = panel.querySelector("[data-aim]") as HTMLElement;
     panel.querySelector("[data-step=done]")?.addEventListener("click", close);
+    wirePower();
     wire();
     (panel.querySelector("[data-step=done]") as HTMLElement | null)?.focus();
     let shown = "";
@@ -200,6 +221,60 @@ export function createShootCamera(view: HTMLElement, button: HTMLButtonElement, 
       g.style.transform = `rotate(${(r.aim * 40).toFixed(1)}deg)`;
       const w = Math.abs(r.aim) < 0.1 ? "Straight" : r.aim > 0 ? "Right" : "Left";
       if (w !== shown) words.textContent = shown = w;
+    };
+  };
+
+  // Quick power calibration (task 25 round 3): optional, camera only (speed
+  // has no key), never needed to play or to ready up. "Push soft, then push
+  // hard" sets where the power bar starts and ends for this player.
+  const powerRow = () => {
+    const mine = cameraSettings().basketball.power !== null;
+    return `<details class="advanced">
+        <summary>Power${mine ? ": calibrated" : ""}</summary>
+        <p class="muted">Optional. Push soft, then push hard: the power bar fits your own pushes. Camera only; saved with your settings.</p>
+        <div class="row"><button data-step="calibrate">Calibrate power</button>${mine ? `<button data-step="power-reset">Default power</button>` : ""}</div>
+        <p class="muted" data-power role="status"></p>
+      </details>`;
+  };
+  const wirePower = () => {
+    panel.querySelector("[data-step=calibrate]")?.addEventListener("click", () => calibrate("soft", [], []));
+    panel.querySelector("[data-step=power-reset]")?.addEventListener("click", () => {
+      updateCameraSettings((s) => (s.basketball.power = null));
+      aimStep();
+      (panel.querySelector("[data-power]") as HTMLElement).textContent = "Back to the default power.";
+    });
+  };
+
+  const calibrate = (stage: "soft" | "hard", soft: number[], hard: number[]) => {
+    const list = stage === "soft" ? soft : hard;
+    panel.innerHTML = `
+      <h2>Push ${stage}</h2>
+      <p>${stage === "soft" ? "Hold the ball at your chest, then push up softly, the gentlest shot you'd take." : "Now push up hard, the strongest shot you'd take."} ${CALIBRATE_PUSHES} times.</p>
+      <p class="muted" data-count role="status">0 of ${CALIBRATE_PUSHES}</p>
+      <div class="row"><button data-step="cancel">Cancel</button></div>`;
+    const count = panel.querySelector("[data-count]") as HTMLElement;
+    panel.querySelector("[data-step=cancel]")?.addEventListener("click", aimStep);
+    (panel.querySelector("[data-step=cancel]") as HTMLElement | null)?.focus();
+    // its own detector, always on turn and re-armed after each push, so every push counts once
+    const reader = new ShootDetector({ ...DEFAULT_SHOOT });
+    reader.setTurn(true);
+    step = () => {};
+    calibrating = (f) => {
+      const r = reader.update(f);
+      if (!r.shot) return;
+      reader.newTurn();
+      list.push(r.shot.peak);
+      count.textContent = `${list.length} of ${CALIBRATE_PUSHES}`;
+      if (list.length < CALIBRATE_PUSHES) return;
+      calibrating = null;
+      if (stage === "soft") return calibrate("hard", soft, hard);
+      const result = powerRangeFrom(soft, hard, { lo: DEFAULT_SHOOT.power0, hi: DEFAULT_SHOOT.power1 });
+      if (!result.fellBack) updateCameraSettings((s) => (s.basketball.power = [result.range.lo, result.range.hi]));
+      aimStep();
+      (panel.querySelector("[data-power]") as HTMLElement).textContent = result.fellBack
+        ? "Your soft and hard pushes came out too close together, so the default power stays. Try again with a clearer difference."
+        : "Power calibrated to your pushes.";
+      (panel.querySelector(".advanced") as HTMLDetailsElement).open = true;
     };
   };
 
@@ -312,6 +387,7 @@ export function createShootCamera(view: HTMLElement, button: HTMLButtonElement, 
       }
     },
     dispose() {
+      offSettings();
       button.removeEventListener("click", onButton);
       window.removeEventListener("keydown", onKey);
       stop();
@@ -436,7 +512,7 @@ function createDebugReadout(dock: HTMLElement): { frame(f: CameraFrame, r: Shoot
       };
       beep(440);
     } else if (e.key === "c" || e.key === "C") {
-      const text = `fps ~${fps.toFixed(0)}  config ${JSON.stringify(DEFAULT_SHOOT)}\n${table()}`;
+      const text = `fps ~${fps.toFixed(0)}  config ${JSON.stringify(shootConfig())}\n${table()}`;
       navigator.clipboard?.writeText(text).then(
         () => (status = "Copied. Paste it into the chat."),
         () => (status = "Copy failed: select the table text instead."),
@@ -504,7 +580,7 @@ function createDebugReadout(dock: HTMLElement): { frame(f: CameraFrame, r: Shoot
         live("left"),
         live("right"),
         `aim ${n(r.aim)}  state ${r.state}${r.pushing ? " (pushing)" : ""}${r.raise ? " (raise your hands)" : ""}`,
-        `last shot read: ${lastShot || "none"}   shot at ${DEFAULT_SHOOT.minPeak}+ up-speed, power 1 at ${DEFAULT_SHOOT.power1}`,
+        `last shot read: ${lastShot || "none"}   shot at ${DEFAULT_SHOOT.minPeak}+ up-speed, power 1 at ${shootConfig().power1}`,
         "",
         done,
         "",

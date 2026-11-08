@@ -165,7 +165,9 @@ describe("schema v7 (task 33): stored task-18 looks in the new shape", () => {
     // step 8, task 34's tags and friends tables, is undone), task-18 looks
     // written as task 18 wrote them, and the version put back to 6
     migrate(db);
+    // (and step 9, task 25, undone: it added a column)
     db.exec(`
+      ALTER TABLE players DROP COLUMN camera_settings;
       DROP TABLE friendships; DROP TABLE friend_requests; DROP TABLE friend_links;
       DROP INDEX players_name_tag;
       ALTER TABLE players DROP COLUMN tag;

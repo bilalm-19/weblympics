@@ -17,6 +17,7 @@ import type { DatabaseSync } from "node:sqlite";
 import {
   SESSION_DAYS,
   addPasskey,
+  cameraSettingsOf,
   createSession,
   deleteAccount,
   endSession,
@@ -31,6 +32,7 @@ import {
   removePasskey,
   rename,
   sessionPlayer,
+  setCameraSettings,
   setLook,
   touchPasskey,
   webauthnId,
@@ -39,6 +41,7 @@ import { showTag } from "./accounts.ts";
 import type { Player } from "./accounts.ts";
 import { acceptFriend, createFriendLink, friendIds, declineFriend, removeFriend, requestFriend, useFriendLink } from "./friends.ts";
 import type { FriendResult } from "./friends.ts";
+import type { CameraSettings } from "../shared/camera-settings.ts";
 import type { Look } from "../shared/look.ts";
 import { games } from "../shared/games/registry.ts";
 import { Challenges, RateLimit, allowedOrigin, cookie, parseCookies, rpIdFor } from "./guard.ts";
@@ -67,6 +70,8 @@ export interface Me {
   ratings: Record<string, { rating: number; wins: number; losses: number }>;
   /** Longest rally (shots) in any match you played. */
   longestRally: number;
+  /** Task 25: the account's camera settings; null for the defaults (always, for a guest: theirs stay in the browser). */
+  cameraSettings: CameraSettings | null;
 }
 
 export interface AuthDeps {
@@ -148,6 +153,7 @@ export function createAuth(deps: AuthDeps) {
     look: lookOf(db, p.token),
     ratings: p.account ? Object.fromEntries(Object.keys(games).map((sport) => [sport, ratingOf(db, p.token, sport)])) : {},
     longestRally: longestRally(db, p.token),
+    cameraSettings: cameraSettingsOf(db, p.token),
   });
 
   const sessionCookie = (token: string, host: string | undefined): string => {
@@ -320,6 +326,16 @@ export function createAuth(deps: AuthDeps) {
         if (!r.ok) return json(res, r.status, { error: r.reason }), true;
         log("look", { who: who(player.token) });
         deps.onProfile?.(player.token);
+        return json(res, 200, me(player)), true;
+      }
+
+      // task 25: every camera setting, or null to reset to the defaults
+      case "/api/camera-settings": {
+        if (!player) return json(res, 401, { error: "Load the page first." }), true;
+        if (!Object.hasOwn(body, "settings") || Object.keys(body).length !== 1) return json(res, 400, { error: "Bad request." }), true;
+        const r = setCameraSettings(db, player.token, body.settings);
+        if (!r.ok) return json(res, r.status, { error: r.reason }), true;
+        log("camera_settings", { who: who(player.token), reset: r.settings === null });
         return json(res, 200, me(player)), true;
       }
 

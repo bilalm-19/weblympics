@@ -3,18 +3,20 @@ import { CameraError, openCamera, startPose } from "./camera.ts";
 import type { CameraSession, CameraStats } from "./camera.ts";
 import {
   CameraController,
-  DEFAULT_CALIBRATION,
   MoveThrottle,
-  DEFAULT_SWING,
   DEFAULT_TILT,
-  SwingDetector,
+  CalibrationRecorder,
+  calibrationFrom,
   bodyFrame,
   bodyVisibility,
+  calibrateSwings,
   neutralFrom,
-  thresholdsFrom,
+  strokeThresholds,
   wrist,
 } from "./pose.ts";
 import type { AimMode, ArmPose, CameraFrame, Calibration, SwingMode, Visibility } from "./pose.ts";
+import { cameraSettings, onCameraSettings, resetCameraSettings, updateCameraSettings } from "../../net/camera-settings.ts";
+
 
 // Camera setup panel and play. Every step can be skipped, and any failure
 // leaves the keyboard and buttons working with a message saying why.
@@ -69,29 +71,38 @@ export interface CameraInput {
   dispose(): void;
 }
 
-const STORAGE_KEY = "camera-calibration";
 const SAFETY_KEY = "camera-safety-ack";
-const MOVE_MODE_KEY = "move-mode";
 const TRAIN_OFFER_KEY = "training-offered";
 const SWINGS_PER_LEVEL = 2;
 const LEVEL_WORDS = ["light", "medium", "hard"] as const;
 
+
 function loadCalibration(): Calibration {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) return { ...DEFAULT_CALIBRATION, ...(JSON.parse(raw) as Partial<Calibration>) };
-  } catch {
-    // storage unavailable or corrupt: use the defaults
-  }
-  return { ...DEFAULT_CALIBRATION };
+  return calibrationFrom(cameraSettings().tennis);
 }
 
 function saveCalibration(c: Calibration): void {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(c));
-  } catch {
-    // storage unavailable: calibrate again next time
-  }
+  updateCameraSettings((s) => {
+    s.tennis = {
+      ...s.tennis,
+      hand: c.hand,
+      mode: c.mode,
+      aim: c.aim,
+      autoNeutral: c.autoNeutral,
+      neutralTilt: c.neutralTilt,
+      neutralAcross: c.neutralAcross,
+      forehand: [...c.thresholds],
+      backhand: [...c.backhandThresholds],
+    };
+  });
+}
+
+function loadMoveMode(): MoveMode {
+  return cameraSettings().tennis.move;
+}
+
+function saveMoveMode(mode: MoveMode): void {
+  updateCameraSettings((s) => (s.tennis.move = mode));
 }
 
 // Per-viewer conveniences only: the panel works with storage unavailable.
@@ -100,23 +111,6 @@ function safetyAcknowledged(): boolean {
     return localStorage.getItem(SAFETY_KEY) === "1";
   } catch {
     return false;
-  }
-}
-
-// Per viewer; auto unless they picked lean, and auto when storage is unavailable.
-function loadMoveMode(): MoveMode {
-  try {
-    return localStorage.getItem(MOVE_MODE_KEY) === "tilt" ? "tilt" : "auto";
-  } catch {
-    return "auto";
-  }
-}
-
-function saveMoveMode(mode: MoveMode): void {
-  try {
-    localStorage.setItem(MOVE_MODE_KEY, mode);
-  } catch {
-    // storage unavailable: auto next time
   }
 }
 
@@ -446,10 +440,22 @@ export function createCameraInput(
        </div>
        <details class="advanced">
          <summary>Advanced</summary>
-         <p class="muted">Capture your neutral pose and tune light, medium and hard swings by hand.</p>
-         <div class="row"><button data-step="advanced">Calibrate manually</button></div>
+         <p class="muted">Capture your neutral pose and tune light, medium and hard swings, for the forehand and the backhand. Camera only: swing speed has no key. Saved to your account when you're signed in.</p>
+         <div class="row">
+           <button data-step="advanced">Calibrate swings</button>
+           <button data-step="reset">Reset to default</button>
+         </div>
+         <p class="muted" data-reset role="status"></p>
        </details>`,
-      { done: finish, "done-anyway": finish, advanced: neutral },
+      {
+        done: finish,
+        "done-anyway": finish,
+        advanced: neutral,
+        reset: () => {
+          resetCameraSettings();
+          (panel.querySelector("[data-reset]") as HTMLElement).textContent = "Back to the defaults: classic swing, aim by timing, auto-move.";
+        },
+      },
     );
     const ok = panel.querySelector("[data-step=done]") as HTMLButtonElement;
     onVisibility = (v) => {
@@ -491,44 +497,96 @@ export function createCameraInput(
               return;
             }
             calib = { ...calib, ...n, autoNeutral: false };
-            swings(0, { light: [], medium: [], hard: [] });
+            pickStroke();
           };
         },
-        skip: () => swings(0, { light: [], medium: [], hard: [] }),
+        skip: pickStroke,
       },
     );
   };
 
-  const swings = (level: Level, peaks: { light: number[]; medium: number[]; hard: number[] }) => {
+  // Each stroke has its own thresholds (task 25): pick one, or both in turn.
+  const pickStroke = () => {
+    show(
+      `<h2>Which swing?</h2>
+       <p>Calibrate one stroke, or both. Practice swings first if you like: nothing counts until you pick.</p>
+       <div class="row">
+         <button class="primary" data-step="both">Both</button>
+         <button data-step="forehand">Forehand</button>
+         <button data-step="backhand">Backhand</button>
+       </div>
+       <div class="row"><button data-step="cancel">Not now</button></div>`,
+      {
+        both: () => swings("forehand", 0, emptyPeaks(), () => swings("backhand", 0, emptyPeaks(), finish)),
+        forehand: () => swings("forehand", 0, emptyPeaks(), finish),
+        backhand: () => swings("backhand", 0, emptyPeaks(), finish),
+        cancel: finish,
+      },
+    );
+  };
+  const emptyPeaks = () => ({ light: [] as number[], medium: [] as number[], hard: [] as number[] });
+
+  const swings = (kind: SwingKind, level: Level, peaks: { light: number[]; medium: number[]; hard: number[] }, then: () => void) => {
     const word = LEVEL_WORDS[level];
+    const keep = (thresholds: [number, number]) => {
+      calib = kind === "forehand" ? { ...calib, thresholds } : { ...calib, backhandThresholds: thresholds };
+    };
     const next = () => {
       capture = null;
-      if (level < 2) swings((level + 1) as Level, peaks);
-      else {
-        calib = { ...calib, thresholds: thresholdsFrom(peaks) };
-        finish();
+      if (level < 2) return swings(kind, (level + 1) as Level, peaks, then);
+      const r = calibrateSwings(peaks);
+      if (!r.fellBack) {
+        keep(r.thresholds);
+        return then();
       }
+      // the levels weren't clearly different: say so, never silently use the defaults
+      show(
+        `<h2>Couldn't tell those apart</h2>
+         <p role="alert">Your light, medium and hard ${kind}s came out too close together, so your ${kind} keeps the default levels. Try again with a clearer difference, or keep the defaults.</p>
+         <div class="row">
+           <button class="primary" data-step="again">Try again</button>
+           <button data-step="keep">Keep defaults</button>
+         </div>`,
+        {
+          again: () => swings(kind, 0, emptyPeaks(), then),
+          keep: () => {
+            keep(r.thresholds);
+            then();
+          },
+        },
+      );
     };
     show(
-      `<h2>Swing ${word}</h2>
-       <p>Swing ${word} ${SWINGS_PER_LEVEL} times, the way you would to hit a ${word} shot.</p>
+      `<h2>${kind === "forehand" ? "Forehand" : "Backhand"}: swing ${word}</h2>
+       <p>Swing a ${kind} ${word} ${SWINGS_PER_LEVEL} times, the way you would to hit a ${word} shot.</p>
        <p class="muted" role="status">0 of ${SWINGS_PER_LEVEL}</p>
        <div class="row"><button data-step="skip">${level < 2 ? "Skip" : "Done"}</button></div>`,
       { skip: next },
     );
     const status = panel.querySelector("[role=status]") as HTMLElement;
-    const detector = new SwingDetector(DEFAULT_SWING);
+    // read as play reads a swing: the wind-up and the recovery never count (task 25)
+    const recorder = new CalibrationRecorder(calib.hand, kind);
     capture = (f) => {
-      const frame = f.landmarks ? bodyFrame(f.landmarks, f.aspect) : null;
-      const w = frame && f.landmarks ? wrist(f.landmarks, frame, calib.hand, f.aspect) : null;
-      if (!frame || !w) return detector.lose();
-      const { swing } = detector.update(f.t, w);
-      if (!swing) return;
-      peaks[word].push(swing.peak);
+      const peak = recorder.update(f);
+      if (peak === null) return;
+      peaks[word].push(peak);
       status.textContent = `${peaks[word].length} of ${SWINGS_PER_LEVEL}`;
       if (peaks[word].length >= SWINGS_PER_LEVEL) next();
     };
   };
+
+  // Settings changed elsewhere (a sign-in, a sign-out, Reset): used from the
+  // next frame; a swing under way keeps the grip it started with.
+  const offSettings = onCameraSettings((s) => {
+    calib = calibrationFrom(s.tennis);
+    controller.setCalibration(calib);
+    if (s.tennis.move !== moveMode && !startMoveMode) {
+      moveMode = s.tennis.move;
+      moves.reset();
+      renderMode();
+      cb.moveMode(moveMode);
+    }
+  });
 
   const onButton = () => {
     if (session) stop();
@@ -547,7 +605,7 @@ export function createCameraInput(
     aim: () => aim,
     level: () => lastLevel,
     peak: () => peak,
-    thresholds: () => calib.thresholds,
+    thresholds: () => strokeThresholds(calib, grip ?? "forehand"),
     grip: () => grip,
     hand: () => calib.hand,
     arm: () => arm,
@@ -572,6 +630,7 @@ export function createCameraInput(
       void start(calib.hand, calib.mode, calib.aim);
     },
     dispose() {
+      offSettings();
       button.removeEventListener("click", onButton);
       window.removeEventListener("keydown", onKey);
       stop();
