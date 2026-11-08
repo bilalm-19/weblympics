@@ -731,6 +731,9 @@ export function startBasketball(root: HTMLElement, conn: GameLink, info: RoomInf
       court.update(now / 1000);
     }
     renderer.render(scene, camera);
+    // the draw calls, for tests and for keeping the city cheap
+    canvas.dataset.calls = String(renderer.info.render.calls);
+    canvas.dataset.triangles = String(renderer.info.render.triangles);
     canvas.dataset.frames = String(++frames);
   };
   raf = requestAnimationFrame(frame);
