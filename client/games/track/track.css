@@ -99,6 +99,46 @@
   outline-offset: 2px;
 }
 
+/* task 27: hurdles' jump button sits between the feet; the HUD's hurdle count */
+.track .controls .tr-jump {
+  flex: 1 1 0;
+  max-width: 10rem;
+  min-height: 72px;
+  font-size: 1.1rem;
+  font-weight: 700;
+  touch-action: manipulation;
+  background: #ffd23f;
+  color: #1a1a1a;
+}
+
+.track .controls .tr-jump[hidden] {
+  display: none;
+}
+
+.track .tr-row:has(.tr-hurdles) {
+  grid-template-columns: minmax(3rem, 6rem) 1fr 4.6rem;
+  grid-template-rows: auto auto;
+}
+
+.track .tr-hurdles {
+  grid-column: 2 / 4;
+  font-size: 0.75rem;
+  opacity: 0.85;
+}
+
+.track .tr-events {
+  display: inline-flex;
+  gap: 0.25rem;
+}
+
+.track .tr-events[hidden] {
+  display: none;
+}
+
+.track .tr-events button[aria-checked="true"] {
+  outline: 2px solid #ffd23f;
+}
+
 .track .tr-meter {
   display: flex;
   justify-content: center;

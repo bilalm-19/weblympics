@@ -137,3 +137,136 @@ export class RunTracker {
     return out;
   }
 }
+
+// ---------------------------------------------------------------------------
+// Hurdles' jump (task 27; the control is the user's, 2026-11-08):
+// - "elbows": both arms up at the same time. Both hands must be lifted
+//   `armsOn` above their rest together; a running pump lifts one hand at a
+//   time, and far less, so it never reads as a jump; one arm up isn't one.
+// - "knees": jumping on the spot. The shoulder/hip midpoint rising quickly
+//   (`riseSpeed`) past `riseOn` above where it stood in the stand-still
+//   calibration. A jog bobs the body a little; it never gets that high.
+// Both read once and must come back down (`armsOff` / `riseOff`) before the
+// next. The step reads above are relative to the shoulders, so the body
+// rising in a jump doesn't count as steps. All in shoulder widths.
+// FIRST GUESSES, every number in DEFAULT_JUMP, until the recordings in
+// docs/camera-playtest.md ("Hurdles' moves").
+
+/** The shoulder/hip midpoint's height, image heights (down is bigger), and the shoulder width that scales it. */
+export interface Torso {
+  y: number;
+  width: number;
+}
+
+/** The torso's midpoint and scale, or null without both shoulders and both hips seen. */
+export function torsoOf(lm: readonly Point[], aspect: number): Torso | null {
+  const frame = bodyFrame(lm, aspect);
+  if (!frame) return null;
+  const l = lm[LEGS.leftHip];
+  const r = lm[LEGS.rightHip];
+  if (!seen(l) || !seen(r)) return null;
+  return { y: (frame.mid.y + (l.y + r.y) / 2) / 2, width: frame.width };
+}
+
+/** The standing torso from a few still frames (the median), or null if too few. */
+export function torsoRestFrom(samples: readonly Torso[], min = 5): Torso | null {
+  if (samples.length < min) return null;
+  const median = (xs: number[]) => {
+    const s = [...xs].sort((a, b) => a - b);
+    const m = s.length >> 1;
+    return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
+  };
+  return { y: median(samples.map((s) => s.y)), width: median(samples.map((s) => s.width)) };
+}
+
+export interface JumpConfig {
+  /** elbows: both hands lifted this far above rest together is a jump... */
+  armsOn: number;
+  /** ...and both must drop below this before the next. */
+  armsOff: number;
+  /** knees: the torso this far above its standing height... */
+  riseOn: number;
+  /** ...rising at least this fast (shoulder widths a second, over the last `speedMs`)... */
+  riseSpeed: number;
+  speedMs: number;
+  /** ...and back below this before the next. */
+  riseOff: number;
+  /** Two jumps closer than this (ms) are one. */
+  minGapMs: number;
+}
+
+// GUESSES until the recordings. A running pump lifts a hand 0.2 to 0.8
+// shoulder widths; arms up for a jump bring both hands above the chest. A
+// jog bobs the torso under a tenth of a shoulder width.
+export const DEFAULT_JUMP: JumpConfig = { armsOn: 1.2, armsOff: 0.6, riseOn: 0.25, riseSpeed: 1.5, speedMs: 150, riseOff: 0.1, minGapMs: 400 };
+
+/** What the jump reads from a frame: the hands' heights (runHeights, elbows) and the torso. */
+export interface JumpFrame {
+  arms: RunRest | null;
+  torso: Torso | null;
+}
+
+/** Turns frames into jumps for one mode. Frames it can't read are skipped. */
+export class JumpTracker {
+  readonly mode: RunMode;
+  private cfg: JumpConfig;
+  /** The stand-still calibration: the hands' rest (elbows) and the standing torso (knees). */
+  rest: { arms: RunRest | null; torso: Torso | null } = { arms: null, torso: null };
+  /** The latest reading, 0..1 of the way to a jump, for the panel's meter. */
+  level = 0;
+  private up = false;
+  private last = -Infinity;
+  private history: Array<{ t: number; rise: number }> = [];
+
+  constructor(mode: RunMode, cfg: JumpConfig = DEFAULT_JUMP) {
+    this.mode = mode;
+    this.cfg = cfg;
+  }
+
+  reset(): void {
+    this.up = false;
+    this.last = -Infinity;
+    this.history = [];
+    this.level = 0;
+  }
+
+  /** One frame at time `t` (ms); true if a jump read on it. */
+  update(f: JumpFrame, t: number): boolean {
+    return this.mode === "elbows" ? this.arms(f.arms, t) : this.body(f.torso, t);
+  }
+
+  private fire(t: number): boolean {
+    this.up = true;
+    if (t - this.last < this.cfg.minGapMs) return false;
+    this.last = t;
+    return true;
+  }
+
+  private arms(h: RunRest | null, t: number): boolean {
+    const rest = this.rest.arms;
+    if (!h || !rest) return false;
+    const l = h.left - rest.left;
+    const r = h.right - rest.right;
+    // the lower hand decides: one arm up, however high, is not a jump
+    const both = Math.min(l, r);
+    this.level = Math.max(0, Math.min(1, both / this.cfg.armsOn));
+    if (!this.up && both >= this.cfg.armsOn) return this.fire(t);
+    if (this.up && Math.max(l, r) < this.cfg.armsOff) this.up = false;
+    return false;
+  }
+
+  private body(torso: Torso | null, t: number): boolean {
+    const rest = this.rest.torso;
+    if (!torso || !rest) return false;
+    // image y points down: standing higher than at rest is a positive rise
+    const rise = (rest.y - torso.y) / rest.width;
+    this.level = Math.max(0, Math.min(1, rise / this.cfg.riseOn));
+    this.history.push({ t, rise });
+    while (this.history.length > 1 && t - this.history[0].t > this.cfg.speedMs) this.history.shift();
+    const first = this.history[0];
+    const speed = t > first.t ? ((rise - first.rise) * 1000) / (t - first.t) : 0;
+    if (!this.up && rise >= this.cfg.riseOn && speed >= this.cfg.riseSpeed) return this.fire(t);
+    if (this.up && rise < this.cfg.riseOff) this.up = false;
+    return false;
+  }
+}
