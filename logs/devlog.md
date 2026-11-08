@@ -1629,3 +1629,95 @@ the format of the entries below (see CLAUDE.md, Docs).
 - **Outcome:** `APP_URL=http://localhost:8203 pnpm check` exit 0 (51 files, 785 tests); the tie-vote e2e exit 0 at both viewports with `--workers=1`.
 - **E2e runs from now on:** headless `pnpm e2e --workers=1` (coordinator: `e2e:gpu` opens windows over the user's screen). This branch never used `e2e:gpu`.
 - **Final full e2e** (headless `pnpm e2e --workers=1`, `APP_URL=http://localhost:8203`): exit 1, 210 passed, 2 failed: `aid.e2e.ts:44` (a bounding box that was null for a moment) and `look.e2e.ts:22` (canvas not found in time). Both are tennis tests, and both passed alone (exit 0), so they look like timing flakes under load, not bugs.
+
+## 2026-11-08 03:12 AEDT | decision | Sound for every game, a friendlier crowd, jazz on the home screen
+
+- **Decided by:** user (music made in the browser; "aww" and groans instead of boos; all games, each with its own sounds: "tennis swing and ball bounce, boxing gloves hits and bell"; "sure sounds good" to the placed crowd); Claude (the shared module, the per-game sound lists, how spectators hear it).
+- **How the crowd sounds:** one crowd: everyone hears the winner's cheer and the loser's "aww" together, each panned and weighted to where its stand is on that screen; a spectator hears seat 1's side on the left. Worked out on each screen from the snapshot, as the point call is; no network message.
+- **Task 19** widened accordingly (shared `client/audio/`, per-game sounds, home-screen jazz loop from Web Audio, music and effects toggles).
+
+## 2026-11-08 03:15 AEDT | decision | Task 35: one way to play, a guide per sport, guided training per sport
+
+- **Decided by:** user (remove "Follow my arm" and "Aim by pointing", keep leaning optional; "make keyboard vs camera not allowed", clarified as both players in a room must match; a pull-up guide per sport with an outline figure and the tracked body parts highlighted, also in training; practice modes for the other sports, clarified as guided training like tennis's); Claude (the design and the split).
+- **Note:** this brings forward part of the idea parked earlier today (fewer options); the leaderboard removal stays parked.
+- **Same input:** a lobby rule, so every game gets it; the server can't prove which input a player uses, so it is a fair-play rule for honest players, stated as such.
+- **Waits on:** the guides go into every game's view, which the track, archery, customisation and bowling agents are editing now; starting it after their merges avoids conflicts in the same files. Two agents then: one way to play (A) and guides plus training (B), in separate files.
+
+## 2026-11-08 03:26 AEDT | design | Home screen redesign: an HTML mock to review before building
+
+- **Decided by:** user (wants the home screen to "look better, fill the screen more", stay light on weaker devices, and to see a mock first and ask for edits; after round 1: bigger buttons, a smaller thumbnail, keep the waving "Ready to play!" person and grow it into the party with names underneath); Claude (the mock and its layout).
+- **Why a mock in HTML:** a standalone page served by the dev client (`client/mock-home.html`, open at `localhost:5173/mock-home.html`), not wired to the game and not committed until approved, so the user can click through and ask for edits before an agent spends time on the real home screen. The artifact page wasn't available in this session (it needs a claude.ai login).
+- **Before** (screenshotted): everything in a ~1000 px column, the bottom 40% of a 1080p screen empty, a small preview, plain white boxes; the phone layout was fine.
+- **Mock, round 1:** a full-screen SVG scene that changes with the sport (sky, clouds, hills, a stand with a bobbing crowd, the sport's field in perspective), big coloured sport cards, a large centre preview with the buttons, the player's character waving with "Ready to play!", the music toggle and `Name#tag` profile.
+- **Round 2 (user's edits):** the thumbnail shrunk to a corner of a sport header; the buttons made bigger, each with an icon and a line ("Create a room / Send a link to a friend", Practice, Train, How to play, Party); the character column now shows the party: you alone with "Ready to play!", then each friend who joins appears with their own idle move (wave, hop, cheer, sway) and a nameplate (status dot, the leader's crown), an "Invite a friend" slot, "Your party · 4 of 10"; on a phone the party is a strip of heads under the buttons.
+- **Light:** no 3D, images or libraries; one inline SVG scene of about 150 shapes and CSS animations (off with reduced motion); about 20 KB. Checked at 1920x1080 and 390x844: no horizontal overflow, no page errors.
+- **Next:** more edits until the user approves; then an agent builds it into `client/ui/menu.ts` after the basketball, bowling and customisation merges (they change the menu and the character), keeping `spec/home-screen.test.ts` (no Three.js on the home screen).
+
+## 2026-11-08 03:38 AEDT | design | Home mock, round 3: a 3D party and 3D card icons, loaded after the menu, with a fallback
+
+- **Decided by:** user (3D for the party and small 3D touches, "but dont overdo the 3d-ness with the buttons"); Claude (how it loads and the fallback).
+- **What:** `client/mock-home-3d.ts` (mock only): the party drawn with the game's own character (`makePlayer` with no racket arms, simple arms added in the mock as boxing does, `character.ts` untouched), each with an idle move, turning a little toward the mouse; the sport cards' icons as small spinning 3D objects (one shared renderer, about 20 frames a second); confetti in the ring colours on "Create a room" (plain DOM, no 3D). The buttons stay flat.
+- **Light on weak devices:** the flat SVG page shows first; the 3D module (with Three.js) loads only after it, and only if WebGL works, the window is wider than a phone and reduced motion is off. After 3 s, if the party draws under 30 frames a second it stops, frees its renderer and puts the flat version back. `?flat` forces flat.
+- **Measured:** in the headless test browser (software drawing, a stand-in for a weak laptop) the 3D drew at 9 then 1 frames a second, and the page fell back to flat on its own, with no page errors. On a real GPU it should hold (not measured here: the GPU browser opens windows on the user's screen).
+- **Not yet seen working:** the 3D card icons after their fix (the test browser falls back before they show); the user to check in their own browser.
+
+## 2026-11-08 03:43 AEDT | design | Home mock, round 4: the 2D face on the 3D characters
+
+- **Decided by:** user ("the faces on 2d look nicer than the 3d versions"); Claude (the change).
+- **Why they differed:** the game's 3D face is a small canvas texture (256 px wide, eyes about 3 px, thin brows, a short nose line, a thin smile, no cheeks) wrapped round a sphere, so it reads as dots; the flat drawing has big eyes with a shine, a wide smile and rosy cheeks.
+- **Change (mock only):** `mock-home-3d.ts` paints the flat face's style on a 1024 px texture (big eyes with a white shine, soft brows, a wide smile, cheeks), sized up to survive the wrap, and swaps it onto each character's head after `makePlayer`; `character.ts` is untouched. `?force3d` keeps the 3D on past the frame-rate check, for screenshots on a slow machine.
+- **If approved:** the same face would go into `character.ts` so every game's characters get it (task 33's customisation agent owns that file now, with eye, nose and mouth options; the merge decides who changes it).
+
+## 2026-11-08 03:49 AEDT | design | Home mock, round 5: the party stays 2D; 3D only for the card icons; a party of 10
+
+- **Decided by:** user ("the 2d version still looks much nicer, the headshape, body, legs"; "its not letting me test a party of 10"); Claude (the fixes).
+- **Party back to 2D:** the flat SVG figures are the party at every size; the 3D characters are dropped from the home screen (the round-4 face swap with them). 3D stays only for the small spinning card icons, still loaded after the menu and only on a capable device.
+- **Fixes:** the icons vanished on every click because each render rebuilt the cards and wiped their canvases; the cards are now built once and only their selected state changes (checked: all six icon canvases have pixels after a click). The archery target rocks instead of spinning, so it never turns edge-on. The mock had six made-up people; it now has ten, and a party of more than five wraps to two rows with smaller nameplates; at 10 the title reads "full (10 of 10)" and the invite slot goes.
+- **Checked:** 1920x1080 and 390x844, no horizontal overflow, no page errors.
+
+## 2026-11-08 04:17 AEDT | design | Home mock, round 6: icons never cover a name; better icons and previews
+
+- **Decided by:** user (in full screen the icons covered the sport names; the basketball details didn't look good; the track preview "isnt even a race track", model a shoe; the tennis ball had no detail; the review note covered the basketball card); Claude (the fixes).
+- **Cards:** a grid with the icon in its own column (on a phone, its own row above the name), so it can't overlap; names stay on one line. Checked by script at 1920x1080, 2560x1440, 1366x768 and 390x844: no icon over any name, no horizontal overflow.
+- **3D icons:** a running shoe shown side-on (extruded upper, white midsole, red spike plate with spikes, laces, a stripe; it rocks rather than spins); a tennis ball with its real seam (the closed "tennis ball curve" as a tube on the surface); a basketball with two great-circle seams and two curved side seams as tubes; the archery target with an arrow in the gold; a lathed bowling pin with neck stripes.
+- **Flat icons** (phones and the fallback) redrawn with the same details.
+- **Previews:** each a small looping scene with figures doing the sport: tennis rally with a forehand, an archer drawing and releasing as a flag streams, two sprinters with pumping arms and legs on scrolling lanes with a finish line, a jab that rocks the other boxer, a set shot dropping through a net that ripples, a curving ball scattering the pins.
+- **Review note** moved to the bottom-right corner.
+
+## 2026-11-08 04:23 AEDT | design + bug | Home mock, round 7: the code box was below the fold in a laptop browser
+
+- **Decided by:** user ("i have to zoom out to 90% to see the code part at the bottom"); Claude (the cause and the fix).
+- **Cause:** the mock was checked at full-screen sizes (1920x1080), but a browser window is shorter (the tabs and address bar take about 120 px). At a 1366x657 laptop window the join box ended 3 px below the window, and the page had `overflow: hidden`, so it couldn't even be scrolled to.
+- **Fix:** the layout follows the window's height: the top padding, panel padding, button and icon sizes, card heights and the sport grid all shrink with `vh`; the logo is smaller under 760 px tall; the page may scroll as a last resort instead of hiding content. A party of 10 is a fixed grid of two rows of five whose figures shrink to fit; the phone's party strip no longer pushes the page sideways. The mock's review note is a collapsed "Mock controls" tab.
+- **Checked by script** at 1920x960 and 1536x730 (1080p browsers, 100% and 125% Windows scaling), 1366x657 (laptop browser), 1280x600, 1920x1080, 2560x1300 and 390x844, alone and with a party of 10: the join box inside the window, the panel below the logo, no horizontal overflow, at every size.
+- **Lesson for the real build:** check the home screen at browser-window heights (about 650-960 px), not only the full-screen viewports in CLAUDE.md.
+
+## 2026-11-08 04:27 AEDT | design | Home mock, round 8: a bigger thumbnail; the 3D state shown
+
+- **Decided by:** user ("why did you remove the 3d stuff you just add before, that looked good, also the thumbnail is too small now"); Claude.
+- **3D:** nothing 3D was removed in round 7: the 3D card icons still load (checked: six 3D canvases drawn, the flat ones hidden). The 3D party characters were dropped in round 5 at the user's word ("the 2d version still looks much nicer"). The mock now says in its "Mock controls" tab whether the 3D icons are on, or why not (phone, reduced motion, no WebGL), so the user can see which version their browser shows; a cached old copy (Ctrl+Shift+R) is the likely cause if the tab says on but the icons look flat.
+- **Thumbnail:** back to about 58% of the panel's width (it had shrunk to a corner in round 2), capped at 30% of the window's height so the code box still fits; the title larger. Re-checked at the seven window sizes: no overflow, the join box on screen.
+
+## 2026-11-08 04:37 AEDT | milestone | Track looks agent finished (task 31, branch track-looks-31, db349cd)
+
+- **Decided by:** agent (the scene and its choices); Claude (accepting it for the merge).
+- **Result:** `pnpm check` 45 files, 722 tests, exit 0; `e2e/track` 12 passed, exit 0; tennis's layout, look and call-banner e2e 27 of 28, the one failure passing alone. The full e2e wasn't run (left to integration).
+- **Built:** an eight-lane stadium (tartan, numbers, blocks, infield, flags, a long side stand and an end stand with tennis's crowd, a finish arch with a race clock); runners as the tennis character with jointed arms and legs following the server's speed; the crowd cheering harder near the line. `character.ts` and `shared/look.ts` untouched; `stadium.ts` gained small exports (`sky`, `paintStand`, `crowdMeshes`, `FAN_SHIRTS`), tennis unchanged.
+- **Frame rate:** the first version ran at about a quarter of today's; after merging each stand's fans into one mesh, baking the light into the stadium's colours and dropping the sky gradient, it measured about equal to before on the software renderer (desktop 17-36 fps against 21-35 before, mobile 60), on a machine loaded by other agents.
+- **Open:** no e2e checks a custom look on track (read from the code only); the podium waits on task 28.
+
+## 2026-11-08 04:46 AEDT | milestone | Archery looks agent finished (task 31, branch archery-looks-31, 650fa9c)
+
+- **Decided by:** agent (the scene and its choices); Claude (accepting it for the merge).
+- **Result:** `pnpm check` 45 files, 725 tests, exit 0 (new `spec/archery-look.test.ts`); `e2e/archery` 16 of 16 and `e2e/spectate` + `e2e/home` 38 of 38, exit 0. The full e2e wasn't run; tennis's must run at integration, since `stadium.ts` changed.
+- **Built:** an outdoor range (striped grass, hills, trees, butts in the other lanes, a wooden shooting line), flags that stream with the snapshot's own wind so they agree with the dial, a small stand of tennis's crowd that jumps on a 10 or a bullseye, and the archer as the tennis character holding the bow. Your own turn stays first person; the other's turn, and every turn for a spectator, is a view from behind the line. Gameplay, messages, the sim and the sight preview unchanged; `character.ts` and `shared/look.ts` untouched.
+- **Bug its new spec found:** at full draw with the aim tipped down the bow hand was 1 cm out of reach; the arms were lengthened slightly.
+- **Frame rate:** the first version ran at half of main's on desktop; after a plain sky and unlit, merged ground, hills and clouds, alternating rounds measured desktop 37-60 fps against main's 30-49 at 10 m, about equal at 40 m, phone 60.
+- **Merge note:** both task-31 branches changed `stadium.ts` (track exported `sky`, `paintStand`, `crowdMeshes`, `FAN_SHIRTS`; archery exported `crowd()` with an optional layout), and bowling's exported `crowdMeshes` too: expect a conflict there.
+
+## 2026-11-08 05:08 AEDT | milestone | Customisation agent finished (task 33, branch customise-33, 8937087)
+
+- **Decided by:** agent (the build and its choices, in its own "Task 33 built" entry); Claude (accepting it for the merge).
+- **Result:** `pnpm check` 44 files, 726 tests, exit 0; `e2e/look`, `home`, `accounts` 40 passed; the full headless `pnpm e2e --workers=1` 198 passed, exit 0 (the first agent tonight with a fully green full run).
+- **Built:** 14 look fields, each a fixed list (top style and colour, bottom style and colour, skin, hair colour and style, headwear, eyes, brows, nose, mouth, facial hair, eyewear), refused on the server outside the lists; schema step 7 maps every stored task-18 look to the new shape, with a test on a v6 database; every option drawn in 3D (`character.ts`, faces in bold strokes that read at court distance) and SVG; a new editor (live preview, Face / Hair / Clothes / Extras tabs, picture swatches, Save and Cancel, keyboard).
+- **Merge notes:** take its `character.ts` over bowling-scene's (it already has bowling's `racket: false`, `arm` and `hand`, and still accepts task-18 looks, which bowling builds); boxing's upper arms now use the new `sleeve` part. Every building agent from tonight has now finished.
