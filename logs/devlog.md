@@ -1743,3 +1743,33 @@ the format of the entries below (see CLAUDE.md, Docs).
 - **Track's jump** (task 27): elbows mode, both arms up together; knees mode, jumping on the spot. Goes into track's training and guide.
 - **Calibration** (task 25): it reads one swing as two too easily: find the cause and fix it with a failing test, in calibration and in play. **Save every camera setting to the account** (calibration, racket hand, movement mode, archery's bow hand, track's camera mode), loaded on any device; guests keep the browser. Task 25 had been parked "not built" since 2026-10-21; it is now to build.
 - **Written:** tasks 35, 27 and 25 updated.
+
+## 2026-11-08 17:13 · design · Home mock round: bigger thumbnail, even columns
+- What: the user said the thumbnail still looked small and the left (cards) side felt heavier than the right. The three columns now share one height (cards, centre panel and party panel all 760 px tall at 1920x1080, 532 at a 1366x657 laptop window); the thumbnail takes whatever height the centre panel has left (765x409 at full HD, was 766x384; 533x245 on the laptop, was 157 tall); Practice, Train, How to play and Party sit in one row of four smaller buttons under Create a room (the phone keeps the 2x2); the party panel is as solid as the centre one with a grass floor so it carries the same weight as the cards. Removed the unused 3D-party element.
+- Checked: no horizontal scroll, the Join box in view, nothing spilling out of a panel, at full HD and the laptop window, alone and with a party of 10.
+- Who: Claude, from the user's request; mock still uncommitted until approved.
+
+## 2026-11-08 17:16 · design · Home mock: friends list and your status
+- What: the user approved the layout and asked for the friends list (with how many are online) and setting online, away or offline. Added a "Friends · N online" button beside the profile in the top bar (a phone shows the icon and the number). It opens a panel (a popover on desktop, a bottom sheet on a phone): Online / Away / Offline for yourself (your dot shows on your profile picture; offline means friends see you as offline), "Add a friend: Name#1234", friend requests (Accept / ✕), then friends grouped Online, Away and Offline with what they're doing ("In a match · Tennis" → Watch, "Public party" → Join, otherwise Invite; offline ones greyed with last seen). Escape, ✕ or a click outside closes it.
+- Checked: panel fully in view, no horizontal scroll, no overlap with the logo, at 1920x1080, 1366x657 and 390x844; no page errors.
+- Who: Claude, from the user's request (task 34's design); mock still uncommitted until approved.
+
+## 2026-11-08 17:21 · design · Home mock: logo centred on the page, bigger
+- What: the user asked whether the logo was centred, since it didn't line up with the centre tile. It wasn't: the top bar spread its three items apart, and the right group (Friends + profile) is wider than the music button, so the logo sat left of centre. The centre tile was already centred (equal side columns). The top bar is now a three-column grid with equal outer columns, so the logo's middle is the page's middle and the centre tile's (960 px at 1920 wide, 683 at 1366). The logo is bigger: about 1.6x at full HD (368x101), 1.4x in a short laptop window. On a phone it sits in the gap between the buttons, since true centre would hit the Friends button.
+- Checked: no overlap with the buttons, no horizontal scroll, the Join box in view, at 1920x1080, 1366x657 and 390x844.
+- Who: Claude, from the user's question; mock still uncommitted until approved.
+
+## 2026-11-08 17:23 · decision · Home mock approved
+- What: making the logo bigger had spread its rings apart. They overlap again, like the Olympic rings: the gap and the drop of the 2nd and 4th rings now scale with the ring size (7 px overlap at full HD, 4 on a laptop, 3 on a phone). The user then approved the look: "apart from that, i am happy with the look".
+- Next: an agent builds it into `client/ui/menu.ts` (and the profile/friends parts) once the integration branch is on main, from `client/mock-home.html` + `client/mock-home-3d.ts`, keeping `spec/home-screen.test.ts` and checking short laptop windows.
+- Who: user (approval), Claude (ring fix).
+
+## 2026-11-08 17:27 · design · Home mock: rings, track finish line, a bowler
+- What (user: "rings still arent overlapping as much, and in track, the finish line has a big white patch and only appears for a second", "bowling has no character in it"): the rings now overlap by about 44% of a ring with the 2nd and 4th dropped half a ring, like the Olympic rings. Track's finish line was a plain white strip that waited 2.4 s off-screen and then jumped in; it is now a checkered line with two posts and a FINISH banner that slides in steadily over the whole 4 s loop and the runners cross it. Bowling gets a bowler seen from behind (as the game's camera is) who swings the ball back and lets go low; the ball is red so it shows against the shirt and lane, and shrinks as it rolls away.
+- Who: Claude, from the user's notes; mock still uncommitted.
+
+## 2026-11-08 17:29 · design · Home mock: no finish line; bowler redrawn
+- What (user: "remove the finish line from the animation", the bowler "doesnt fit the look of the other characters and the ball goes through the character's body"): track's preview has no finish line now, just the runners and the scrolling lanes. The bowler is redrawn in the same small style as the other previews' figures (the basketball shooter's body, legs and head, seen from behind). The bowling arm and ball stay on the outside of the body, and the ball leaves from the hand and rolls away to the right of the bowler, never across them.
+- Who: Claude, from the user's notes; mock still uncommitted.
+- 17:31 follow-up: removed the bowler's ears (user asked if they made it look off; no other preview figure has ears), added a small neck instead. Who: user (spotted), Claude.
+- 17:32 queued as task 36 (`tasks/36-home-redesign.md`), mock committed for the build agent; starts once integrate-rest is on main. Who: user (approved, "happy to queue this up"), Claude.

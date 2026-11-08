@@ -1,0 +1,608 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Weblympics home mock</title>
+<!-- MOCK ONLY (2026-11-08): a home-screen redesign proposal for the user to
+     review. Not wired to the app, not committed. Plain SVG + CSS, no 3D, no
+     images, no libraries, so it stays light on weak devices. -->
+<style>
+@font-face { font-family: "Fredoka"; font-weight: 400 700; font-display: swap; src: url("./assets/fonts/fredoka-latin-var.woff2") format("woff2"); }
+:root {
+  --blue: #0081c8; --yellow: #fcb131; --black: #1d1d1f; --green: #00a651; --red: #ee334e;
+  --ink: #12304a; --ink-soft: #3f5b73; --panel: rgba(255,255,255,0.82); --panel-edge: rgba(255,255,255,0.95);
+  --accent: var(--blue); --accent-soft: #d9efff;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; }
+body { font: 16px/1.4 "Fredoka", system-ui, sans-serif; color: var(--ink); background: #bfe4ff; overflow-x: hidden; }
+button { font: inherit; cursor: pointer; }
+
+/* ---- full-screen scene: one SVG, swapped per sport by CSS variables ---- */
+.scene { position: fixed; inset: 0; z-index: 0; }
+.scene svg { width: 100%; height: 100%; display: block; }
+.sky { fill: url(#sky); }
+.cloud { fill: #fff; opacity: .9; animation: drift 60s linear infinite; }
+.cloud.c2 { animation-duration: 85s; animation-delay: -30s; opacity: .7; }
+@keyframes drift { from { transform: translateX(-20%); } to { transform: translateX(120%); } }
+.hills-far { fill: var(--hill-far, #7cc6a0); transition: fill .6s; }
+.hills-near { fill: var(--hill-near, #4fae7b); transition: fill .6s; }
+.stand { fill: var(--stand, #e9eef5); }
+.stand-shade { fill: var(--stand-shade, #cdd7e3); }
+.fans circle { animation: bob 1.6s ease-in-out infinite; }
+.fans circle:nth-child(3n) { animation-delay: -.5s; } .fans circle:nth-child(3n+1) { animation-delay: -1s; }
+@keyframes bob { 50% { transform: translateY(-3px); } }
+.ground { fill: var(--ground, #3f9a57); transition: fill .6s; }
+.field { transition: opacity .5s; }
+
+/* ---- layout over the scene ---- */
+.top { position: fixed; top: 0; left: 0; right: 0; z-index: 3; display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; padding: clamp(8px, 1.8vh, 18px) 28px; }
+.top > :first-child { justify-self: start; } .top-right { justify-self: end; }
+@media (max-height: 760px) and (min-width: 761px) { .word { font-size: 46px; -webkit-text-stroke: 7px var(--ink); } .rings { --rw: 19px; } .rings span { border-width: 3.5px; } }
+.logo { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.rings { display: flex; gap: 0; --rw: clamp(20px, 2.9vh, 30px); } .rings span + span { margin-left: calc(var(--rw) * -0.44); } .rings span:nth-child(2), .rings span:nth-child(4) { z-index: 1; } .rings span { position: relative; } .rings span { width: var(--rw); height: var(--rw); border-radius: 50%; border: 4px solid; animation: pop .6s backwards; }
+.rings span:nth-child(1){border-color:var(--blue)} .rings span:nth-child(2){border-color:var(--yellow);transform:translateY(calc(var(--rw) * .5));animation-delay:.08s}
+.rings span:nth-child(3){border-color:var(--black);animation-delay:.16s} .rings span:nth-child(4){border-color:var(--green);transform:translateY(calc(var(--rw) * .5));animation-delay:.24s}
+.rings span:nth-child(5){border-color:var(--red);animation-delay:.32s}
+@keyframes pop { from { transform: scale(0); } }
+.word { font-weight: 700; font-size: clamp(44px, 6.4vh, 70px); letter-spacing: -1px; color: #fff; -webkit-text-stroke: 7px var(--ink); paint-order: stroke fill; line-height: 1; }
+.word b:nth-child(5n+1){color:var(--blue)} .word b:nth-child(5n+2){color:var(--yellow)} .word b:nth-child(5n+3){color:#fff} .word b:nth-child(5n+4){color:var(--green)} .word b:nth-child(5n){color:var(--red)}
+.word b { font-weight: inherit; display: inline-block; }
+.top-right { display: flex; gap: 10px; align-items: center; }
+.icon-btn { width: 46px; height: 46px; border-radius: 50%; border: 0; background: var(--panel); box-shadow: 0 4px 14px rgba(18,48,74,.18); display: grid; place-items: center; font-size: 20px; }
+.profile { display: flex; align-items: center; gap: 10px; padding: 5px 16px 5px 5px; border-radius: 30px; border: 0; background: var(--panel); box-shadow: 0 4px 14px rgba(18,48,74,.18); font-weight: 600; color: var(--ink); }
+.profile .face { width: 40px; height: 40px; border-radius: 50%; background: #dff1ff; display: grid; place-items: center; overflow: hidden; }
+.profile .tag { color: var(--ink-soft); font-weight: 500; font-size: 13px; }
+
+main { position: relative; z-index: 2; min-height: 100%; display: grid; grid-template-columns: minmax(280px, .82fr) minmax(460px, 1.36fr) minmax(280px, .82fr); gap: clamp(16px, 2vw, 28px); padding: clamp(84px, 13vh, 120px) clamp(20px, 2.5vw, 40px) clamp(40px, 6vh, 56px); align-items: stretch; --colh: min(760px, calc(100vh - clamp(84px, 13vh, 120px) - clamp(40px, 6vh, 56px))); }
+@media (min-width: 761px) { main > .sports, main > .stage, main > .me { height: var(--colh); max-height: none; min-height: 0; align-self: center; box-sizing: border-box; } }
+
+/* sport cards */
+.sports { display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: repeat(3, 1fr); gap: clamp(10px, 1.6vh, 16px); align-content: center; max-height: min(680px, calc(100vh - 150px)); align-self: center; width: 100%; }
+.card { position: relative; border: 0; border-radius: 22px; padding: 16px; text-align: left; color: #fff; background: var(--c); box-shadow: 0 6px 0 var(--c-dark), 0 12px 24px rgba(18,48,74,.25); display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-rows: auto 1fr auto; column-gap: 8px; min-height: clamp(96px, 15vh, 140px); transition: transform .15s, box-shadow .15s; overflow: hidden; }
+.card:hover { transform: translateY(-3px); }
+.card[aria-pressed="true"] { outline: 5px solid #fff; outline-offset: 0; transform: translateY(-4px) scale(1.03); box-shadow: 0 8px 0 var(--c-dark), 0 18px 34px rgba(18,48,74,.35); }
+.card .name { grid-column: 1; grid-row: 1; font-weight: 700; font-size: clamp(17px, 1.5vw, 26px); text-shadow: 0 2px 0 rgba(0,0,0,.15); white-space: nowrap; }
+.card .blurb { grid-column: 1; grid-row: 3; font-size: 13px; opacity: .92; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+@media (max-width: 1500px) and (min-width: 761px) { .card .blurb { display: none; } }
+.card svg.ic, .card canvas.ic3d { grid-column: 2; grid-row: 1 / span 3; align-self: center; width: clamp(56px, 5.2vw, 104px); height: auto; aspect-ratio: 1; }
+.card[aria-pressed="true"] svg.ic { animation: wiggle 1.2s ease-in-out infinite; }
+@keyframes wiggle { 50% { transform: rotate(-8deg) scale(1.06); } }
+.card.tennis { --c: #2fa84f; --c-dark: #1f7a38; } .card.archery { --c: #e0453a; --c-dark: #a8302a; }
+.card.track { --c: #f08a24; --c-dark: #b8651a; } .card.boxing { --c: #8a4fd8; --c-dark: #6533a6; }
+.card.basketball { --c: #e86a24; --c-dark: #a8491a; } .card.bowling { --c: #2f7fe0; --c-dark: #1f5aa8; }
+
+/* centre: sport header, small thumbnail, big buttons */
+.stage { align-self: center; background: var(--panel); border: 2px solid var(--panel-edge); border-radius: 28px; padding: clamp(12px, 2vh, 20px); box-shadow: 0 16px 40px rgba(18,48,74,.22); backdrop-filter: blur(6px); display: flex; flex-direction: column; gap: clamp(8px, 1.4vh, 14px); }
+.head { display: flex; flex-direction: column; gap: clamp(8px, 1.2vh, 12px); flex: 1 1 auto; min-height: 0; }
+.preview { width: 100%; flex: 1 1 auto; min-height: 150px; height: auto; border-radius: 18px; overflow: hidden; background: #dff1ff; box-shadow: inset 0 0 0 3px #fff; }
+.preview svg { width: 100%; height: 100%; display: block; }
+.pitch { display: flex; flex-wrap: wrap; align-items: baseline; column-gap: 12px; row-gap: 2px; }
+.pitch h2 { margin: 0; font-size: clamp(24px, 3.2vh, 34px); line-height: 1.05; } .pitch p { margin: 0; color: var(--ink-soft); font-size: 15px; flex: 1 1 14em; }
+.pitch .chip { display: inline-block; margin-top: 0; padding: 3px 10px; border-radius: 10px; background: var(--accent-soft); color: var(--ink); font-size: 12px; font-weight: 600; }
+.actions { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+@media (min-width: 761px) { .actions .btn:not(.primary) { flex-direction: column; justify-content: center; text-align: center; gap: 4px; padding: 8px 6px; font-size: 16px; } .actions .btn:not(.primary) small { display: none; } .actions .btn:not(.primary) .ico { width: 34px; height: 34px; font-size: 20px; } }
+.btn { border: 0; border-radius: 20px; padding: clamp(8px, 1.4vh, 14px) 16px; font-weight: 700; font-size: 18px; color: var(--ink); background: #fff; box-shadow: 0 5px 0 #c9d6e2; transition: transform .1s; display: flex; align-items: center; gap: 12px; text-align: left; }
+.btn:hover { transform: translateY(-2px); }
+.btn:active { transform: translateY(3px); box-shadow: 0 2px 0 #c9d6e2; }
+.btn .ico { flex: 0 0 auto; width: clamp(34px, 5vh, 46px); height: clamp(34px, 5vh, 46px); border-radius: 14px; display: grid; place-items: center; font-size: 24px; background: rgba(255,255,255,.7); }
+.btn small { display: block; font-weight: 500; font-size: 13px; color: var(--ink-soft); }
+.btn.primary { grid-column: 1 / -1; font-size: clamp(20px, 3vh, 26px); padding: clamp(10px, 1.8vh, 18px) 20px; background: linear-gradient(#ffd56b, var(--yellow)); box-shadow: 0 6px 0 #c98a14; }
+.btn.primary .ico { width: clamp(40px, 6vh, 56px); height: clamp(40px, 6vh, 56px); font-size: clamp(22px, 3.4vh, 30px); }
+.btn.primary small { color: #6b4a08; font-size: 14px; }
+.btn.bot { background: #ffe1e6; box-shadow: 0 5px 0 #e9a3b0; }
+.btn.train { background: #d9f5e3; box-shadow: 0 5px 0 #8fd1a8; }
+.btn.guide { background: #e6eefc; box-shadow: 0 5px 0 #a9bde6; }
+.btn.party { background: #f1e6ff; box-shadow: 0 5px 0 #c3a6ea; }
+.join { display: flex; gap: 10px; } .join input { flex: 1; border: 2px solid #c9d6e2; border-radius: 16px; padding: 12px 16px; font: inherit; letter-spacing: 4px; text-transform: uppercase; }
+.join .btn { padding: 10px 22px; font-size: 16px; }
+.join input { padding: clamp(8px, 1.3vh, 12px) 16px; }
+
+/* right: your party (you alone, or friends who joined) */
+.me { align-self: center; display: flex; flex-direction: column; align-items: center; gap: 10px; padding: clamp(12px, 2vh, 20px); max-height: min(680px, calc(100vh - 150px)); background: linear-gradient(180deg, rgba(255,255,255,.9) 0%, rgba(232,244,255,.85) 78%, #bfe6c8 78%, #9fd8ad 100%); border: 2px solid var(--panel-edge); border-radius: 28px; box-shadow: 0 16px 40px rgba(18,48,74,.22); backdrop-filter: blur(4px); width: 100%; box-sizing: border-box; justify-content: space-between; min-height: min(560px, calc(100vh - 170px)); overflow: hidden; }
+.member svg { max-height: calc((var(--colh, 600px) - 190px) / var(--rows, 1)); }
+.party-title { font-weight: 700; color: var(--ink); background: var(--panel); padding: 4px 14px; border-radius: 14px; font-size: 15px; }
+.crew { display: flex; align-items: flex-end; justify-content: center; gap: 6px; width: 100%; flex-wrap: nowrap; }
+.member { display: flex; flex-direction: column; align-items: center; gap: 6px; flex: 0 1 var(--w); animation: arrive .5s backwards; }
+@keyframes arrive { from { transform: translateY(30px) scale(.6); opacity: 0; } }
+.member svg { width: 100%; height: auto; filter: drop-shadow(0 10px 8px rgba(18,48,74,.25)); overflow: visible; }
+.bubble { background: #fff; border-radius: 16px; padding: 8px 14px; font-weight: 600; box-shadow: 0 4px 12px rgba(18,48,74,.15); position: relative; }
+.bubble::after { content: ""; position: absolute; bottom: -8px; left: 50%; margin-left: -8px; border: 8px solid transparent; border-top-color: #fff; border-bottom: 0; }
+.member .bubble { font-size: 15px; white-space: nowrap; }
+.nameplate { background: #fff; border-radius: 12px; padding: 4px 10px; font-weight: 700; font-size: 14px; box-shadow: 0 3px 8px rgba(18,48,74,.15); white-space: nowrap; display: flex; align-items: center; gap: 6px; }
+.nameplate .dot { width: 8px; height: 8px; border-radius: 50%; background: #2fa84f; }
+.nameplate .dot.away { background: #f2c230; }
+.nameplate .lead { font-size: 12px; }
+.crew.big { display: grid; grid-template-columns: repeat(var(--cols), minmax(0, 1fr)); row-gap: 8px; column-gap: 4px; }
+.crew.big .member, .crew.big .slot { flex: none; width: 100%; min-width: 0; }
+.crew.big .nameplate { font-size: 11px; padding: 2px 6px; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+.crew.big .slot { aspect-ratio: auto; height: 100%; font-size: 12px; }
+.slot { flex: 0 1 var(--w); aspect-ratio: 1/1.7; border: 3px dashed rgba(18,48,74,.35); border-radius: 30px; display: grid; place-items: center; color: var(--ink-soft); font-weight: 700; background: rgba(255,255,255,.35); font-size: 14px; text-align: center; padding: 8px; }
+.me .edit { font-size: 14px; color: var(--blue); background: var(--panel); border: 0; border-radius: 12px; padding: 4px 12px; }
+/* idle moves, each member a different one */
+.m-wave .arm { transform-origin: 134px 140px; animation: wave 2.4s ease-in-out infinite; }
+@keyframes wave { 0%,60%,100% { transform: rotate(0); } 70% { transform: rotate(-28deg); } 80% { transform: rotate(-8deg); } 90% { transform: rotate(-28deg); } }
+.m-hop svg { animation: hop 1.8s ease-in-out infinite; }
+@keyframes hop { 0%,70%,100% { transform: translateY(0); } 80% { transform: translateY(-14px); } }
+.m-sway svg { transform-origin: 50% 100%; animation: sway 2.6s ease-in-out infinite; }
+@keyframes sway { 50% { transform: rotate(4deg); } }
+.m-cheer .arm, .m-cheer .arm2 { animation: cheer 1.4s ease-in-out infinite; }
+.m-cheer .arm { transform-origin: 134px 140px; } .m-cheer .arm2 { transform-origin: 66px 140px; animation-delay: -.7s; }
+@keyframes cheer { 50% { transform: rotate(-20deg); } }
+.party-strip { display: none; }
+body.has3d .card svg.ic { display: none; }
+.badge3d { display: block; margin-top: 4px; font-size: 11px; color: #6b5800; }
+
+/* friends: pill in the top bar, panel (popover on desktop, bottom sheet on a phone) */
+.friends-btn { display: flex; align-items: center; gap: 8px; height: 46px; padding: 0 16px 0 12px; border-radius: 30px; border: 0; background: var(--panel); box-shadow: 0 4px 14px rgba(18,48,74,.18); font: inherit; font-weight: 600; color: var(--ink); cursor: pointer; }
+.friends-btn .count { display: flex; align-items: center; gap: 5px; font-size: 13px; color: var(--ink-soft); font-weight: 500; }
+.sdot { width: 10px; height: 10px; border-radius: 50%; background: #2fa84f; flex: none; box-shadow: 0 0 0 2px #fff; }
+.sdot.away { background: #f2c230; } .sdot.offline { background: #9aa7b3; }
+.profile .face { position: relative; overflow: visible; } .profile .face svg { border-radius: 50%; }
+.profile .face .sdot { position: absolute; right: -1px; bottom: -1px; width: 12px; height: 12px; }
+.fpanel { position: fixed; top: 76px; right: 28px; z-index: 8; width: 360px; max-height: calc(100vh - 100px); display: flex; flex-direction: column; background: #fff; border-radius: 22px; box-shadow: 0 18px 50px rgba(18,48,74,.3); overflow: hidden; }
+.fpanel[hidden] { display: none; }
+.fpanel header { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px 8px; }
+.fpanel h3 { margin: 0; font-size: 20px; } .fpanel .x { border: 0; background: #eef4fa; width: 32px; height: 32px; border-radius: 50%; font-size: 16px; cursor: pointer; }
+.mystatus { display: flex; gap: 6px; padding: 0 16px 10px; }
+.mystatus button { flex: 1; display: flex; align-items: center; justify-content: center; gap: 6px; border: 2px solid #dbe6f0; background: #fff; border-radius: 14px; padding: 6px 4px; font: inherit; font-size: 13px; font-weight: 600; color: var(--ink); cursor: pointer; }
+.mystatus button[aria-pressed="true"] { border-color: var(--blue); background: #eaf3ff; }
+.mystatus .sdot { box-shadow: none; }
+.addf { display: flex; gap: 6px; padding: 0 16px 10px; } .addf input { flex: 1; min-width: 0; border: 2px solid #dbe6f0; border-radius: 14px; padding: 8px 12px; font: inherit; font-size: 14px; } .addf button { border: 0; border-radius: 14px; padding: 0 14px; background: var(--blue); color: #fff; font: inherit; font-weight: 600; cursor: pointer; }
+.addf-msg { padding: 0 16px 8px; font-size: 12px; color: var(--ink-soft); margin-top: -4px; }
+.flist { overflow-y: auto; padding: 0 8px 12px; }
+.flist h4 { margin: 10px 8px 4px; font-size: 12px; text-transform: uppercase; letter-spacing: 1px; color: var(--ink-soft); }
+.friend { display: flex; align-items: center; gap: 10px; padding: 6px 8px; border-radius: 14px; }
+.friend:hover { background: #f3f8fc; }
+.friend .av { position: relative; width: 38px; height: 38px; flex: none; } .friend .av svg { width: 38px; height: 38px; border-radius: 50%; background: #dff1ff; }
+.friend .av .sdot { position: absolute; right: -1px; bottom: -1px; }
+.friend .who2 { flex: 1; min-width: 0; line-height: 1.2; } .friend .nm { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } .friend .nm .tag { color: var(--ink-soft); font-weight: 500; font-size: 12px; }
+.friend .doing { font-size: 12px; color: var(--ink-soft); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.friend .act { border: 0; border-radius: 12px; padding: 6px 10px; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; background: #f1e6ff; color: #4b2a85; white-space: nowrap; }
+.friend .act.watch { background: #e6eefc; color: #1f4f9a; } .friend .act.join { background: #d9f5e3; color: #1d6b39; } .friend .act[disabled] { background: #eef1f4; color: #7a8a99; cursor: default; }
+.friend.off { opacity: .6; }
+.req { display: flex; gap: 6px; } .req button { border: 0; border-radius: 10px; padding: 5px 9px; font: inherit; font-size: 12px; font-weight: 600; cursor: pointer; } .req .ok { background: #2fa84f; color: #fff; } .req .no { background: #eef1f4; color: var(--ink); }
+@media (max-width: 760px) {
+  .friends-btn { height: 40px; padding: 0 12px 0 10px; } .friends-btn .label, .friends-btn .olabel { display: none; } .friends-btn { gap: 6px; }
+  .fpanel { top: auto; bottom: 0; left: 0; right: 0; width: auto; max-height: 80vh; border-radius: 22px 22px 0 0; }
+}
+
+footer { position: fixed; bottom: 10px; left: 0; right: 0; z-index: 3; text-align: center; font-size: 13px; }
+footer a { color: var(--ink); background: var(--panel); padding: 4px 12px; border-radius: 12px; text-decoration: none; }
+
+/* review notes, mock only */
+.note { position: fixed; left: 12px; bottom: 12px; right: auto; top: auto; z-index: 9; background: #fffbe6; border: 2px dashed #e0b400; border-radius: 12px; padding: 8px 12px; font-size: 12px; max-width: 290px; }
+.note b { display: inline; } .note summary { cursor: pointer; } .note:not([open]) { padding: 4px 10px; }
+
+/* ---- phone ---- */
+@media (max-width: 760px) {
+  body { overflow: auto; }
+  .top { grid-template-columns: auto 1fr auto; column-gap: 8px; } .logo { justify-self: center; }
+  .top { position: sticky; padding: 10px 14px; background: linear-gradient(rgba(191,228,255,.95), rgba(191,228,255,0)); }
+  .word { font-size: 30px; -webkit-text-stroke: 5px var(--ink); } .rings { --rw: 14px; } .rings span { border-width: 2.5px; }
+  .profile .who { display: none; } .profile { padding: 4px; } .icon-btn { width: 40px; height: 40px; }
+  main { display: flex; flex-direction: column; height: auto; padding: 8px 16px 70px; gap: 16px; }
+  .sports { order: 1; grid-template-columns: repeat(3, 1fr); gap: 10px; max-height: none; }
+  .card { min-height: 84px; padding: 10px; border-radius: 16px; }
+  .card .name { font-size: 14px; position: relative; z-index: 1; } .card svg.ic { opacity: .55; } .card .blurb { display: none; } .card svg.ic { width: 54px; height: 54px; right: -6px; top: -6px; }
+  .stage { order: 2; padding: 12px; border-radius: 22px; }
+  .head { gap: 10px; } .preview { flex: none; height: auto; aspect-ratio: 16/10; } .actions { grid-template-columns: 1fr 1fr; } .pitch h2 { font-size: 24px; } .pitch p { font-size: 13px; }
+  .btn .ico { width: 36px; height: 36px; font-size: 19px; } .btn small { font-size: 11px; } .btn.primary .ico { width: 44px; height: 44px; }
+  .party-strip { display: flex; order: 3; gap: 12px; overflow-x: auto; padding: 8px 4px; background: var(--panel); border-radius: 18px; min-width: 0; max-width: 100%; }
+  main > * { min-width: 0; }
+  .party-strip .p { display: flex; flex-direction: column; align-items: center; font-size: 12px; font-weight: 600; min-width: 64px; }
+  .party-strip svg { width: 44px; height: 44px; }
+  .btn { font-size: 15px; padding: 10px; gap: 8px; } .btn.primary { font-size: 20px; padding: 14px; }
+  .me { display: none; }
+  .note { display: none; }
+}
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
+</style>
+</head>
+<body>
+
+<!-- full-screen scene (one inline SVG, ~60 shapes) -->
+<div class="scene" aria-hidden="true">
+  <svg viewBox="0 0 1600 900" preserveAspectRatio="xMidYMid slice">
+    <defs>
+      <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#8fd0ff"/><stop offset="1" stop-color="#e6f6ff"/></linearGradient>
+    </defs>
+    <rect class="sky" width="1600" height="900"/>
+    <g class="cloud"><ellipse cx="200" cy="120" rx="90" ry="30"/><ellipse cx="260" cy="105" rx="60" ry="28"/></g>
+    <g class="cloud c2"><ellipse cx="700" cy="190" rx="110" ry="32"/><ellipse cx="770" cy="172" rx="70" ry="30"/></g>
+    <g class="cloud" style="animation-delay:-45s"><ellipse cx="1200" cy="90" rx="80" ry="26"/></g>
+    <path class="hills-far" d="M0 520 C200 440 360 470 520 430 C700 385 860 460 1040 420 C1220 380 1400 440 1600 400 L1600 900 L0 900Z"/>
+    <!-- stands with a bobbing crowd -->
+    <polygon class="stand" points="0,560 1600,560 1600,470 0,470"/>
+    <polygon class="stand-shade" points="0,560 1600,560 1600,540 0,540"/>
+    <g class="fans" id="fans"></g>
+    <path class="hills-near" d="M0 600 C300 570 600 590 900 575 C1200 560 1400 585 1600 570 L1600 900 L0 900Z"/>
+    <rect class="ground" y="610" width="1600" height="290"/>
+    <!-- the selected sport's field, drawn in perspective -->
+    <g class="field" id="field"></g>
+  </svg>
+</div>
+
+<header class="top">
+  <button class="icon-btn" title="Music on" aria-label="Music on">♪</button>
+  <div class="logo" aria-label="Weblympics">
+    <div class="rings"><span></span><span></span><span></span><span></span><span></span></div>
+    <div class="word" aria-hidden="true"><b>W</b><b>e</b><b>b</b><b>l</b><b>y</b><b>m</b><b>p</b><b>i</b><b>c</b><b>s</b></div>
+  </div>
+  <div class="top-right">
+    <button class="friends-btn" id="friends-btn" aria-haspopup="dialog" aria-expanded="false"><span aria-hidden="true">👥</span><span class="label">Friends</span><span class="count"><span class="sdot"></span><span id="online-count">4</span><span class="olabel"> online</span></span></button>
+    <button class="profile"><span class="face">
+      <svg viewBox="0 0 40 40" width="40" height="40"><circle cx="20" cy="17" r="9" fill="#f3cfae"/><path d="M11 15 Q20 4 29 15 Q26 9 20 9 Q14 9 11 15Z" fill="#4a2c1a"/><circle cx="17" cy="17" r="1.3" fill="#12304a"/><circle cx="23" cy="17" r="1.3" fill="#12304a"/><path d="M17 21 Q20 23.5 23 21" stroke="#12304a" stroke-width="1.3" fill="none"/><path d="M8 40 Q8 28 20 28 Q32 28 32 40Z" fill="#2f7fe0"/></svg><span class="sdot" id="my-dot"></span>
+    </span><span class="who">Sam <span class="tag">#4821</span></span></button>
+  </div>
+</header>
+
+<section class="fpanel" id="fpanel" role="dialog" aria-label="Friends" hidden>
+  <header><h3>Friends</h3><button class="x" id="fclose" aria-label="Close">✕</button></header>
+  <div class="mystatus" role="group" aria-label="Show me as">
+    <button data-s="online" aria-pressed="true"><span class="sdot"></span>Online</button>
+    <button data-s="away" aria-pressed="false"><span class="sdot away"></span>Away</button>
+    <button data-s="offline" aria-pressed="false" title="Friends see you as offline"><span class="sdot offline"></span>Offline</button>
+  </div>
+  <form class="addf" id="addf"><input id="addf-in" placeholder="Add a friend: Name#1234" aria-label="Friend's name and number"><button>Add</button></form>
+  <div class="addf-msg" id="addf-msg">Their number is next to their name on their profile.</div>
+  <div class="flist" id="flist"></div>
+</section>
+
+<main>
+  <section class="sports" aria-label="Sports" id="sports"></section>
+
+  <section class="stage" aria-live="polite">
+    <div class="head">
+      <div class="preview" id="preview"></div>
+      <div class="pitch"><h2 id="sport-name">Tennis</h2><p id="sport-pitch">Rally against the bot or a friend.</p><span class="chip" id="sport-chip">Camera or keyboard</span></div>
+    </div>
+    <div class="actions">
+      <button class="btn primary" id="create"><span class="ico">🏟️</span><span>Create a room<small>Send a link to a friend</small></span></button>
+      <button class="btn bot"><span class="ico">🤖</span><span>Practice<small>Play the bot now</small></span></button>
+      <button class="btn train"><span class="ico">🎯</span><span>Train<small>Learn the moves</small></span></button>
+      <button class="btn guide"><span class="ico">❔</span><span>How to play<small>Controls and moves</small></span></button>
+      <button class="btn party"><span class="ico">🎉</span><span>Party<small>Play with friends</small></span></button>
+    </div>
+    <div class="join"><input placeholder="Code" aria-label="Room code" maxlength="6"><button class="btn">Join</button></div>
+  </section>
+  <div class="party-strip" id="party-strip"></div>
+
+  <aside class="me" aria-label="Your party">
+    <div class="party-title" id="party-title">Ready to play!</div>
+    <div class="crew" id="crew"></div>
+    <button class="edit">Change my look</button>
+  </aside>
+</main>
+
+<footer><a href="#">What makes this good?</a></footer>
+
+<details class="note"><summary><b>Mock controls</b> · <span id="mode3d">loading…</span></summary>Click the sport cards to change the scene. Try a party: <button id="add">+ friend joins</button> <button id="rem">− leaves</button><br>Not wired to the game; nothing is saved.</details>
+
+<script type="module">
+// Mock data: each sport's colours, scene and a tiny looping preview.
+const SPORTS = [
+  { id: "tennis", name: "Tennis", blurb: "Rally and smash", pitch: "Rally against the bot or a friend. Swing to hit.", ground: "#3f9a57", hillFar: "#7cc6a0", hillNear: "#4fae7b", accent: "#2fa84f" },
+  { id: "archery", name: "Archery", blurb: "Read the wind", pitch: "Draw, aim, read the wind, hit the gold.", ground: "#58a64a", hillFar: "#9cd08a", hillNear: "#6fb85e", accent: "#e0453a" },
+  { id: "track", name: "Track", blurb: "Sprint 100 m", pitch: "Run on the spot and race to the line.", ground: "#c9473a", hillFar: "#87c7a6", hillNear: "#5aa97f", accent: "#f08a24" },
+  { id: "boxing", name: "Boxing", blurb: "Jab and guard", pitch: "Three quick rounds. Jab, guard and slip.", ground: "#3c4f7a", hillFar: "#6f7fb0", hillNear: "#4c5d92", accent: "#8a4fd8" },
+  { id: "basketball", name: "Basketball", blurb: "Shoot-off", pitch: "Five spots, one shot each. Swish for a bonus.", ground: "#7d8794", hillFar: "#8fc6a3", hillNear: "#66ad80", accent: "#e86a24" },
+  { id: "bowling", name: "Bowling", blurb: "Five frames", pitch: "Swing underarm, curve it into the pocket.", ground: "#c48a4e", hillFar: "#9a7bc7", hillNear: "#7a5bab", accent: "#2f7fe0" },
+];
+// small card icons
+const ICON = {
+  tennis: '<circle cx="46" cy="46" r="32" fill="#d7f05a" stroke="#b6cc3a" stroke-width="2"/><path d="M20 26 C40 38 40 54 20 66" stroke="#fff" stroke-width="5" fill="none" stroke-linecap="round"/><path d="M72 26 C52 38 52 54 72 66" stroke="#fff" stroke-width="5" fill="none" stroke-linecap="round"/><ellipse cx="36" cy="30" rx="8" ry="5" fill="#fff" opacity=".35"/>',
+  archery: '<circle cx="46" cy="46" r="32" fill="#fff" stroke="#ddd" stroke-width="2"/><circle cx="46" cy="46" r="26" fill="#1d1d1f"/><circle cx="46" cy="46" r="20" fill="#2f7fe0"/><circle cx="46" cy="46" r="13" fill="#ee334e"/><circle cx="46" cy="46" r="6" fill="#fcb131"/><line x1="48" y1="44" x2="78" y2="14" stroke="#6b4a2a" stroke-width="3"/><path d="M74 12 L84 8 L80 18 Z" fill="#ee334e"/>',
+  track: '<path d="M10 58 L12 40 Q14 32 24 32 L34 32 L40 40 Q56 38 70 46 Q84 52 84 60 L84 64 L10 64 Z" fill="#2f7fe0"/><path d="M8 64 L86 64 Q88 70 82 72 L10 72 Q6 70 8 64Z" fill="#fff"/><path d="M50 72 L82 72 L80 76 L52 76Z" fill="#ee334e"/><path d="M30 52 L62 46" stroke="#fcb131" stroke-width="5" stroke-linecap="round"/><g stroke="#fff" stroke-width="2.5" stroke-linecap="round"><line x1="40" y1="40" x2="44" y2="36"/><line x1="46" y1="41" x2="50" y2="37"/><line x1="52" y1="42" x2="56" y2="38"/></g><ellipse cx="22" cy="34" rx="8" ry="3" fill="#12304a"/>',
+  boxing: '<path d="M24 36 Q22 16 46 16 Q68 16 68 38 L68 54 Q68 70 50 70 L36 70 Q24 70 24 56Z" fill="#ee334e"/><path d="M28 40 Q40 34 64 38" stroke="#f47386" stroke-width="5" fill="none" stroke-linecap="round"/><ellipse cx="66" cy="50" rx="8" ry="11" fill="#d62e48"/><rect x="28" y="68" width="34" height="14" rx="4" fill="#fff"/><rect x="28" y="70" width="34" height="3" fill="#1d1d1f"/>',
+  basketball: '<circle cx="46" cy="46" r="32" fill="#e8762a" stroke="#b9541a" stroke-width="2"/><g stroke="#2a1a10" stroke-width="3" fill="none"><line x1="14" y1="46" x2="78" y2="46"/><line x1="46" y1="14" x2="46" y2="78"/><path d="M24 22 Q38 46 24 70"/><path d="M68 22 Q54 46 68 70"/></g><ellipse cx="34" cy="28" rx="8" ry="5" fill="#fff" opacity=".25"/>',
+  bowling: '<path d="M46 10 Q56 10 55 24 Q53 32 58 40 Q66 54 60 80 L32 80 Q26 54 34 40 Q39 32 37 24 Q36 10 46 10Z" fill="#fff" stroke="#ccd" stroke-width="2"/><path d="M38 30 H54 M37 35 H55" stroke="#ee334e" stroke-width="3.5"/><ellipse cx="42" cy="18" rx="3" ry="5" fill="#fff" opacity=".8"/>',
+};
+// perspective fields for the background
+const FIELD = {
+  tennis: '<polygon points="560,640 1040,640 1260,900 340,900" fill="#2f7fd0" opacity=".9"/><polygon points="600,650 1000,650 1190,890 410,890" fill="none" stroke="#fff" stroke-width="5"/><line x1="800" y1="650" x2="800" y2="890" stroke="#fff" stroke-width="4"/><line x1="470" y1="740" x2="1130" y2="740" stroke="#fff" stroke-width="10" opacity=".9"/>',
+  archery: '<g transform="translate(1120 600)"><rect x="-6" y="0" width="12" height="70" fill="#8a5a2b"/><circle r="52" fill="#fff"/><circle r="40" fill="#2f7fe0"/><circle r="28" fill="#ee334e"/><circle r="14" fill="#fcb131"/></g><g transform="translate(420 640)"><rect x="-4" y="0" width="8" height="40" fill="#8a5a2b"/><circle r="28" fill="#fff"/><circle r="20" fill="#2f7fe0"/><circle r="12" fill="#ee334e"/><circle r="6" fill="#fcb131"/></g>',
+  track: '<polygon points="0,660 1600,660 1600,900 0,900" fill="#c9473a"/><g stroke="#fff" stroke-width="4"><line x1="0" y1="700" x2="1600" y2="700"/><line x1="0" y1="750" x2="1600" y2="750"/><line x1="0" y1="810" x2="1600" y2="810"/></g><rect x="1180" y="660" width="14" height="240" fill="#fff"/>',
+  boxing: '<polygon points="480,650 1120,650 1240,880 360,880" fill="#e9eef5"/><g stroke="#ee334e" stroke-width="6"><line x1="470" y1="620" x2="1130" y2="620"/><line x1="440" y1="660" x2="1160" y2="660"/></g><rect x="455" y="600" width="16" height="200" fill="#1d1d1f"/><rect x="1130" y="600" width="16" height="200" fill="#1d1d1f"/>',
+  basketball: '<polygon points="400,640 1200,640 1400,900 200,900" fill="#8e98a5"/><path d="M640 640 Q800 760 960 640" fill="none" stroke="#fff" stroke-width="5"/><rect x="740" y="640" width="120" height="140" fill="#2f7fe0" opacity=".7"/><g transform="translate(800 470)"><rect x="-6" y="40" width="12" height="140" fill="#666"/><rect x="-60" y="-10" width="120" height="70" fill="#fff" stroke="#666" stroke-width="5"/><ellipse cx="0" cy="62" rx="26" ry="6" fill="none" stroke="#ee334e" stroke-width="5"/></g>',
+  bowling: '<polygon points="700,620 900,620 1100,900 500,900" fill="#e5b77c"/><g stroke="#c48a4e" stroke-width="3"><line x1="760" y1="620" x2="620" y2="900"/><line x1="840" y1="620" x2="980" y2="900"/></g><g fill="#fff"><ellipse cx="800" cy="625" rx="6" ry="14"/><ellipse cx="786" cy="630" rx="6" ry="14"/><ellipse cx="814" cy="630" rx="6" ry="14"/></g>',
+};
+// big looping preview (a simple animated SVG per sport)
+// Looping previews: a little figure doing each sport's move (SVG + SMIL, no JS).
+// fig(): a simple person, pose by limb angles; animated parts use <animateTransform>.
+const SKIN = "#f3cfae", SKIN2 = "#b57c55";
+const PREVIEW = {
+  tennis: `
+    <defs><linearGradient id="pt-sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#8fd0ff"/><stop offset="1" stop-color="#dff3ff"/></linearGradient></defs>
+    <rect width="320" height="180" fill="url(#pt-sky)"/>
+    <rect y="62" width="320" height="18" fill="#e9eef5"/><g fill="#e0453a"><circle cx="20" cy="70" r="4"/><circle cx="60" cy="68" r="4"/><circle cx="110" cy="70" r="4"/><circle cx="170" cy="68" r="4"/><circle cx="230" cy="70" r="4"/><circle cx="290" cy="68" r="4"/></g>
+    <g fill="#2f7fe0"><circle cx="40" cy="70" r="4"/><circle cx="90" cy="68" r="4"/><circle cx="140" cy="70" r="4"/><circle cx="200" cy="68" r="4"/><circle cx="260" cy="70" r="4"/></g>
+    <rect y="80" width="320" height="100" fill="#3f9a57"/>
+    <polygon points="110,84 210,84 290,180 30,180" fill="#2f7fd0"/>
+    <polygon points="118,88 202,88 276,176 44,176" fill="none" stroke="#fff" stroke-width="2"/>
+    <line x1="160" y1="88" x2="160" y2="176" stroke="#fff" stroke-width="1.5"/>
+    <rect x="62" y="116" width="196" height="12" fill="rgba(255,255,255,.35)"/><line x1="62" y1="116" x2="258" y2="116" stroke="#fff" stroke-width="2.5"/>
+    <!-- far player -->
+    <g transform="translate(176 96) scale(.55)"><rect x="-7" y="0" width="14" height="22" rx="6" fill="#e0453a"/><circle cy="-8" r="9" fill="${SKIN2}"/><rect x="-6" y="21" width="5" height="16" fill="#2b303b"/><rect x="1" y="21" width="5" height="16" fill="#2b303b"/>
+      <g><animateTransform attributeName="transform" type="rotate" values="20;-60;20" keyTimes="0;.5;1" dur="1.8s" begin=".9s" repeatCount="indefinite"/><rect x="5" y="2" width="4" height="18" rx="2" fill="${SKIN2}"/><ellipse cx="7" cy="26" rx="6" ry="8" fill="none" stroke="#333" stroke-width="2"/></g></g>
+    <!-- near player, forehand -->
+    <g transform="translate(118 140)"><rect x="-10" y="0" width="20" height="30" rx="9" fill="#2f7fe0"/><circle cy="-11" r="12" fill="${SKIN}"/><path d="M-12 -14 Q0 -28 12 -14 Q8 -21 0 -21 Q-8 -21 -12 -14Z" fill="#4a2c1a"/>
+      <rect x="-8" y="28" width="7" height="14" fill="#2b303b"/><rect x="1" y="28" width="7" height="14" fill="#2b303b"/>
+      <g><animateTransform attributeName="transform" type="rotate" values="60;-70;60" keyTimes="0;.18;1" dur="1.8s" repeatCount="indefinite"/><rect x="7" y="2" width="5" height="22" rx="2.5" fill="${SKIN}"/><rect x="8" y="22" width="3" height="10" fill="#333"/><ellipse cx="9.5" cy="40" rx="7" ry="10" fill="none" stroke="#e0453a" stroke-width="2.5"/></g></g>
+    <circle r="4" fill="#d7f05a" stroke="#9fb800" stroke-width="1"><animateMotion dur="1.8s" repeatCount="indefinite" keyPoints="0;.5;1" keyTimes="0;.5;1" calcMode="linear" path="M134 150 Q160 70 182 106 Q160 70 134 150"/></circle>`,
+  archery: `
+    <rect width="320" height="180" fill="#9fd6ff"/>
+    <path d="M0 96 C60 80 120 92 180 84 C240 76 290 90 320 82 L320 180 L0 180Z" fill="#7cc6a0"/>
+    <rect y="110" width="320" height="70" fill="#58a64a"/>
+    <g fill="#4d9a40"><rect y="118" width="320" height="6"/><rect y="136" width="320" height="8"/><rect y="158" width="320" height="10"/></g>
+    <!-- flag streaming with the wind -->
+    <line x1="150" y1="70" x2="150" y2="112" stroke="#8a8a8a" stroke-width="2"/>
+    <path fill="#fcb131"><animate attributeName="d" values="M150 70 L172 74 L150 80Z;M150 70 L170 76 L150 80Z;M150 70 L172 74 L150 80Z" dur="1.2s" repeatCount="indefinite"/></path>
+    <!-- target on a stand -->
+    <g transform="translate(262 96)"><line x1="-14" y1="20" x2="-20" y2="44" stroke="#8a5a2b" stroke-width="4"/><line x1="14" y1="20" x2="20" y2="44" stroke="#8a5a2b" stroke-width="4"/>
+      <circle r="30" fill="#fff" stroke="#ddd"/><circle r="24" fill="#1d1d1f"/><circle r="18" fill="#2f7fe0"/><circle r="12" fill="#ee334e"/><circle r="6" fill="#fcb131"/><circle r="2" fill="#fff"/></g>
+    <!-- archer, drawing and releasing -->
+    <g transform="translate(64 120)"><rect x="-9" y="0" width="18" height="28" rx="8" fill="#e0453a"/><circle cy="-11" r="11" fill="${SKIN}"/><path d="M-11 -13 Q0 -26 11 -13 Q7 -20 0 -20 Q-7 -20 -11 -13Z" fill="#1d1b1a"/>
+      <rect x="-7" y="26" width="6" height="16" fill="#2b303b"/><rect x="1" y="26" width="6" height="16" fill="#2b303b"/>
+      <rect x="6" y="2" width="24" height="5" rx="2.5" fill="${SKIN}"/>
+      <path d="M30 -18 Q42 4 30 26" fill="none" stroke="#8a5a2b" stroke-width="3"/>
+      <path stroke="#ccc" stroke-width="1" fill="none"><animate attributeName="d" values="M30 -18 L30 26;M30 -18 L10 4 L30 26;M30 -18 L10 4 L30 26;M30 -18 L30 26" keyTimes="0;.35;.5;1" dur="2.2s" repeatCount="indefinite"/></path>
+      <rect y="2" height="5" rx="2.5" fill="${SKIN}"><animate attributeName="x" values="10;-6;-6;10" keyTimes="0;.35;.5;1" dur="2.2s" repeatCount="indefinite"/><animate attributeName="width" values="18;16;16;18" keyTimes="0;.35;.5;1" dur="2.2s" repeatCount="indefinite"/></rect></g>
+    <g><animateMotion dur="2.2s" repeatCount="indefinite" keyPoints="0;0;1;1" keyTimes="0;.5;.8;1" calcMode="linear" path="M80 124 Q170 96 250 96"/><line x1="-14" y1="0" x2="8" y2="0" stroke="#5a3a1a" stroke-width="2"/><polygon points="8,-3 13,0 8,3" fill="#888"/><polygon points="-14,-3 -10,0 -14,3" fill="#ee334e"/></g>`,
+  track: `
+    <rect width="320" height="180" fill="#9fd6ff"/>
+    <rect y="54" width="320" height="30" fill="#e9eef5"/>
+    <g><animateTransform attributeName="transform" type="translate" from="0 0" to="-80 0" dur="1.2s" repeatCount="indefinite"/>
+      <g fill="#2f7fe0">${Array.from({length: 26}, (_, i) => `<circle cx="${i * 16}" cy="${66 + (i % 2) * 6}" r="5"/>`).join("")}</g>
+      <g fill="#e0453a">${Array.from({length: 26}, (_, i) => `<circle cx="${i * 16 + 8}" cy="${72 - (i % 2) * 6}" r="5"/>`).join("")}</g></g>
+    <rect y="84" width="320" height="96" fill="#c9473a"/>
+    <!-- lane lines scroll past: the runners stay, the world moves -->
+    <g stroke="#fff" stroke-width="2"><line x1="0" y1="112" x2="320" y2="112"/><line x1="0" y1="146" x2="320" y2="146"/><line x1="0" y1="178" x2="320" y2="178"/></g>
+    <g><animateTransform attributeName="transform" type="translate" from="0 0" to="-64 0" dur=".5s" repeatCount="indefinite"/>
+      <g fill="#fff" opacity=".85">${Array.from({length: 8}, (_, i) => `<rect x="${i * 64}" y="128" width="20" height="3"/><rect x="${i * 64 + 30}" y="160" width="20" height="3"/>`).join("")}</g></g>
+    ${[["#2f7fe0", SKIN, 120, 104, "0s"], ["#f08a24", SKIN2, 100, 138, ".15s"]].map(([shirt, skin, x, y, d]) => `
+    <g transform="translate(${x} ${y})"><animateTransform attributeName="transform" type="translate" values="${x} ${y};${x} ${y - 3};${x} ${y}" dur=".3s" begin="${d}" repeatCount="indefinite" additive="replace"/>
+      <g transform="rotate(12)">
+      <g><animateTransform attributeName="transform" type="rotate" values="40;-40;40" dur=".6s" begin="${d}" repeatCount="indefinite"/><rect x="-3" y="14" width="6" height="18" rx="3" fill="#2b303b"/></g>
+      <g><animateTransform attributeName="transform" type="rotate" values="-40;40;-40" dur=".6s" begin="${d}" repeatCount="indefinite"/><rect x="-3" y="14" width="6" height="18" rx="3" fill="#1d1f24"/></g>
+      <rect x="-7" y="-6" width="14" height="22" rx="6" fill="${shirt}"/>
+      <g><animateTransform attributeName="transform" type="rotate" values="-50;50;-50" dur=".6s" begin="${d}" repeatCount="indefinite"/><rect x="-2.5" y="-4" width="5" height="16" rx="2.5" fill="${skin}"/></g>
+      <circle cy="-14" r="9" fill="${skin}"/></g></g>`).join("")}`,
+  boxing: `
+    <rect width="320" height="180" fill="#2c3a5e"/>
+    <g fill="#fff" opacity=".5">${Array.from({length: 14}, (_, i) => `<circle cx="${12 + i * 23}" cy="${30 + (i % 3) * 6}" r="2"/>`).join("")}</g>
+    <polygon points="30,124 290,124 320,180 0,180" fill="#e9eef5"/>
+    <g stroke="#ee334e" stroke-width="3"><line x1="22" y1="82" x2="298" y2="82"/><line x1="18" y1="100" x2="302" y2="100"/><line x1="14" y1="118" x2="306" y2="118"/></g>
+    <rect x="16" y="70" width="8" height="70" fill="#1d1d1f"/><rect x="296" y="70" width="8" height="70" fill="#1d1d1f"/>
+    <!-- left boxer jabs -->
+    <g transform="translate(118 118)"><rect x="-11" y="0" width="22" height="30" rx="9" fill="${SKIN}"/><rect x="-11" y="22" width="22" height="12" fill="#2f7fe0"/><circle cy="-13" r="12" fill="${SKIN}"/><path d="M-12 -16 Q0 -30 12 -16 Q8 -24 0 -24 Q-8 -24 -12 -16Z" fill="#4a2c1a"/>
+      <circle cx="10" cy="-6" r="7" fill="#2f7fe0"/>
+      <g><animateTransform attributeName="transform" type="translate" values="0 0;30 -6;0 0;0 0" keyTimes="0;.12;.3;1" dur="1.4s" repeatCount="indefinite"/><circle cx="14" cy="4" r="8" fill="#2f7fe0"/></g></g>
+    <!-- right boxer guards, then rocks back when hit -->
+    <g transform="translate(200 118)"><animateTransform attributeName="transform" type="translate" values="200 118;200 118;206 118;200 118" keyTimes="0;.12;.2;1" dur="1.4s" repeatCount="indefinite"/>
+      <rect x="-11" y="0" width="22" height="30" rx="9" fill="${SKIN2}"/><rect x="-11" y="22" width="22" height="12" fill="#ee334e"/><circle cy="-13" r="12" fill="${SKIN2}"/><path d="M-12 -16 Q0 -30 12 -16 Q8 -24 0 -24 Q-8 -24 -12 -16Z" fill="#1d1b1a"/>
+      <circle cx="-12" cy="-10" r="8" fill="#ee334e"/><circle cx="-6" cy="4" r="8" fill="#ee334e"/></g>
+    <g opacity="0"><animate attributeName="opacity" values="0;0;1;0;0" keyTimes="0;.1;.13;.25;1" dur="1.4s" repeatCount="indefinite"/><polygon points="178,98 184,90 186,99 194,96 188,104 194,110 185,108 182,116 179,107 171,108 177,102" fill="#fcb131"/></g>`,
+  basketball: `
+    <rect width="320" height="180" fill="#9fd6ff"/>
+    <g fill="#5aa97f"><circle cx="30" cy="96" r="22"/><circle cx="58" cy="92" r="18"/><circle cx="296" cy="96" r="22"/></g>
+    <g stroke="#9aa4ad" stroke-width="1" opacity=".7">${Array.from({length: 20}, (_, i) => `<line x1="${i * 16}" y1="86" x2="${i * 16 + 16}" y2="118"/><line x1="${i * 16 + 16}" y1="86" x2="${i * 16}" y2="118"/>`).join("")}</g>
+    <rect y="118" width="320" height="62" fill="#8e98a5"/>
+    <path d="M60 180 Q160 112 260 180" fill="none" stroke="#fff" stroke-width="2"/>
+    <!-- hoop -->
+    <rect x="252" y="40" width="5" height="110" fill="#666"/>
+    <rect x="216" y="34" width="44" height="30" fill="#fff" stroke="#666" stroke-width="2"/><rect x="230" y="44" width="16" height="12" fill="none" stroke="#ee334e" stroke-width="2"/>
+    <ellipse cx="236" cy="64" rx="12" ry="3" fill="none" stroke="#ee334e" stroke-width="2.5"/>
+    <path fill="none" stroke="#eee" stroke-width="1.2"><animate attributeName="d" values="M224 64 L228 80 L244 80 L248 64 M230 64 L232 80 M242 64 L240 80;M224 64 L228 80 L244 80 L248 64 M230 64 L232 80 M242 64 L240 80;M224 64 L230 84 L242 84 L248 64 M230 64 L233 84 M242 64 L239 84;M224 64 L228 80 L244 80 L248 64 M230 64 L232 80 M242 64 L240 80" keyTimes="0;.62;.7;1" dur="2s" repeatCount="indefinite"/></path>
+    <!-- shooter pushes up -->
+    <g transform="translate(86 132)"><rect x="-10" y="0" width="20" height="28" rx="8" fill="#e86a24"/><circle cy="-12" r="11" fill="${SKIN2}"/><path d="M-11 -14 Q0 -27 11 -14 Q7 -21 0 -21 Q-7 -21 -11 -14Z" fill="#1d1b1a"/>
+      <rect x="-8" y="26" width="7" height="16" fill="#2b303b"/><rect x="1" y="26" width="7" height="16" fill="#2b303b"/>
+      <g><animateTransform attributeName="transform" type="rotate" values="0;-150;-150;0" keyTimes="0;.18;.5;1" dur="2s" repeatCount="indefinite"/><rect x="6" y="2" width="5" height="18" rx="2.5" fill="${SKIN2}"/></g></g>
+    <g><animateMotion dur="2s" repeatCount="indefinite" keyPoints="0;0;1;1" keyTimes="0;.15;.7;1" calcMode="linear" path="M100 118 Q170 0 236 62 L236 112"/>
+      <circle r="7" fill="#f08a24"/><path d="M-7 0 H7 M0 -7 V7" stroke="#7a3a10" stroke-width="1"/></g>`,
+  bowling: `
+    <rect width="320" height="180" fill="#3c2a5e"/>
+    <g fill="#fcb131" opacity=".85"><rect x="20" y="18" width="70" height="10" rx="5"/><rect x="230" y="18" width="70" height="10" rx="5"/></g>
+    <g fill="#ee334e" opacity=".7"><rect x="100" y="14" width="120" height="6" rx="3"/></g>
+    <polygon points="134,40 186,40 248,180 72,180" fill="#e5b77c"/>
+    <polygon points="120,40 134,40 72,180 50,180" fill="#2b2140"/><polygon points="186,40 200,40 270,180 248,180" fill="#2b2140"/>
+    <g fill="#c48a4e">${[0,1,2,3,4,5,6].map((i) => `<polygon points="${158 + (i - 3) * 10},120 ${160 + (i - 3) * 10},114 ${162 + (i - 3) * 10},120"/>`).join("")}</g>
+    <!-- pins: they fall when the ball arrives -->
+    ${[[160,48],[154,44],[166,44],[148,40],[160,40],[172,40]].map(([x, y], i) => `
+    <g transform="translate(${x} ${y})"><animateTransform attributeName="transform" type="rotate" values="0;0;${i % 2 ? 70 : -70};${i % 2 ? 70 : -70};0" keyTimes="0;.55;.62;.95;1" dur="2.6s" repeatCount="indefinite" additive="sum"/>
+      <ellipse cx="0" cy="0" rx="3" ry="7" fill="#fff"/><rect x="-2.5" y="-4" width="5" height="1.5" fill="#ee334e"/></g>`).join("")}
+    <!-- the ball rolls away first, so it passes behind the bowler -->
+    <g><animateMotion dur="2.6s" repeatCount="indefinite" keyPoints="0;0;1;1" keyTimes="0;.22;.6;1" calcMode="linear" path="M205 160 Q218 96 162 50"/>
+      <g><animateTransform attributeName="transform" type="scale" values="1;1;.5;.5" keyTimes="0;.22;.6;1" dur="2.6s" repeatCount="indefinite"/>
+        <circle r="7" fill="#e0453a"/><circle cx="-2" cy="-2.5" r="1.1" fill="#7a1d18"/><circle cx="1.8" cy="-3.2" r="1.1" fill="#7a1d18"/><circle cx="0" cy="0" r="1.1" fill="#7a1d18"/></g>
+      <animate attributeName="opacity" values="0;0;1;1;0;0" keyTimes="0;.22;.23;.6;.62;1" dur="2.6s" repeatCount="indefinite"/></g>
+    <!-- the bowler, from behind, same build as the other previews' figures -->
+    <g transform="translate(184 136)">
+      <rect x="-8" y="26" width="7" height="16" fill="#2b303b"/><rect x="1" y="26" width="7" height="16" fill="#2b303b"/>
+      <rect x="-15" y="3" width="5" height="18" rx="2.5" fill="#2f7fe0" transform="rotate(12 -12 3)"/>
+      <rect x="-10" y="0" width="20" height="28" rx="8" fill="#2f7fe0"/>
+      <rect x="-3" y="-3" width="6" height="4" fill="${SKIN}"/><circle cy="-12" r="11" fill="#4a2c1a"/>
+      <!-- bowling arm on the outside: back, then forward and let go -->
+      <g><animateTransform attributeName="transform" type="rotate" values="-20 9 3;-45 9 3;-20 9 3;-35 9 3;-20 9 3" keyTimes="0;.12;.22;.32;1" dur="2.6s" repeatCount="indefinite"/>
+        <rect x="6.5" y="2" width="5" height="20" rx="2.5" fill="#2f7fe0"/><circle cx="9" cy="23" r="3" fill="${SKIN}"/>
+        <g><circle cx="9" cy="30" r="7" fill="#e0453a"/><circle cx="7" cy="27.5" r="1.1" fill="#7a1d18"/><circle cx="10.8" cy="26.8" r="1.1" fill="#7a1d18"/>
+          <animate attributeName="opacity" values="1;1;0;0;1" keyTimes="0;.22;.23;.97;1" dur="2.6s" repeatCount="indefinite"/></g></g></g>`,
+};
+
+// crowd: one row of small circles (cheap)
+const fans = document.getElementById("fans");
+const colours = ["#2f7fe0", "#e0453a", "#2fa84f", "#f2c230", "#8a4fd8", "#f08a24", "#e85d9e"];
+for (let i = 0; i < 80; i++) {
+  const c = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+  c.setAttribute("cx", String(10 + i * 20)); c.setAttribute("cy", String(500 + (i % 3) * 12)); c.setAttribute("r", "7");
+  c.setAttribute("fill", colours[i % colours.length]); fans.appendChild(c);
+}
+
+const PEOPLE = [
+  { name: "Sam", skin: "#f3cfae", hair: "#4a2c1a", style: "short", move: "m-wave", you: true, lead: true },
+  { name: "Ali", skin: "#b57c55", hair: "#1d1b1a", style: "curly", shirt: "#e0453a", move: "m-hop" },
+  { name: "Mei", skin: "#f6dcc4", hair: "#1d1b1a", style: "bob", shirt: "#8a4fd8", move: "m-cheer", away: true },
+  { name: "Jo", skin: "#8a5a3b", hair: "#e0be6a", style: "bun", shirt: "#2fa84f", move: "m-sway" },
+  { name: "Ravi", skin: "#d9a77e", hair: "#4a2c1a", style: "short", shirt: "#f2c230", move: "m-hop" },
+  { name: "Lena", skin: "#f3cfae", hair: "#8a3b1e", style: "long", shirt: "#e85d9e", move: "m-wave" },
+  { name: "Kofi", skin: "#5e3a24", hair: "#1d1b1a", style: "short", shirt: "#2f7fe0", move: "m-cheer" },
+  { name: "Ana", skin: "#f3cfae", hair: "#e0be6a", style: "long", shirt: "#f08a24", move: "m-sway" },
+  { name: "Yuki", skin: "#f6dcc4", hair: "#9a9a9a", style: "bob", shirt: "#2a2d34", move: "m-hop", away: true },
+  { name: "Tom", skin: "#d9a77e", hair: "#8a3b1e", style: "curly", shirt: "#f2f4f7", move: "m-wave" },
+];
+let partySize = 1;
+function hairPath(style, c) {
+  if (style === "curly") return `<g fill="${c}"><circle cx="70" cy="62" r="16"/><circle cx="92" cy="50" r="17"/><circle cx="114" cy="52" r="17"/><circle cx="132" cy="66" r="15"/></g>`;
+  if (style === "bob") return `<path d="M54 100 Q50 40 100 44 Q150 40 146 100 L134 100 Q134 64 100 62 Q66 64 66 100Z" fill="${c}"/>`;
+  if (style === "bun") return `<path d="M58 84 Q100 30 142 84 Q132 54 100 52 Q68 54 58 84Z" fill="${c}"/><circle cx="100" cy="38" r="16" fill="${c}"/>`;
+  if (style === "long") return `<path d="M56 140 Q46 40 100 44 Q154 40 144 140 L132 140 Q136 66 100 62 Q64 66 68 140Z" fill="${c}"/>`;
+  return `<path d="M58 84 Q100 22 142 84 Q132 52 100 50 Q68 52 58 84Z" fill="${c}"/>`;
+}
+function figure(p, shirt) {
+  return `<svg viewBox="0 0 200 330"><rect x="78" y="228" width="18" height="70" rx="8" fill="#2b303b"/><rect x="104" y="228" width="18" height="70" rx="8" fill="#2b303b"/>
+    <ellipse cx="86" cy="302" rx="16" ry="8" fill="#f2f4f7"/><ellipse cx="114" cy="302" rx="16" ry="8" fill="#f2f4f7"/>
+    <rect x="66" y="130" width="68" height="104" rx="26" fill="${shirt}"/>
+    <g class="arm2"><rect x="42" y="136" width="20" height="74" rx="10" fill="${shirt}" transform="rotate(10 52 140)"/><circle cx="46" cy="214" r="10" fill="${p.skin}"/></g>
+    <g class="arm"><rect x="128" y="70" width="20" height="74" rx="10" fill="${shirt}" transform="rotate(25 138 140)"/><circle cx="162" cy="74" r="11" fill="${p.skin}"/></g>
+    <circle cx="100" cy="88" r="42" fill="${p.skin}"/>${hairPath(p.style, p.hair)}
+    <ellipse cx="86" cy="92" rx="5" ry="6" fill="#12304a"/><ellipse cx="114" cy="92" rx="5" ry="6" fill="#12304a"/>
+    <circle cx="88" cy="90" r="1.6" fill="#fff"/><circle cx="116" cy="90" r="1.6" fill="#fff"/>
+    <path d="M86 108 Q100 120 114 108" stroke="#12304a" stroke-width="4" fill="none" stroke-linecap="round"/>
+    <ellipse cx="74" cy="104" rx="6" ry="4" fill="#f0a3a3" opacity=".6"/><ellipse cx="126" cy="104" rx="6" ry="4" fill="#f0a3a3" opacity=".6"/></svg>`;
+}
+function head(p, shirt) {
+  return `<svg viewBox="40 30 120 130"><path d="M50 160 Q50 120 100 120 Q150 120 150 160Z" fill="${shirt}"/><circle cx="100" cy="88" r="42" fill="${p.skin}"/>${hairPath(p.style, p.hair)}<ellipse cx="86" cy="92" rx="5" ry="6" fill="#12304a"/><ellipse cx="114" cy="92" rx="5" ry="6" fill="#12304a"/><path d="M86 108 Q100 120 114 108" stroke="#12304a" stroke-width="4" fill="none"/></svg>`;
+}
+function renderParty(accent) {
+  const crew = document.getElementById("crew");
+  const shown = PEOPLE.slice(0, partySize);
+  const slot = partySize > 1 && partySize < 10;
+  const items = partySize + (slot ? 1 : 0);
+  const perRow = items <= 5 ? items : Math.ceil(items / 2);
+  const w = partySize === 1 ? "260px" : `${Math.floor(96 / perRow)}%`;
+  crew.style.setProperty("--w", w);
+  crew.style.flexWrap = items > 5 ? "wrap" : "nowrap";
+  crew.classList.toggle("big", items > 5);
+  crew.style.setProperty("--rows", items > 5 ? 2 : 1);
+  crew.style.setProperty("--cols", Math.ceil(items / 2));
+  crew.innerHTML = shown.map((p) => `<div class="member ${p.move}" style="--w:${w}">
+      ${partySize === 1 ? '<div class="bubble">Ready to play!</div>' : ""}
+      ${figure(p, p.you ? accent : p.shirt)}
+      <div class="nameplate"><span class="dot${p.away ? " away" : ""}"></span>${p.name}${p.lead ? ' <span class="lead" title="Party leader">👑</span>' : ""}</div></div>`).join("")
+    + (slot ? `<div class="slot" style="--w:${w}">+ Invite<br>a friend</div>` : "");
+  document.getElementById("party-title").textContent = partySize === 1 ? "Just you · start a party" : (partySize === 10 ? "Your party · full (10 of 10)" : `Your party · ${partySize} of 10`);
+  document.getElementById("party-strip").innerHTML = shown.map((p) => `<div class="p">${head(p, p.you ? accent : p.shirt)}${p.name}</div>`).join("") + '<div class="p" style="justify-content:center;color:#3f5b73">+ Invite</div>';
+}
+document.getElementById("add").onclick = () => { partySize = Math.min(10, partySize + 1); render(); };
+document.getElementById("rem").onclick = () => { partySize = Math.max(1, partySize - 1); render(); };
+const sportsEl = document.getElementById("sports");
+let selected = "tennis";
+var render = function () {
+  if (!sportsEl.children.length) {
+    sportsEl.innerHTML = SPORTS.map((s) => `<button class="card ${s.id}" aria-pressed="false" data-id="${s.id}">
+      <svg class="ic" viewBox="0 0 92 92" aria-hidden="true">${ICON[s.id]}</svg>
+      <span class="name">${s.name}</span><span class="blurb">${s.blurb}</span></button>`).join("");
+  }
+  for (const c of sportsEl.children) c.setAttribute("aria-pressed", String(c.dataset.id === selected));
+  const s = SPORTS.find((x) => x.id === selected);
+  const root = document.documentElement.style;
+  root.setProperty("--ground", s.ground); root.setProperty("--hill-far", s.hillFar); root.setProperty("--hill-near", s.hillNear); root.setProperty("--accent", s.accent);
+  document.getElementById("field").innerHTML = FIELD[s.id];
+  document.getElementById("preview").innerHTML = `<svg viewBox="0 0 320 180" preserveAspectRatio="xMidYMid slice">${PREVIEW[s.id]}</svg>`;
+  document.getElementById("sport-name").textContent = s.name;
+  document.getElementById("sport-pitch").textContent = s.pitch;
+  renderParty(s.accent);
+};
+sportsEl.addEventListener("click", (e) => { const b = e.target.closest(".card"); if (b) { selected = b.dataset.id; render(); } });
+render();
+
+// 3D, loaded after the flat menu is on screen; ?flat forces the flat version
+let party3d = null, icons3d = null, confettiFn = null;
+const badge = document.createElement("span"); badge.className = "badge3d"; document.querySelector(".note").appendChild(badge);
+badge.textContent = "Flat (SVG) version"; const mode = document.getElementById("mode3d"); const setMode = (t) => { badge.textContent = t; mode.textContent = t; }; setMode("flat icons");
+if (!location.search.includes("flat")) {
+  requestIdleCallback?.(load3d) ?? setTimeout(load3d, 300);
+}
+async function load3d() {
+  const t0 = performance.now();
+  const m = await import("./mock-home-3d.ts?v=10");
+  confettiFn = m.confetti;
+  if (!m.capable()) { setMode("flat icons (no 3D here: phone, reduced motion or no WebGL)"); return; }
+  document.body.classList.add("has3d");
+  icons3d = m.mountIcons([...document.querySelectorAll(".card")]);
+  setMode(`3D icons on (loaded in ${Math.round(performance.now() - t0)} ms)`);
+  render();
+}
+const LOOKS = [
+  { shirt: "green", shorts: "navy", skin: "s2", hair: "brown", style: "short" },
+  { shirt: "red", shorts: "black", skin: "s4", hair: "black", style: "short" },
+  { shirt: "purple", shorts: "navy", skin: "s1", hair: "black", style: "long" },
+  { shirt: "green", shorts: "khaki", skin: "s5", hair: "blonde", style: "bun" },
+  { shirt: "yellow", shorts: "blue", skin: "s3", hair: "brown", style: "cap" },
+  { shirt: "pink", shorts: "white", skin: "s2", hair: "auburn", style: "long" },
+];
+const MOVES = ["wave", "hop", "cheer", "sway", "hop", "wave"];
+const SHIRT_FOR = { tennis: "green", archery: "red", track: "orange", boxing: "purple", basketball: "orange", bowling: "blue" };
+const _render = render;
+render = function () {
+  _render();
+  icons3d?.select(selected);
+};
+document.getElementById("create").addEventListener("click", (e) => {
+  const r = e.currentTarget.getBoundingClientRect();
+  confettiFn?.(r.left + r.width / 2, r.top + r.height / 2);
+});
+render();
+// ---- friends (mock data; the real list comes over the WebSocket, task 34) ----
+const FRIENDS = [
+  { p: PEOPLE[1], tag: "0317", s: "online", doing: "In a match · Tennis", act: "watch" },
+  { p: PEOPLE[3], tag: "5520", s: "online", doing: "Public party · 3 of 10", act: "join" },
+  { p: PEOPLE[4], tag: "1189", s: "online", doing: "On the home screen", act: "invite" },
+  { p: PEOPLE[6], tag: "7402", s: "online", doing: "Practising · Boxing", act: "invite" },
+  { p: PEOPLE[2], tag: "2266", s: "away", doing: "Away", act: "invite" },
+  { p: PEOPLE[8], tag: "9031", s: "away", doing: "Away", act: "invite" },
+  { p: PEOPLE[5], tag: "4410", s: "offline", doing: "Last seen yesterday" },
+  { p: PEOPLE[7], tag: "6658", s: "offline", doing: "Last seen 3 days ago" },
+  { p: PEOPLE[9], tag: "3075", s: "offline", doing: "Last seen last week" },
+];
+const REQUESTS = [{ p: { name: "Priya", skin: "#c68b62", hair: "#1d1b1a", style: "long", shirt: "#2fa84f" }, tag: "8124" }];
+const ACT = { watch: "Watch", join: "Join", invite: "Invite" };
+function renderFriends() {
+  const online = FRIENDS.filter((f) => f.s === "online").length;
+  document.getElementById("online-count").textContent = String(online);
+  const row = (f, extra) => `<div class="friend${f.s === "offline" ? " off" : ""}"><span class="av">${head(f.p, f.p.shirt)}${f.s ? `<span class="sdot ${f.s === "online" ? "" : f.s}"></span>` : ""}</span>
+    <span class="who2"><div class="nm">${f.p.name} <span class="tag">#${f.tag}</span></div><div class="doing">${f.doing ?? "Wants to be friends"}</div></span>${extra}</div>`;
+  const group = (title, list) => list.length ? `<h4>${title} · ${list.length}</h4>` + list.map((f) => row(f, f.act ? `<button class="act ${f.act}" data-i="${FRIENDS.indexOf(f)}">${f.sent ? "Invited ✓" : ACT[f.act]}</button>` : "")).join("") : "";
+  document.getElementById("flist").innerHTML =
+    (REQUESTS.length ? `<h4>Requests · ${REQUESTS.length}</h4>` + REQUESTS.map((r, i) => row(r, `<span class="req"><button class="ok" data-r="${i}">Accept</button><button class="no" data-r="${i}">✕</button></span>`)).join("") : "")
+    + group("Online", FRIENDS.filter((f) => f.s === "online"))
+    + group("Away", FRIENDS.filter((f) => f.s === "away"))
+    + group("Offline", FRIENDS.filter((f) => f.s === "offline"));
+}
+const fpanel = document.getElementById("fpanel"), fbtn = document.getElementById("friends-btn");
+const setOpen = (o) => { fpanel.hidden = !o; fbtn.setAttribute("aria-expanded", String(o)); if (o) fpanel.querySelector(".mystatus button[aria-pressed=true]").focus(); };
+fbtn.onclick = () => setOpen(fpanel.hidden);
+document.getElementById("fclose").onclick = () => { setOpen(false); fbtn.focus(); };
+document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !fpanel.hidden) { setOpen(false); fbtn.focus(); } });
+document.addEventListener("click", (e) => { if (!fpanel.hidden && !fpanel.contains(e.target) && !fbtn.contains(e.target)) setOpen(false); });
+fpanel.querySelectorAll(".mystatus button").forEach((b) => b.onclick = () => {
+  fpanel.querySelectorAll(".mystatus button").forEach((x) => x.setAttribute("aria-pressed", String(x === b)));
+  document.getElementById("my-dot").className = "sdot " + (b.dataset.s === "online" ? "" : b.dataset.s);
+});
+document.getElementById("flist").onclick = (e) => {
+  const b = e.target.closest("button"); if (!b) return;
+  if (b.dataset.r !== undefined) { const r = REQUESTS.splice(+b.dataset.r, 1)[0]; if (b.classList.contains("ok")) FRIENDS.unshift({ ...r, s: "online", doing: "On the home screen", act: "invite" }); renderFriends(); return; }
+  const f = FRIENDS[+b.dataset.i];
+  if (f.act === "invite") { f.sent = true; renderFriends(); }
+  else if (f.act === "join") { partySize = 4; render(); setOpen(false); }
+};
+document.getElementById("addf").onsubmit = (e) => {
+  e.preventDefault(); const v = document.getElementById("addf-in").value.trim();
+  document.getElementById("addf-msg").textContent = /^.{3,16}#\d{4}$/.test(v) ? `Request sent to ${v}.` : "Type their name and number, like Ali#0317.";
+};
+renderFriends();
+
+</script>
+</body>
+</html>
