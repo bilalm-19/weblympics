@@ -176,7 +176,8 @@ test("both seats and a spectator see the same call and the same reactions; nothi
   await bannerClear(spectator);
 
   // the reactions and the call are drawn from the snapshot: only the usual messages went out
-  const allowed = new Set(["hello", "create", "join", "ready", "format", "move", "mode", "swing", "pause", "leave", "pong"]);
+  // task 34 added presence ("idle", "status"), never game data
+  const allowed = new Set(["hello", "create", "join", "ready", "format", "move", "mode", "swing", "pause", "leave", "pong", "idle", "status"]);
   expect(sent.filter((t) => !allowed.has(t))).toEqual([]);
   await guest.context().close();
   await spectator.context().close();

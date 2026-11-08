@@ -1,5 +1,6 @@
 import { addSpectating } from "../../ui/spectate.ts";
 import {
+  Box3,
   CircleGeometry,
   Mesh,
   MeshBasicMaterial,
@@ -105,8 +106,10 @@ export function startTennis(root: HTMLElement, conn: GameLink, info: RoomInfo, o
       </div>
       <div class="status" role="status"></div>
     </div>
-    <div class="stroke" aria-live="polite"></div>
-    <div class="shot-label" hidden><b></b><span></span></div>
+    <div class="shot-messages">
+      <div class="shot-label" hidden><b></b><span></span></div>
+      <div class="stroke" aria-live="polite"></div>
+    </div>
     <div class="controls" hidden>
       <button class="move" data-move="-1" aria-label="Move left (A)">◀</button>
       <button class="primary" data-level="0" aria-label="Light swing (1)">Light</button>
@@ -182,6 +185,16 @@ export function startTennis(root: HTMLElement, conn: GameLink, info: RoomInfo, o
     const xs = corners.map((c) => r.left + ((c.x + 1) / 2) * r.width);
     const ys = corners.map((c) => r.top + ((1 - c.y) / 2) * r.height);
     canvas.dataset.court = [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)].map(Math.round).join(",");
+  };
+  // The near player's box on screen (left, top, right, bottom, CSS pixels),
+  // so a test can check the shot messages keep off them.
+  const playerBox = (seat: 0 | 1): string => {
+    const r = canvas.getBoundingClientRect();
+    const box = new Box3().setFromObject(players[seat].group);
+    const pts = [box.min.x, box.max.x].flatMap((x) => [box.min.y, box.max.y].flatMap((y) => [box.min.z, box.max.z].map((z) => new Vector3(x, y, z).project(camera))));
+    const xs = pts.map((c) => r.left + ((c.x + 1) / 2) * r.width);
+    const ys = pts.map((c) => r.top + ((1 - c.y) / 2) * r.height);
+    return [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)].map(Math.round).join(",");
   };
   const observer = new ResizeObserver(resize);
   observer.observe(view);
@@ -542,8 +555,9 @@ export function startTennis(root: HTMLElement, conn: GameLink, info: RoomInfo, o
               thresholds: cameraInput.thresholds(),
             },
       );
+      // with the aid off nothing is shown to aim with: no ring, no arc (user, 2026-11-08)
       const landing =
-        info.seat === null || snap.phase === "over" || threeArcs
+        info.seat === null || snap.phase === "over" || threeArcs || !aid.on()
           ? null
           : predictLanding({ ...snap, rng: 0 }, info.seat, currentAim(), reticleLevel, cameraInput.hand(), cameraInput.grip() ?? undefined);
       reticle.visible = landing !== null;
@@ -583,6 +597,7 @@ export function startTennis(root: HTMLElement, conn: GameLink, info: RoomInfo, o
       } else canvas.dataset.contact = "";
     }
     renderer.render(scene, camera);
+    if (info.seat !== null && frames % 10 === 0) canvas.dataset.player = playerBox(info.seat);
     canvas.dataset.frames = String(++frames);
   };
   raf = requestAnimationFrame(frame);

@@ -153,7 +153,8 @@
    shot label step aside so nothing sits under the panel */
 .game[data-prematch="true"] .aid,
 .game[data-prematch="true"] .stroke,
-.game[data-prematch="true"] .shot-label {
+.game[data-prematch="true"] .shot-label,
+.game[data-prematch="true"] .shot-messages {
   display: none;
 }
 
