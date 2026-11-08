@@ -5,9 +5,8 @@ import {
   CameraController,
   DEFAULT_CALIBRATION,
   MoveThrottle,
-  DEFAULT_SWING,
   DEFAULT_TILT,
-  SwingDetector,
+  CalibrationRecorder,
   bodyFrame,
   bodyVisibility,
   neutralFrom,
@@ -517,14 +516,12 @@ export function createCameraInput(
       { skip: next },
     );
     const status = panel.querySelector("[role=status]") as HTMLElement;
-    const detector = new SwingDetector(DEFAULT_SWING);
+    // read as play reads a swing: the wind-up and the recovery never count (task 25)
+    const recorder = new CalibrationRecorder(calib.hand, "forehand");
     capture = (f) => {
-      const frame = f.landmarks ? bodyFrame(f.landmarks, f.aspect) : null;
-      const w = frame && f.landmarks ? wrist(f.landmarks, frame, calib.hand, f.aspect) : null;
-      if (!frame || !w) return detector.lose();
-      const { swing } = detector.update(f.t, w);
-      if (!swing) return;
-      peaks[word].push(swing.peak);
+      const peak = recorder.update(f);
+      if (peak === null) return;
+      peaks[word].push(peak);
       status.textContent = `${peaks[word].length} of ${SWINGS_PER_LEVEL}`;
       if (peaks[word].length >= SWINGS_PER_LEVEL) next();
     };

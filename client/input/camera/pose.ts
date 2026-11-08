@@ -329,6 +329,13 @@ export interface SwingConfig {
   hysteresis: number;
   cooldownMs: number;
   maxMs: number;
+  /**
+   * After a swing that counted, a sweep the opposite way that starts within
+   * this long is the hand coming back (the recovery), never a swing, whatever
+   * grip the hand shows on the way back. A ball takes well over a second to
+   * cross the court and come back, so no real stroke is this close behind.
+   */
+  recoveryMs: number;
 }
 
 export const DEFAULT_SWING: SwingConfig = {
@@ -337,6 +344,9 @@ export const DEFAULT_SWING: SwingConfig = {
   hysteresis: 0.1,
   cooldownMs: 300,
   maxMs: 600,
+  // a GUESS (task 25): a recovery starts 0-300 ms after contact and the next
+  // real stroke is at least a second away
+  recoveryMs: 800,
 };
 
 /**
@@ -362,10 +372,28 @@ export interface SwingEvent {
   across: number;
 }
 
+/**
+ * Which sweeps count, and against which thresholds: given a finished sweep's
+ * `across`, the thresholds to grade it with, or null when it isn't a swing for
+ * the stroke wanted (a wind-up or a recovery). Without one every sweep counts.
+ */
+export type SwingFilter = (across: number) => readonly [number, number] | null;
+
+/**
+ * Fast wrist movements to swings. One real stroke is three movements: the
+ * wind-up (racket back), the stroke and the recovery (hand back to rest), and
+ * each one is fast enough to look like a swing. So (task 25's double-count
+ * fix): a sweep ends where the hand turns back; a sweep the filter rejects is
+ * dropped whole and starts no cooldown (it used to start the 300 ms cooldown,
+ * which then cut the real stroke behind the wind-up short); and a sweep the
+ * opposite way to the last counted swing, starting within `recoveryMs` of it,
+ * is the recovery and never counts.
+ */
 export class SwingDetector {
   private prev: { t: number; pos: Vec; across: number } | null = null;
-  private active: { startedAt: number; peak: number; across: number } | null = null;
+  private active: { startedAt: number; peak: number; across: number; from: Vec } | null = null;
   private lastEnd = -Infinity;
+  private lastSign = 0;
   private lastLevel: Level | null = null;
   cfg: SwingConfig;
 
@@ -382,30 +410,47 @@ export class SwingDetector {
     return this.active?.peak ?? null;
   }
 
-  /** Feed one wrist sample. Returns whether a swing just started, and the swing if it just ended. */
-  update(t: number, w: Wrist): { started: boolean; swing: SwingEvent | null } {
+  /**
+   * Feed one wrist sample. Returns whether a sweep just started, the swing if
+   * one just ended and counted, and `rejected` if a sweep just ended that
+   * didn't (a wind-up or a recovery).
+   */
+  update(t: number, w: Wrist, filter?: SwingFilter): { started: boolean; swing: SwingEvent | null; rejected: boolean } {
+    const none = { started: false, swing: null, rejected: false };
     const prev = this.prev;
     this.prev = { t, pos: w.pos, across: w.across };
-    if (!prev || t <= prev.t) return { started: false, swing: null };
+    if (!prev || t <= prev.t) return none;
     const speed = Math.hypot(w.pos.x - prev.pos.x, w.pos.y - prev.pos.y) / ((t - prev.t) / 1000);
 
     if (!this.active) {
-      if (speed < this.cfg.start || t - this.lastEnd < this.cfg.cooldownMs) return { started: false, swing: null };
-      this.active = { startedAt: prev.t, peak: speed, across: prev.across };
-      return { started: true, swing: null };
+      if (speed < this.cfg.start || t - this.lastEnd < this.cfg.cooldownMs) return none;
+      this.active = { startedAt: prev.t, peak: speed, across: prev.across, from: prev.pos };
+      return { ...none, started: true };
     }
 
     const a = this.active;
-    if (speed > a.peak) a.peak = speed;
-    // contact: the wrist has clearly slowed after its peak, or the swing ran too long
-    if (speed < Math.max(this.cfg.start, a.peak * 0.6) || t - a.startedAt > this.cfg.maxMs) {
-      this.active = null;
-      this.lastEnd = t;
-      const level = levelFromSpeed(a.peak, this.cfg.thresholds, this.lastLevel, this.cfg.hysteresis);
-      this.lastLevel = level;
-      return { started: false, swing: { level, peak: a.peak, startedAt: a.startedAt, at: t, across: w.across - a.across } };
+    // the hand turning back: the end of a wind-up, or of the stroke
+    const sweep = { x: prev.pos.x - a.from.x, y: prev.pos.y - a.from.y };
+    const turned = Math.hypot(sweep.x, sweep.y) >= MIN_SWEEP && sweep.x * (w.pos.x - prev.pos.x) + sweep.y * (w.pos.y - prev.pos.y) < 0;
+    if (!turned && speed > a.peak) a.peak = speed;
+    // contact: the wrist has clearly slowed after its peak, turned back, or the swing ran too long
+    if (!(turned || speed < Math.max(this.cfg.start, a.peak * 0.6) || t - a.startedAt > this.cfg.maxMs)) return none;
+    this.active = null;
+    const end = turned ? prev : { t, across: w.across };
+    const across = end.across - a.across;
+    const sign = Math.abs(across) >= MIN_SWEEP ? Math.sign(across) : 0;
+    const recovery = sign !== 0 && sign === -this.lastSign && a.startedAt - this.lastEnd < this.cfg.recoveryMs;
+    const thresholds = recovery ? null : filter ? filter(across) : this.cfg.thresholds;
+    if (!thresholds) {
+      // the hand turning back may already be the next sweep: it starts now
+      if (turned) this.active = { startedAt: prev.t, peak: speed, across: prev.across, from: prev.pos };
+      return { started: turned, swing: null, rejected: true };
     }
-    return { started: false, swing: null };
+    this.lastEnd = end.t;
+    this.lastSign = sign;
+    const level = levelFromSpeed(a.peak, thresholds, this.lastLevel, this.cfg.hysteresis);
+    this.lastLevel = level;
+    return { started: false, swing: { level, peak: a.peak, startedAt: a.startedAt, at: end.t, across }, rejected: false };
   }
 
   /** Tracking dropped out: forget the motion so far. */
@@ -439,8 +484,15 @@ export interface Calibration {
   autoNeutral: boolean;
   neutralTilt: number;
   neutralAcross: number;
+  /** Forehand peak speeds separating light/medium and medium/hard. */
   thresholds: [number, number];
+  /** The same for the backhand (task 25: each stroke calibrates on its own). */
+  backhandThresholds: [number, number];
 }
+
+/** The thresholds a stroke is graded against. */
+export const strokeThresholds = (c: Pick<Calibration, "thresholds" | "backhandThresholds">, kind: SwingKind): [number, number] =>
+  kind === "backhand" ? c.backhandThresholds : c.thresholds;
 
 export const DEFAULT_CALIBRATION: Calibration = {
   hand: "right",
@@ -452,6 +504,7 @@ export const DEFAULT_CALIBRATION: Calibration = {
   // a relaxed racket hand hangs about half a shoulder-width out to its side
   neutralAcross: -0.5,
   thresholds: DEFAULT_SWING.thresholds,
+  backhandThresholds: DEFAULT_SWING.thresholds,
 };
 
 const median = (xs: readonly number[]): number => {
@@ -618,7 +671,7 @@ export interface CameraOutput {
   /** The racket arm's direction while tracking, for the character to copy. */
   arm: ArmPose | null;
   /** A shot: in classic mode from SwingDetector, in follow mode from ZoneDetector (with lift). */
-  swing: { level: Level; kind: SwingKind; aim: number; lift?: number; at: number } | null;
+  swing: { level: Level; kind: SwingKind; aim: number; lift?: number; at: number; peak: number } | null;
   /** Peak wrist speed so far while a classic swing is in progress, for the strength guide; else null. */
   peak: number | null;
 }
@@ -665,7 +718,6 @@ export class CameraController {
   setCalibration(calib: Calibration): void {
     this.calib = calib;
     this.detector.cfg = { ...this.detector.cfg, thresholds: calib.thresholds };
-    this.zone.thresholds = calib.thresholds;
   }
 
   update(f: CameraFrame): CameraOutput {
@@ -684,8 +736,15 @@ export class CameraController {
     // detector's. Follow: the swing is the hand crossing the hitting line with
     // the grip held before the swing began; the freeze ends there, or when
     // the motion dies out without crossing.
-    const classic = this.detector.update(f.t, w);
+    // A sweep counts only in the hitting direction of the grip held when it
+    // began; the wind-up and the recovery are dropped whole (task 25).
+    const filter: SwingFilter = (across) => {
+      const g = this.frozen?.grip ?? this.grip;
+      return swingMatchesGrip(across, g, this.calib.hand) ? strokeThresholds(this.calib, g) : null;
+    };
+    const classic = this.detector.update(f.t, w, filter);
     const started = classic.started;
+    if (classic.rejected) this.frozen = null;
     if (started) {
       const before = f.t - FREEZE_LOOKBACK_MS;
       this.frozen = this.history.findLast((h) => h.t <= before) ?? this.history[0] ?? null;
@@ -708,16 +767,48 @@ export class CameraController {
     if (this.calib.mode === "classic") {
       // A forehand sweeps toward the off-hand side and a backhand back toward the
       // racket side; the opposite sweep is the wind-up or the recovery, not a shot.
-      if (classic.swing && swingMatchesGrip(classic.swing.across, shown.grip, this.calib.hand)) {
-        swing = { level: classic.swing.level, kind: shown.grip, aim: shown.aim, at: classic.swing.at };
-      }
+      if (classic.swing) swing = { level: classic.swing.level, kind: shown.grip, aim: shown.aim, at: classic.swing.at, peak: classic.swing.peak };
     } else {
+      this.zone.thresholds = strokeThresholds(this.calib, shown.grip);
       const hit = this.zone.update(f.t, w, shown.grip, this.calib.hand);
-      if (hit) swing = { level: hit.level, kind: shown.grip, aim: shown.aim, lift: hit.lift, at: hit.at };
+      if (hit) swing = { level: hit.level, kind: shown.grip, aim: shown.aim, lift: hit.lift, at: hit.at, peak: hit.speed };
     }
     if (swing || classic.swing) this.frozen = null;
     const peak = this.calib.mode === "classic" ? this.detector.peak : null;
     return { tracking: true, swinging: !swing && f0 !== null, ...shown, tilt: neutral === null ? 0 : tilt - neutral, arm, swing, peak };
+  }
+}
+
+/**
+ * Calibration's swing counter (task 25): the swings of one stroke, read the
+ * way play reads them (the same detector and hitting-direction rule, so the
+ * wind-up and the recovery never count), with their peak speeds. Only the
+ * peaks are kept; `thresholdsFrom` turns them into thresholds.
+ */
+export class CalibrationRecorder {
+  private detector = new SwingDetector(DEFAULT_SWING);
+  private filter: SwingFilter;
+  private hand: Hand;
+  readonly peaks: number[] = [];
+
+  /** `kind` is the stroke the player picked: its hitting direction counts, whatever grip the camera reads. */
+  constructor(hand: Hand, kind: SwingKind) {
+    this.hand = hand;
+    this.filter = (across) => (swingMatchesGrip(across, kind, hand) ? DEFAULT_SWING.thresholds : null);
+  }
+
+  /** One frame; returns the swing's peak if a swing of this stroke just ended. */
+  update(f: CameraFrame): number | null {
+    const frame = f.landmarks ? bodyFrame(f.landmarks, f.aspect) : null;
+    const w = frame && f.landmarks ? wrist(f.landmarks, frame, this.hand, f.aspect) : null;
+    if (!w) {
+      this.detector.lose();
+      return null;
+    }
+    const { swing } = this.detector.update(f.t, w, this.filter);
+    if (!swing) return null;
+    this.peaks.push(swing.peak);
+    return swing.peak;
   }
 }
 
