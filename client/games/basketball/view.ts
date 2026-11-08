@@ -38,7 +38,7 @@ import type { TieChoice, WithVote } from "./tie-vote.ts";
 // ClientMsg yet; the rules agent adds it on basketball-rules. Sent through
 // this cast until integration, then drop it.
 
-// The basketball view (task 32, ADR 003): the park court (court.ts), the
+// The basketball view (task 32, ADR 003): the city court (court.ts), the
 // camera behind the shooter for a player and side-on for a spectator, the
 // HUD over it. Mouse or Left/Right aim; hold Space, the mouse on the court or
 // the Shoot button and a power bar fills then falls; let go to shoot. Or the
@@ -733,6 +733,9 @@ export function startBasketball(root: HTMLElement, conn: GameLink, info: RoomInf
       court.update(now / 1000);
     }
     renderer.render(scene, camera);
+    // the draw calls, for tests and for keeping the city cheap
+    canvas.dataset.calls = String(renderer.info.render.calls);
+    canvas.dataset.triangles = String(renderer.info.render.triangles);
     canvas.dataset.frames = String(++frames);
   };
   raf = requestAnimationFrame(frame);

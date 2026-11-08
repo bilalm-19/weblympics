@@ -65,9 +65,13 @@ lazily and only when a player enters a game. Video never leaves the browser.
   the shooter for a player, side-on for a spectator), `calls.ts` (pure:
   the call with the stacking swish, "Too soft"/"Just right"/"Too hard", the
   spot line, the held bar: `spec/basketball-calls.test.ts`), `court.ts`
-  (the park court from primitives; bleachers seated with tennis's
+  (the city court from primitives; bleachers seated with tennis's
   `standSeats`/`seatCrowd`; seat 1's blue stand on the left, each side
-  cheering or going aww for its shooter), `shooter.ts` (the tennis
+  cheering or going aww for its shooter; it calls `city.ts`),
+  `city.ts` (the city round the court, user 2026-11-08: buildings, shops,
+  graffiti, roads, lamps, cars, a skyline; four merged meshes, light baked
+  with track's `bake.ts`; the canvas's `data-calls` is the frame's draw
+  calls, held to 60 by `e2e/basketball.e2e.ts`), `shooter.ts` (the tennis
   character with arms holding the ball, one shot; `shotPose` pure),
   `sound.ts` (its cues, task 19), `tie-vote.ts` (the level-score
   pop-up: Draw or Continue, D/C, sends `tie`; a spectator sees both
@@ -382,7 +386,7 @@ lazily and only when a player enters a game. Video never leaves the browser.
   events: the sprint and hurdles) are the games; boxing
   (task 30, a "maybe") is playable on keys, buttons or the camera in a 3D ring;
   basketball (task 32, asked for on 2026-11-07) is playable on keys, the
-  mouse and buttons in a park court; its camera is part 3;
+  mouse and buttons in a city street court; its camera is part 3;
   bowling (task 29, asked for) is playable on keys, buttons or the camera in
   a bowling hall. Add another only when I ask. Each lives in `shared/games/<name>/` and registers in the registry, so
   rooms, lobby and reconnect stay game-agnostic. A game's specs are named

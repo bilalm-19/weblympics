@@ -25,19 +25,20 @@ import type { Scene } from "three";
 import { BOARD, RIM, SPOTS, spotPosition } from "../../../shared/games/basketball/sim.ts";
 import { rng, standSeats } from "../tennis/crowd-layout.ts";
 import type { CrowdLayout, CrowdSeat, Stand, Tiers } from "../tennis/crowd-layout.ts";
-import { PALETTE, Painter, plantTrees, seatCrowd, sky } from "../tennis/stadium.ts";
+import { PALETTE, Painter, seatCrowd } from "../tennis/stadium.ts";
+import { CITY_LIGHTS, buildCity } from "./city.ts";
 import type { CrowdHandle } from "../tennis/stadium.ts";
 import { createCrowdMotion } from "../tennis/crowd-motion.ts";
 import { sectionSeat } from "../../audio/crowd.ts";
 import type { CrowdKind, Seat, Size } from "../../audio/crowd.ts";
 
-// Basketball's park court (task 32), from primitives like tennis's stadium:
-// the static parts painted with vertex colours and merged into one lit and
-// one unlit mesh, the crowd and trees instanced (tennis's own pieces:
-// `seatCrowd`, `standSeats`, `plantTrees`, `sky`). Asphalt, painted lines and
-// the arc, one hoop with a backboard and a chain net, a chain-link fence,
-// trees, sky, and aluminium bleachers along both sidelines whose fans jump on
-// a make and slump on a miss. No shadows, no post-processing.
+// Basketball's city court (task 32; the city round it, user 2026-11-08, is
+// city.ts), from primitives like tennis's stadium: the static parts painted
+// with vertex colours and merged into one lit and one unlit mesh, the crowd
+// instanced (tennis's own pieces: `seatCrowd`, `standSeats`). Asphalt,
+// painted lines and the arc, one hoop with a backboard and a chain net, a
+// chain-link fence, and aluminium bleachers along both sidelines whose fans
+// jump on a make and slump on a miss. No shadows, no post-processing.
 //
 // The sim's axes: the rim's centre at (0, RIM.y, 0), +z out from the board
 // towards the shooters, +x to the shooter's right, the board's face at
@@ -71,7 +72,7 @@ export const STANDS: Record<"left" | "right", Stand> = {
   left: { x: -(HALF_W + STAND_GAP), z: STAND_Z, length: STAND_LENGTH, angle: Math.PI / 2, aisles: [0] },
   right: { x: HALF_W + STAND_GAP, z: STAND_Z, length: STAND_LENGTH, angle: -Math.PI / 2, aisles: [0] },
 };
-/** The fence round the park: x = ±FENCE_X, and z from FENCE_BACK to FENCE_FRONT. */
+/** The fence round the court: x = ±FENCE_X, and z from FENCE_BACK to FENCE_FRONT. */
 const FENCE_X = HALF_W + STAND_GAP + BLEACHER.tiers * BLEACHER.depth + 1.4;
 const FENCE_BACK = BASELINE_Z - 3;
 const FENCE_FRONT = HALFCOURT_Z + 4;
@@ -102,12 +103,8 @@ function arc(paint: Painter, cx: number, cz: number, r: number, a0: number, len:
   paint.add(g, LINE, true);
 }
 
-function courtFloor(scene: Object3D, paint: Painter): void {
-  const grass = new Mesh(new PlaneGeometry(240, 240), new MeshLambertMaterial({ color: 0x4f8f45 }));
-  grass.rotation.x = -Math.PI / 2;
-  grass.position.y = -0.05;
-  scene.add(grass);
-  // the park's asphalt, a darker band round it, the lane painted blue
+function courtFloor(paint: Painter): void {
+  // the ground round the block is the city's (city.ts); the court's asphalt, a darker band round it, the lane painted blue
   const pad = 1.2;
   paint.box(FENCE_X * 2, 0.04, FENCE_FRONT - FENCE_BACK, 0, -0.02, (FENCE_FRONT + FENCE_BACK) / 2, ASPHALT_EDGE);
   paint.box(HALF_W * 2 + pad * 2, 0.04, HALFCOURT_Z - BASELINE_Z + pad * 2, 0, -0.01, (HALFCOURT_Z + BASELINE_Z) / 2, ASPHALT);
@@ -206,7 +203,7 @@ function hoop(scene: Object3D, paint: Painter): Group {
   return net;
 }
 
-/** The chain-link fence: see-through panels on posts, round the park. */
+/** The chain-link fence: see-through panels on posts, round the court. */
 function fence(scene: Object3D, paint: Painter): void {
   const links = canvasTexture(32, 32, (g) => {
     g.clearRect(0, 0, 32, 32);
@@ -307,24 +304,19 @@ export const BLEACHER_LEFT: Seat = 0;
 
 export function buildCourt(scene: Scene, reduced: () => boolean = () => false): Court {
   const park = new Group();
-  park.add(new HemisphereLight(0xe6f4ff, 0x5a6a4a, 1.5));
-  const sun = new DirectionalLight(0xfff3dc, 2.2);
-  sun.position.set(8, 16, 10);
+  // the court's lights are the city's (its light is baked in with the same numbers)
+  park.add(new HemisphereLight(CITY_LIGHTS.sky, CITY_LIGHTS.ground, CITY_LIGHTS.hemi));
+  const sun = new DirectionalLight(CITY_LIGHTS.sun, CITY_LIGHTS.sunIntensity);
+  sun.position.copy(CITY_LIGHTS.sunDir);
   park.add(sun);
   const paint = new Painter();
-  sky(scene, park, paint);
-  courtFloor(park, paint);
+  buildCity(scene, park, { fenceX: FENCE_X, fenceBack: FENCE_BACK, fenceFront: FENCE_FRONT });
+  courtFloor(paint);
   const net = hoop(park, paint);
   fence(park, paint);
   bleachers(paint, STANDS.left, PALETTE.blue);
   bleachers(paint, STANDS.right, PALETTE.red);
   const crowd = seatCrowd(park, bleacherLayout(), { left: PALETTE.blue, right: PALETTE.red });
-  // trees outside the fence: along both sides and behind the hoop
-  const rand = rng(77);
-  const spots: [number, number][] = [];
-  for (let i = 0; i < 22; i++) spots.push([(i % 2 ? 1 : -1) * (FENCE_X + 3 + rand() * 9), FENCE_BACK - 4 + rand() * (FENCE_FRONT - FENCE_BACK + 8)]);
-  for (let i = 0; i < 14; i++) spots.push([(rand() - 0.5) * 50, FENCE_BACK - 4 - rand() * 14]);
-  plantTrees(park, spots, rand);
   paint.build(park);
   scene.add(park);
 

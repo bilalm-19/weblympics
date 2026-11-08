@@ -97,6 +97,9 @@ test("practice opens the camera setup first, then plays shots on keys in the pag
   await expect(page.locator(".hud .status")).toHaveText(/Your shot/);
   await expect(page.locator(".bb-hint")).toContainText("Push up and towards the hoop, like a real shot. No need to jump.");
   await laidOut(page, [".bb-board", ".bb-lower", ".bb-controls"]);
+  // the city round the court (city.ts) is a handful of merged meshes: the
+  // whole frame stayed at the park's 52 draw calls or fewer (2026-11-08)
+  expect(Number(await canvas(page).getAttribute("data-calls"))).toBeLessThanOrEqual(60);
 
   // the right arrow swings the floor arrow
   await page.keyboard.down("ArrowRight");
