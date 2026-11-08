@@ -150,7 +150,8 @@ lazily and only when a player enters a game. Video never leaves the browser.
   `games/tennis/stroke.ts` (forehand/backhand keyframes, shot label text),
   `games/tennis/shot-fx.ts` (ball trail, bounce marks, shot arc),
   `games/tennis/trajectory-aid.ts` (pure: timing arcs, meter, strength ticks)
-  with `aid.ts`/`aid-fx.ts`/`aid.css` drawing it (task 3), `input/`
+  with `aid.ts`/`aid-fx.ts`/`aid.css` drawing it (task 3; off, it hides
+  the reticle and the shot messages too), `input/`
   (`keyboard.ts` for keys, pointer and buttons; `camera/` with `pose.ts` pure
   landmark maths, `camera.ts` webcam + lazy MediaPipe, `index.ts` setup
   panel), `net/socket.ts` (`Connection`), `net/link.ts` (`GameLink`), `ui/menu.ts` (home screen: animated logo, then sport buttons from
@@ -582,6 +583,22 @@ lazily and only when a player enters a game. Video never leaves the browser.
   `recoveryMs` (800 ms) of a counted swing is the recovery. Calibration
   counts with the same rule (`CalibrationRecorder`). The camera cooldown
   (300 ms) and the server's 250 ms are unchanged (user's decision).
+  A swing starts from rest (the backhand fix, 2026-11-08, same spec: "a
+  hand swaying back and forth is never a swing"): the hand's movement is
+  split into legs where it turns back by 0.1 shoulder-widths; a sweep
+  counts if its leg set off after 150 ms with no headway, or if it follows
+  a take-back that did and goes 1.25x as far, and that stroke's kind is its
+  direction, whatever grip the take-back showed. A sweep from rest may start
+  at most 0.4 shoulder-widths onto the other stroke's side
+  (`OTHER_SIDE_START`). So a drifting or swaying hand reads no swings with
+  any grip. These numbers are guesses until a real-webcam recording.
+- The trajectory aid off (user, 2026-11-08; `e2e/aid-messages.e2e.ts`)
+  shows nothing to aim with: no reticle ring, no single arc, no stance pill
+  and none of the stroke messages (the FOREHAND / BACKHAND label, the
+  "Forehand · hard" line, "not sent"). Bounce marks and the ball's trail
+  stay. With it on the messages sit in one centred row between the timing
+  meter and the swing buttons (`.shot-messages`), never over the player or
+  the court, at both viewports.
 - Basketball's quick power calibration (task 25 round 3,
   `spec/basketball-power-calibration.test.ts`): optional, in the camera
   setup's aim step, "push soft, then push hard" twice each; their medians
