@@ -76,7 +76,12 @@ lazily and only when a player enters a game. Video never leaves the browser.
   vote, the 2D lane: ball path and bend, ball-pin and pin-pin circles,
   `simulateThrow`, `aimFor`, `speedZone` for the after-ball read),
   `bot.ts` (`solveThrow`: the pocket, or the most of the leftovers, plus
-  noise), `index.ts` (adapter).
+  noise), `index.ts` (adapter). Its camera (part 3):
+  `client/input/camera/bowl-pose.ts` (pure: aim across the picture, the
+  release past the hip, speed, the curve window, the chest fallback;
+  `spec/bowling-bowl-pose.test.ts`) and `client/games/bowling/bowl-camera.ts`
+  (its panel: stand-back silhouette, aim arrow, a try swing, the `?debug`
+  readout and the 1-9/0 recorder).
   `shared/look.ts`
   is the fixed palette and hat/hair list for a player's look (task 18).
 - `server/` `index.ts` (http + ws + `/readme/`), `rooms.ts` (live rooms with
@@ -410,7 +415,18 @@ lazily and only when a player enters a game. Video never leaves the browser.
   score, unrated). The physics numbers are first guesses
   (`spec/bowling-physics.test.ts` holds what they must do: a pocket ball at
   speed strikes, a curving one more often than a straight one, a slow ball
-  leaves pins, a head-on hit can split, spares are pickable).
+  leaves pins, a head-on hit can split, spares are pickable). Camera
+  (`BowlDetector` in `bowl-pose.ts`): it sends the same `aim` and `throw` a
+  key does. Aim is the bowling hand across the whole picture (walking
+  works), the player's right aiming right, locked at the swing's start. A
+  wrist coming up past the hip line fast, in shoulder widths a second
+  against the shoulders (a step or crouch changes nothing), is the release
+  and its speed; it counts only after the arm came down through the line
+  (or with the model's depth in front), never a backswing behind. Spin is
+  the sideways sweep over 150 ms around the release, then locked. No hips
+  seen: a chest line instead, and the panel says stand back. One throw a
+  turn, nothing off-turn, a wrist lost mid-swing never fires. Every number
+  in `DEFAULT_BOWL` is a guess until task 29's ten recordings.
 - Camera is used for gameplay only. Every camera action has a keyboard/mouse
   equivalent, and the lobby and room work with no camera at all.
 - Webcam is the default (task 15, `e2e/webcam-default.e2e.ts`): a seated
