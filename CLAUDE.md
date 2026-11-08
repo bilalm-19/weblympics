@@ -95,6 +95,8 @@ lazily and only when a player enters a game. Video never leaves the browser.
   `shared/look.ts`
   is the fixed lists for a player's look (tasks 18 and 33: clothes, colours,
   hair, face, headwear, eyewear) and `fromTask18`, the old shape's mapping.
+  `shared/camera-settings.ts` is every camera setting's closed shape,
+  defaults and `parseCameraSettings` (task 25).
 - `server/` `index.ts` (http + ws + `/readme/`), `rooms.ts` (live rooms with
   the real clock and db), `room.ts` (one room: 60 Hz tick loop, seats,
   spectators, game), `lobby.ts` (pure room rules: phases, ready, format,
@@ -168,8 +170,13 @@ lazily and only when a player enters a game. Video never leaves the browser.
   `spec/brand.test.ts`; task 14), `ui/profile.ts` + `.css` (task 17's profile
   dialog, with task 33's look editor: live preview, Face/Hair/Clothes/Extras
   tabs of picture swatches, Save and Cancel; `ui/look-preview.ts` draws the
-  look as SVG, whole or cropped, since the menu never loads Three.js), `net/account.ts`
+  look as SVG, whole or cropped, since the menu never loads Three.js; task
+  25's "Camera settings" section with its Reset), `net/account.ts`
   (`/api/*` calls; the passkey prompt is loaded only when needed),
+  `net/camera-settings.ts` (task 25: the one store every camera panel reads
+  and saves; an account's from `/api/me`, a guest's in `localStorage`),
+  `input/camera/power-calibration.ts` (task 25: pure soft/hard to a power
+  range, for basketball's push and bowling's roll),
   `ui/leaderboard.ts` + `.css` (task 7: a tab per sport, polled each second). Camera swings have two modes,
   "classic" (default) and "follow" (character copies the arm, hit at the
   hitting line), and two aim modes, "timing" (default) and "point"; see
@@ -541,7 +548,36 @@ lazily and only when a player enters a game. Video never leaves the browser.
   turn, nothing off-turn, a wrist lost mid-swing never fires. Every number
   in `DEFAULT_BOWL` is a guess until task 29's ten recordings.
 - Camera is used for gameplay only. Every camera action has a keyboard/mouse
-  equivalent, and the lobby and room work with no camera at all.
+  equivalent, and the lobby and room work with no camera at all. The one
+  exception is calibration (task 25): swing or push speed has no key
+  meaning, so calibrating is camera only, always optional, and with no
+  camera it isn't offered (the reason says so); keys play on the defaults.
+- Camera settings (task 25; `spec/camera-settings.test.ts`,
+  `e2e/accounts.e2e.ts`): every one (tennis's per-stroke swing thresholds,
+  neutral, racket hand, swing, aim and movement mode; archery's bow hand;
+  track's mode and stand-still per mode; basketball's power range;
+  bowling's speed range) is one
+  closed shape in `shared/camera-settings.ts`. An account's are stored on the
+  server (`players.camera_settings`, schema v9, `/api/camera-settings`) and
+  arrive with `/api/me` on any device; a guest's stay in the browser, and a
+  passkey claim carries them over. The server refuses an unknown field, a
+  wrong type or a value out of range whole and stores nothing; `null` is
+  Reset to default. A fresh profile is classic swing, aim by timing and
+  auto-move. Deleting the account deletes them.
+- One swing counts once (task 25, `spec/camera.test.ts` "the
+  double-count"): a classic sweep ends where the hand turns back; only a
+  sweep in the hitting direction of the grip held counts, a wind-up is
+  dropped whole and starts no cooldown, and an opposite sweep within
+  `recoveryMs` (800 ms) of a counted swing is the recovery. Calibration
+  counts with the same rule (`CalibrationRecorder`). The camera cooldown
+  (300 ms) and the server's 250 ms are unchanged (user's decision).
+- Basketball's quick power calibration (task 25 round 3,
+  `spec/basketball-power-calibration.test.ts`): optional, in the camera
+  setup's aim step, "push soft, then push hard" twice each; their medians
+  sit at 20% and 90% of the bar (`powerRangeFrom`); a hard push under 1.5x
+  the soft keeps the defaults and says so. Never blocks a room. Bowling has
+  the same in its swing step, "roll soft, then roll hard" onto
+  `speed0`/`speed1` (`spec/bowling-speed-calibration.test.ts`).
 - Webcam is the default (task 15, `e2e/webcam-default.e2e.ts`): a seated
   player's game (practice, room, training) opens the camera setup first, with
   "Use keyboard instead" on each step; that, Escape or a refused permission

@@ -34,8 +34,11 @@ import type { DatabaseSync } from "node:sqlite";
  * 0002. Friendships (one row per pair, the smaller id first), pending
  * friend requests and friend links (only a hash of the code, single use,
  * expiring) get their own tables, all keyed by the hidden player id.
+ * Version 9 (task 25): an account's camera settings, as JSON of the closed
+ * shape in shared/camera-settings.ts (validated before it is written); NULL
+ * means the defaults. Guests keep theirs in the browser.
  */
-export const SCHEMA_VERSION = 8;
+export const SCHEMA_VERSION = 9;
 
 const V1 = `
   CREATE TABLE IF NOT EXISTS players (
@@ -185,6 +188,10 @@ const V8 = `
   CREATE INDEX friend_links_player ON friend_links (player);
 `;
 
+const V9 = `
+  ALTER TABLE players ADD COLUMN camera_settings TEXT;
+`;
+
 export function schemaVersion(db: DatabaseSync): number {
   db.exec("CREATE TABLE IF NOT EXISTS schema_version (version INTEGER NOT NULL)");
   const row = db.prepare("SELECT version FROM schema_version").get() as { version: number } | undefined;
@@ -199,7 +206,7 @@ export function schemaVersion(db: DatabaseSync): number {
 
 /** Brings `db` up to SCHEMA_VERSION, one step at a time, each in a transaction. */
 export function migrate(db: DatabaseSync): void {
-  const steps: Record<number, string> = { 1: V1, 2: V2, 3: V3, 4: V4, 5: V5, 6: V6, 7: V7, 8: V8 };
+  const steps: Record<number, string> = { 1: V1, 2: V2, 3: V3, 4: V4, 5: V5, 6: V6, 7: V7, 8: V8, 9: V9 };
   let v = schemaVersion(db);
   if (v > SCHEMA_VERSION) throw new Error(`database schema ${v} is newer than this app (${SCHEMA_VERSION})`);
   while (v < SCHEMA_VERSION) {

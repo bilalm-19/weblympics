@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   AutoNeutral,
+  CalibrationRecorder,
   CameraController,
   GripTracker,
   bodyVisibility,
@@ -497,6 +498,118 @@ describe("calibration", () => {
     expect(thresholdsFrom({ light: [3, 4], medium: [7], hard: [12, 13, 14] })).toEqual([5.25, 10]);
     expect(thresholdsFrom({ light: [6], medium: [6.2], hard: [12] })).toEqual(DEFAULT_SWING.thresholds);
     expect(thresholdsFrom({ light: [], medium: [6], hard: [12] })).toEqual(DEFAULT_SWING.thresholds);
+  });
+});
+
+// Task 25: one real swing is three fast movements: the wind-up (racket back),
+// the stroke and the recovery (hand back to rest). Each is fast enough to be a
+// "swing", so the old detector counted one forehand as two or three, in
+// calibration (which counted every movement) and in play (the wind-up started
+// the 300 ms cooldown and cut the stroke short; the recovery counted whenever
+// the hand showed a backhand grip on its way back).
+describe("one swing counts once (task 25: the double-count)", () => {
+  type Frame = { t: number; lm: Point[] };
+  /**
+   * A whole stroke at 30 fps from rest: wind-up, a short pause, the stroke, a
+   * follow-through hold, the recovery back to rest, then still. A forehand
+   * (right hand) winds back toward negative across and hits toward positive;
+   * a backhand the opposite. `recoveryGrip` is what the hand shows coming back.
+   */
+  function stroke(t0: number, o: { kind?: "forehand" | "backhand"; windupMs?: number; strokeMs?: number; backMs?: number; reach?: number; recoveryGrip?: "forehand" | "backhand" } = {}): Frame[] {
+    const kind = o.kind ?? "forehand";
+    const s = kind === "forehand" ? 1 : -1;
+    const rest = -0.5 * s;
+    const reach = o.reach ?? 1.9;
+    const frames: Frame[] = [];
+    let t = t0;
+    let a = rest;
+    let grip: "forehand" | "backhand" = kind;
+    const move = (to: number, ms: number) => {
+      const n = Math.max(1, Math.round(ms / 33));
+      const from = a;
+      for (let i = 1; i <= n; i++) {
+        const p = i / n;
+        a = from + (to - from) * p * p * (3 - 2 * p);
+        t += 33;
+        frames.push({ t, lm: pose({ across: a, grip }) });
+      }
+    };
+    const hold = (ms: number) => {
+      for (let i = 0; i < Math.round(ms / 33); i++) {
+        t += 33;
+        frames.push({ t, lm: pose({ across: a, grip }) });
+      }
+    };
+    move(rest - 0.6 * s, o.windupMs ?? 250);
+    hold(33);
+    move(rest - 0.6 * s + reach * s, o.strokeMs ?? 300);
+    hold(150);
+    grip = o.recoveryGrip ?? kind;
+    move(rest, o.backMs ?? 400);
+    hold(700);
+    return frames;
+  }
+  const still = (t0: number, ms: number, grip: "forehand" | "backhand" = "forehand"): Frame[] =>
+    Array.from({ length: Math.round(ms / 33) }, (_, i) => ({ t: t0 + i * 33, lm: pose({ across: grip === "forehand" ? -0.5 : 0.5, grip }) }));
+  const play = (frames: Frame[]) => {
+    const c = new CameraController(DEFAULT_CALIBRATION);
+    return frames.map((f) => c.update({ t: f.t, landmarks: f.lm, aspect: ASPECT }).swing).filter((s) => s !== null);
+  };
+  const calibrate = (frames: Frame[], kind: "forehand" | "backhand" = "forehand") => {
+    const r = new CalibrationRecorder("right", kind);
+    for (const f of frames) r.update({ t: f.t, landmarks: f.lm, aspect: ASPECT });
+    return r.peaks;
+  };
+
+  const shapes = [
+    { windupMs: 250, strokeMs: 300, backMs: 400 },
+    { windupMs: 200, strokeMs: 230, backMs: 300 },
+    { windupMs: 300, strokeMs: 400, backMs: 500 },
+    { windupMs: 150, strokeMs: 200, backMs: 250 },
+  ];
+
+  it.each(shapes)("in play: a forehand with its wind-up and recovery is one shot (%o)", (shape) => {
+    const swings = play([...still(0, 600), ...stroke(600, shape)]);
+    expect(swings).toHaveLength(1);
+    expect(swings[0].kind).toBe("forehand");
+  });
+
+  it.each(shapes)("in play: a backhand with its wind-up and recovery is one shot (%o)", (shape) => {
+    const swings = play([...still(0, 600, "backhand"), ...stroke(600, { ...shape, kind: "backhand" })]);
+    expect(swings).toHaveLength(1);
+    expect(swings[0].kind).toBe("backhand");
+  });
+
+  it("in play: the hand coming back from a forehand showing a backhand grip is not a second shot", () => {
+    const swings = play([...still(0, 600), ...stroke(600, { recoveryGrip: "backhand" })]);
+    expect(swings).toHaveLength(1);
+  });
+
+  it.each(shapes)("in calibration: one swing is one, for either stroke (%o)", (shape) => {
+    expect(calibrate([...still(0, 600), ...stroke(600, shape)])).toHaveLength(1);
+    expect(calibrate([...still(0, 600, "backhand"), ...stroke(600, { ...shape, kind: "backhand" })], "backhand")).toHaveLength(1);
+  });
+
+  it("two real swings in a row still count twice, in play and in calibration", () => {
+    const first = stroke(600);
+    const second = stroke(first.at(-1)!.t + 33);
+    const frames = [...still(0, 600), ...first, ...second];
+    expect(play(frames)).toHaveLength(2);
+    expect(calibrate(frames)).toHaveLength(2);
+  });
+
+  it("the wind-up no longer cuts the stroke short: its peak is the whole stroke's", () => {
+    const hard = calibrate([...still(0, 600), ...stroke(600, { strokeMs: 230, reach: 2.4 })]);
+    const easy = calibrate([...still(0, 600), ...stroke(600, { strokeMs: 400, reach: 1.2 })]);
+    expect(hard).toHaveLength(1);
+    expect(easy).toHaveLength(1);
+    // smoothstep peaks at 1.5x the mean speed: reach / time * 1.5
+    expect(hard[0]).toBeGreaterThan(0.85 * ((2.4 / 0.23) * 1.5));
+    expect(hard[0]).toBeGreaterThan(easy[0] * 1.5);
+  });
+
+  it("the camera cooldown stays 300 ms (user's decision)", () => {
+    expect(DEFAULT_SWING.cooldownMs).toBe(300);
   });
 });
 

@@ -1,6 +1,6 @@
 # 25 Swing feel: live swing level, calibration profile, settings panel
 
-Status: round 3 decided (2026-11-08): fix the double-counted swing, settings on the account, quick calibration for basketball and bowling; building. Earlier: discussed with the user (2026-10-21).
+Status: round 3 built on branch `swing-25` (2026-11-08): the double-count fixed, every camera setting on the account (schema v8), per-stroke tennis calibration, basketball's and bowling's quick calibration. Round 1's side settings pop-up and live swing bar not built yet. Earlier: discussed with the user (2026-10-21).
 Model: Opus (design and profile storage), Sonnet for the panel
 Session: later; needs accounts (17) for profile storage and waits on the camera
 panel changes in task 15 (session B)

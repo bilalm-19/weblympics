@@ -267,8 +267,9 @@ describe("survives a restart (task 7)", () => {
     const db = new DatabaseSync(path);
     // v5: build it through the real steps, then put the version back to 5 after adding a row
     migrate(db);
-    // (later steps undone too: v8, task 34's tags and friends tables; v7 adds no table)
+    // (later steps undone too: v9, task 25's camera settings; v8, task 34's tags and friends tables; v7 adds no table)
     db.exec(`
+      ALTER TABLE players DROP COLUMN camera_settings;
       DROP TABLE friendships; DROP TABLE friend_requests; DROP TABLE friend_links;
       DROP INDEX players_name_tag; ALTER TABLE players DROP COLUMN tag;
       CREATE UNIQUE INDEX players_account_name ON players (lower(name)) WHERE account = 1;

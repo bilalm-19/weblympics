@@ -75,8 +75,9 @@ describe("schema v8 (task 34): name tags and friends tables", () => {
     const path = freshFile();
     const old = new DatabaseSync(path);
     migrate(old);
-    // roll the fresh database back to what v7 made (task 33's looks step stays)
+    // roll the fresh database back to what v7 made (task 33's looks step stays; task 25's v9 column goes)
     old.exec(`
+      ALTER TABLE players DROP COLUMN camera_settings;
       DROP TABLE friendships; DROP TABLE friend_requests; DROP TABLE friend_links;
       DROP INDEX players_name_tag;
       ALTER TABLE players DROP COLUMN tag;
@@ -93,7 +94,7 @@ describe("schema v8 (task 34): name tags and friends tables", () => {
     const db = new DatabaseSync(path);
     migrate(db);
     expect(schemaVersion(db)).toBe(SCHEMA_VERSION);
-    expect(SCHEMA_VERSION).toBe(8);
+    expect(SCHEMA_VERSION).toBe(9);
     expect(getDemo(db, 1).tag).toBe(1);
     expect(getDemo(db, 2).tag).toBe(2);
     for (const t of ["acct-a", "acct-b"]) {

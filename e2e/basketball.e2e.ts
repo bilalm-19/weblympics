@@ -335,3 +335,27 @@ test("the phone layout: the Shoot and aim buttons reachable, the canvas not clip
   await page.mouse.up();
   await expect.poll(async () => Number(await canvas(page).getAttribute("data-aim"))).toBeLessThan(-0.1);
 });
+
+test("task 25: the camera setup offers an optional power calibration (soft, then hard), camera only, and Cancel leaves the default", async ({ page }) => {
+  test.setTimeout(90_000);
+  await openBasketball(page);
+  await page.getByRole("button", { name: "Practice", exact: true }).click();
+  const panel = page.getByRole("dialog", { name: /camera setup/i });
+  await panel.getByRole("button", { name: "Start camera" }).click();
+  // the fake webcam has no person: the hold step waits, Next goes on
+  await panel.getByRole("button", { name: "Next" }).click({ timeout: 60_000 });
+  await expect(panel.getByRole("button", { name: "Start shooting" })).toBeVisible();
+  await panel.locator("summary", { hasText: "Power" }).click();
+  await panel.getByRole("button", { name: "Calibrate power" }).click();
+  await expect(panel.getByRole("heading", { name: "Push soft" })).toBeVisible();
+  await expect(panel.locator("[data-count]")).toHaveText("0 of 2");
+  await insideViewport(page, panel.getByRole("button", { name: "Cancel" }));
+  expect(await noHorizontalScroll(page)).toBe(true);
+  await panel.getByRole("button", { name: "Cancel" }).click();
+  await expect(panel.getByRole("button", { name: "Start shooting" })).toBeVisible();
+  // nothing was saved: the default power stays
+  const saved = await page.evaluate(() => JSON.parse(localStorage.getItem("camera-settings") ?? "null") as { basketball?: { power: unknown } } | null);
+  expect(saved?.basketball?.power ?? null).toBeNull();
+  await panel.getByRole("button", { name: "Start shooting" }).click();
+  await expect(panel).toBeHidden();
+});
