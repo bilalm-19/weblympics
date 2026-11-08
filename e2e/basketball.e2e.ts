@@ -92,6 +92,8 @@ test("practice opens the camera setup first, then plays shots on keys in the pag
   const panel = page.getByRole("dialog", { name: /camera setup/i });
   if ((await panel.count()) > 0) await useKeyboard(page);
   await expect.poll(async () => Number(await canvas(page).getAttribute("data-frames"))).toBeGreaterThan(5);
+  // task 38: practice opens on Just me; vs Bot brings the shootout against the bot back
+  await page.getByRole("radio", { name: "vs Bot" }).click();
   await expect(page.locator(".bb-spot")).toHaveText("Practice · Spot 1 of 5 · Free throw · 2 pts");
   await expect(page.locator(".bb-bonus")).toHaveText("A swish adds 1: 3 pts");
   await expect(page.locator(".hud .status")).toHaveText(/Your shot/);

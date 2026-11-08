@@ -68,6 +68,9 @@ test("practice: pick hurdles, Space jumps, the board counts hurdles, nothing sen
   const frames: string[] = [];
   page.on("websocket", (ws) => ws.on("framesent", (f) => frames.push(String(f.payload))));
   await hurdlesPractice(page);
+  // task 38: practice opens on Just me; vs Bot brings the pacer, who jumps too
+  await page.getByRole("radio", { name: "vs Bot" }).click();
+  await expect(page.locator(".tr-row")).toHaveCount(2);
   const sent = frames.length;
   await expect(page.getByRole("button", { name: /^Jump/ })).toBeVisible();
   await expect(page.locator(".tr-hurdles").first()).toHaveText(/0\/10 cleared/);

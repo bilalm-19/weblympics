@@ -66,6 +66,10 @@ test("practice: alternate A and D to run, in the page, nothing sent to the serve
   page.on("websocket", (ws) => ws.on("framesent", (f) => frames.push(String(f.payload))));
   await openTrack(page);
   await page.getByRole("button", { name: "Practice", exact: true }).click();
+  // task 38: practice opens on Just me (one lane); vs Bot brings the pacer back
+  await expect(page.locator(".tr-board")).toContainText("Just me · Sprint · 100 m");
+  await expect(page.locator(".tr-row")).toHaveCount(1);
+  await page.getByRole("radio", { name: "vs Bot" }).click();
   await expect(page.locator(".tr-board")).toContainText("Practice · Sprint · 100 m");
   await expect(page.locator(".tr-row")).toHaveCount(2);
   const sent = frames.length;
