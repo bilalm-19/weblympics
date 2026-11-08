@@ -25,6 +25,10 @@ import { DEFAULT_LOOKS } from "../../../shared/look.ts";
 import type { GameLink } from "../../net/link.ts";
 import { createReadyPanel } from "../tennis/ready-panel.ts";
 import "./archery.css";
+import { audioEngine, gameSounds, mountSoundToggle } from "../../audio/index.ts";
+import { crowdVoices } from "../../audio/crowd.ts";
+import type { CrowdContext } from "../../audio/crowd.ts";
+import { archeryCrowd, archeryCues } from "./sound.ts";
 import { makeArcher } from "./archer.ts";
 import { LINE_X } from "./archer-pose.ts";
 import { createBowCamera } from "./bow-camera.ts";
@@ -221,6 +225,11 @@ export function startArchery(root: HTMLElement, conn: GameLink, info: RoomInfo, 
   resize();
 
   let snap: ArcherySnapshot | null = null;
+  // task 19: sound through the shared module; a few onlookers by the range
+  const sounds = gameSounds();
+  const crowdCtx: CrowdContext = { viewer: info.seat, stands: "onlookers", practice: info.practice };
+  const leaveBtn = view.querySelector("[data-action=leave]") as HTMLElement;
+  const disposeToggle = mountSoundToggle(audioEngine(), leaveBtn.parentElement as HTMLElement, leaveBtn);
   let names: [string | null, string | null] = [null, null];
   let lobby: LobbyView | null = null;
   const label = (seat: Seat) => (seat === info.seat ? "You" : (names[seat] ?? `Player ${seat + 1}`));
@@ -507,12 +516,20 @@ export function startArchery(root: HTMLElement, conn: GameLink, info: RoomInfo, 
     if (msg.t === "state") {
       const next = msg.state as ArcherySnapshot;
       const prev = snap;
+      // task 19: the creak, the twang, the thunk, the wind and the onlookers (sound.ts)
+      sounds.play(archeryCues(prev, next, crowdCtx));
       if (!prev || prev.shots.length !== next.shots.length || prev.stage !== next.stage || prev.matches !== next.matches) {
         const newest = next.shots.at(-1);
         if (prev && newest && next.shots.length > prev.shots.length) {
           call(newest);
-          // the stand cheers a 10 or a bullseye
-          if (newest.points >= 10) range.cheer();
+          // the onlookers: jump for a 10 or the bullseye, clap a good arrow, slump at a miss
+          const e = archeryCrowd(newest);
+          if (e) {
+            const [v] = crowdVoices(e, crowdCtx);
+            const kind = e.cheer != null && e.size >= 1 ? "cheer" : v.kind;
+            range.react(kind, e.size);
+            canvas.dataset.crowd = `${kind}:${e.size}`;
+          }
         }
         renderHoles(next);
       }
@@ -690,6 +707,8 @@ export function startArchery(root: HTMLElement, conn: GameLink, info: RoomInfo, 
     window.removeEventListener("keyup", keyup);
     bowCam.dispose();
     disposeSpectating();
+    sounds.dispose();
+    disposeToggle();
     observer.disconnect();
     renderer.dispose();
   };

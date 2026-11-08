@@ -16,6 +16,8 @@ import type { Scene } from "three";
 import { Painter } from "../tennis/stadium.ts";
 import { rng } from "../tennis/crowd-layout.ts";
 import { SEAT_COLOURS } from "./scene-model.ts";
+import type { CrowdFans } from "../tennis/crowd-motion.ts";
+import type { Seat } from "../../audio/crowd.ts";
 
 // The boxing ring (task 30), from primitives like tennis's stadium: static
 // parts painted with vertex colours and merged into one lit and one unlit
@@ -151,8 +153,17 @@ const ROW_DEPTH = 0.9;
 const ROW_RISE = 0.42;
 const FIRST_ROW = RING_HALF + APRON + 2.2;
 
+/** The ring's crowd (task 19): the instanced fans, their rest poses, and whose fans each is. */
+export interface RingCrowd extends CrowdFans {
+  /** Fan i's seat: seat 1's fans fill the half behind its corner (+z, as laid out), seat 2's the other half. */
+  sideOf: (i: number) => Seat;
+}
+
+/** Whose fan sits at arena z: seat 1's boxer stands at +z in the ring's own frame. */
+export const ringSide = (z: number): Seat => (z >= 0 ? 0 : 1);
+
 /** Rows of seats on four sides: raised steps in the static mesh, the people instanced. */
-function crowd(arena: Group, paint: Painter): void {
+function crowd(arena: Group, paint: Painter): RingCrowd {
   const rand = rng(31);
   const spots: { x: number; y: number; z: number; facing: number }[] = [];
   for (let side = 0; side < 4; side++) {
@@ -176,6 +187,8 @@ function crowd(arena: Group, paint: Painter): void {
   const heads = new InstancedMesh(new IcosahedronGeometry(0.16, 0), new MeshLambertMaterial({ color: 0xffffff, flatShading: true }), n);
   const o = new Object3D();
   const colour = new Color();
+  const restBody: Matrix4[] = [];
+  const restHead: Matrix4[] = [];
   spots.forEach((s, i) => {
     const bob = (rand() - 0.5) * 0.08;
     o.position.set(s.x, s.y + 0.55 + bob, s.z);
@@ -183,16 +196,21 @@ function crowd(arena: Group, paint: Painter): void {
     o.scale.set(0.9 + rand() * 0.2, 1, 1);
     o.updateMatrix();
     bodies.setMatrixAt(i, o.matrix);
+    restBody.push(o.matrix.clone());
     o.position.y = s.y + 0.98 + bob;
     o.scale.set(1, 1, 1);
     o.updateMatrix();
     heads.setMatrixAt(i, o.matrix);
-    bodies.setColorAt(i, colour.setHex(SHIRTS[Math.floor(rand() * SHIRTS.length)]));
+    restHead.push(o.matrix.clone());
+    // task 19: a share of each half wears its boxer's corner colour, so the sides read apart
+    const shirt = rand() < 0.3 ? SEAT_COLOURS[ringSide(s.z)] : SHIRTS[Math.floor(rand() * SHIRTS.length)];
+    bodies.setColorAt(i, colour.setHex(shirt));
     heads.setColorAt(i, colour.setHex(SKIN[Math.floor(rand() * SKIN.length)]));
   });
   bodies.name = "crowd-bodies";
   heads.name = "crowd-heads";
   arena.add(bodies, heads);
+  const sides = spots.map((s) => ringSide(s.z));
   // a low barrier between the ring and the first row
   for (let side = 0; side < 4; side++) {
     const m = new Matrix4().makeRotationY((side * Math.PI) / 2);
@@ -200,10 +218,11 @@ function crowd(arena: Group, paint: Painter): void {
     paint.add(new BoxGeometry(d * 2, 0.8, 0.08).translate(0, 0.4, d).applyMatrix4(m), 0x2b3242);
     paint.add(new BoxGeometry(d * 2, 0.05, 0.1).translate(0, 0.82, d).applyMatrix4(m), 0x55607a, true);
   }
+  return { bodies, heads, restBody, restHead, sideOf: (i) => sides[i] };
 }
 
-/** The ring and arena, lights included, in one group; turn it with `rotation.y` for seat 1. */
-export function buildRing(scene: Scene): Group {
+/** The ring and arena, lights included, in one group (turn it with `rotation.y` for seat 1), and its crowd. */
+export function buildRing(scene: Scene): { arena: Group; crowd: RingCrowd } {
   scene.background = new Color(0x0b0c10);
   scene.fog = new Fog(0x0b0c10, 9, 22);
   const arena = new Group();
@@ -211,8 +230,8 @@ export function buildRing(scene: Scene): Group {
   platform(paint);
   postsAndRopes(paint);
   lights(paint);
-  crowd(arena, paint);
+  const fans = crowd(arena, paint);
   paint.build(arena);
   scene.add(arena);
-  return arena;
+  return { arena, crowd: fans };
 }

@@ -1,129 +1,45 @@
-// Bowling's sounds (task 29), made in the browser with WebAudio: no files.
-// The roll (filtered noise while the ball is on the lane), the pin crash
-// (bigger the more pins go), the gutter's hollow thud, and the crowd's cheer
-// and groan. Nothing plays until the page has had a user gesture (a key or a
-// tap): the AudioContext is only made inside one, as browsers require.
+import type { BallResult, BowlingSnapshot } from "../../../shared/games/bowling/sim.ts";
+import { crowdVoices } from "../../audio/crowd.ts";
+import type { CrowdContext, CrowdEvent } from "../../audio/crowd.ts";
+import { crowdCue } from "../../audio/sounds.ts";
+import type { AnyCue } from "../../audio/sounds.ts";
+import { reactionFor } from "./calls.ts";
 
-export interface BowlingSound {
-  /** Starts the rolling sound, or changes it (`gutter`: hollow and lower). */
-  roll(on: boolean, gutter?: boolean): void;
-  /** Pins going down; `size` 1..10. */
-  crash(size: number): void;
-  gutter(): void;
-  cheer(big: boolean): void;
-  groan(): void;
-  dispose(): void;
+// Bowling's sounds (task 29, moved onto the shared audio module by task 19),
+// a pure function of two snapshots: the roll while the ball is on the lane
+// (hollow and lower in the gutter), the pin crash (bigger the more pins go),
+// the gutter's thud, and a few onlookers: quiet applause for a strike or
+// spare (more for a strike), a soft "aww" at a gutter.
+
+/** A new ball's result: the result phase with a different ball from last time. */
+export function newResult(prev: BowlingSnapshot, next: BowlingSnapshot): BallResult | null {
+  const r = next.last;
+  if (!r || next.phase !== "result") return null;
+  const p = prev.last;
+  if (p && p.seat === r.seat && p.frame === r.frame && p.ball === r.ball && prev.matches === next.matches) return null;
+  return r;
 }
 
-export function createBowlingSound(): BowlingSound {
-  let ctx: AudioContext | null = null;
-  let noise: AudioBuffer | null = null;
-  let rolling: { src: AudioBufferSourceNode; filter: BiquadFilterNode; gain: GainNode } | null = null;
+/** The onlookers' moment for a ball, or null. */
+export function bowlingCrowd(r: BallResult): CrowdEvent | null {
+  const react = reactionFor(r);
+  if (react === "cheer") return { cheer: r.seat, size: r.strike ? 1 : 0 };
+  if (react === "groan") return { aww: r.seat, size: 0 };
+  return null;
+}
 
-  const unlock = () => {
-    if (ctx) return;
-    try {
-      ctx = new AudioContext();
-      noise = ctx.createBuffer(1, ctx.sampleRate * 2, ctx.sampleRate);
-      const d = noise.getChannelData(0);
-      for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
-    } catch {
-      ctx = null;
-    }
-  };
-  // the first gesture anywhere on the page makes the sound possible
-  const events = ["pointerdown", "keydown"] as const;
-  for (const e of events) window.addEventListener(e, unlock, { capture: true });
-
-  /** A burst of filtered noise. */
-  const burst = (type: BiquadFilterType, freq: number, q: number, peak: number, attack: number, decay: number, at = 0) => {
-    if (!ctx || !noise) return;
-    const t = ctx.currentTime + at;
-    const src = ctx.createBufferSource();
-    src.buffer = noise;
-    src.loop = true;
-    const filter = ctx.createBiquadFilter();
-    filter.type = type;
-    filter.frequency.value = freq;
-    filter.Q.value = q;
-    const gain = ctx.createGain();
-    gain.gain.setValueAtTime(0.0001, t);
-    gain.gain.exponentialRampToValueAtTime(peak, t + attack);
-    gain.gain.exponentialRampToValueAtTime(0.0001, t + attack + decay);
-    src.connect(filter).connect(gain).connect(ctx.destination);
-    src.start(t, Math.random());
-    src.stop(t + attack + decay + 0.05);
-  };
-
-  const tone = (type: OscillatorType, from: number, to: number, peak: number, length: number, at = 0) => {
-    if (!ctx) return;
-    const t = ctx.currentTime + at;
-    const osc = ctx.createOscillator();
-    osc.type = type;
-    osc.frequency.setValueAtTime(from, t);
-    osc.frequency.exponentialRampToValueAtTime(to, t + length);
-    const gain = ctx.createGain();
-    gain.gain.setValueAtTime(0.0001, t);
-    gain.gain.exponentialRampToValueAtTime(peak, t + 0.05);
-    gain.gain.exponentialRampToValueAtTime(0.0001, t + length);
-    osc.connect(gain).connect(ctx.destination);
-    osc.start(t);
-    osc.stop(t + length + 0.05);
-  };
-
-  const stopRoll = () => {
-    if (!rolling || !ctx) return;
-    const { src, gain } = rolling;
-    gain.gain.setTargetAtTime(0.0001, ctx.currentTime, 0.08);
-    src.stop(ctx.currentTime + 0.4);
-    rolling = null;
-  };
-
-  return {
-    roll(on, gutter = false) {
-      if (!ctx || !noise) return;
-      if (!on) return stopRoll();
-      if (!rolling) {
-        const src = ctx.createBufferSource();
-        src.buffer = noise;
-        src.loop = true;
-        const filter = ctx.createBiquadFilter();
-        filter.type = "lowpass";
-        const gain = ctx.createGain();
-        gain.gain.setValueAtTime(0.0001, ctx.currentTime);
-        gain.gain.setTargetAtTime(0.16, ctx.currentTime, 0.1);
-        src.connect(filter).connect(gain).connect(ctx.destination);
-        src.start();
-        rolling = { src, filter, gain };
-      }
-      rolling.filter.frequency.setTargetAtTime(gutter ? 160 : 320, ctx.currentTime, 0.05);
-      rolling.filter.Q.value = gutter ? 6 : 1;
-    },
-    crash(size) {
-      const s = Math.min(10, Math.max(1, size)) / 10;
-      // the hit, then the pins clattering
-      burst("bandpass", 1800, 0.8, 0.25 + 0.5 * s, 0.005, 0.18 + 0.4 * s);
-      for (let i = 0; i < 2 + Math.round(6 * s); i++) burst("bandpass", 2400 + Math.random() * 2600, 6, 0.1 + 0.15 * s, 0.003, 0.08, 0.04 + Math.random() * (0.25 + 0.4 * s));
-      tone("triangle", 220, 90, 0.2 * s, 0.25);
-    },
-    gutter() {
-      tone("sine", 110, 55, 0.3, 0.35);
-      burst("lowpass", 300, 1, 0.2, 0.01, 0.3);
-    },
-    cheer(big) {
-      burst("bandpass", 1200, 0.7, big ? 0.35 : 0.22, 0.25, big ? 1.8 : 1.2);
-      burst("bandpass", 2600, 1.2, big ? 0.15 : 0.1, 0.3, big ? 1.5 : 1.0, 0.05);
-    },
-    groan() {
-      tone("sawtooth", 220, 130, 0.08, 0.9);
-      tone("sawtooth", 180, 105, 0.06, 0.9, 0.03);
-      burst("lowpass", 500, 1, 0.12, 0.2, 0.8);
-    },
-    dispose() {
-      for (const e of events) window.removeEventListener(e, unlock, { capture: true });
-      stopRoll();
-      void ctx?.close().catch(() => {});
-      ctx = null;
-    },
-  };
+export function bowlingCues(prev: BowlingSnapshot | null, next: BowlingSnapshot, ctx: CrowdContext): AnyCue[] {
+  if (!prev) return [];
+  const out: AnyCue[] = [];
+  if (prev.phase === "aim" && next.phase === "roll") out.push({ loop: "roll", v: 1, tone: 0 });
+  if (next.phase === "roll" && next.bowl?.gutter && !prev.bowl?.gutter) out.push({ loop: "roll", v: 1, tone: 1 });
+  if (prev.phase === "roll" && next.phase !== "roll") out.push({ loop: "roll", v: 0 });
+  const r = newResult(prev, next);
+  if (r) {
+    if (r.pins > 0) out.push({ s: "crash", v: r.strike ? 10 : r.pins });
+    else if (r.gutter && !r.timeout) out.push({ s: "gutter" });
+    const e = bowlingCrowd(r);
+    if (e) for (const v of crowdVoices(e, ctx)) out.push(crowdCue(v));
+  }
+  return out;
 }

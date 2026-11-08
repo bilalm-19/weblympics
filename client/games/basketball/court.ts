@@ -27,6 +27,9 @@ import { rng, standSeats } from "../tennis/crowd-layout.ts";
 import type { CrowdLayout, CrowdSeat, Stand, Tiers } from "../tennis/crowd-layout.ts";
 import { PALETTE, Painter, plantTrees, seatCrowd, sky } from "../tennis/stadium.ts";
 import type { CrowdHandle } from "../tennis/stadium.ts";
+import { createCrowdMotion } from "../tennis/crowd-motion.ts";
+import { sectionSeat } from "../../audio/crowd.ts";
+import type { CrowdKind, Seat, Size } from "../../audio/crowd.ts";
 
 // Basketball's park court (task 32), from primitives like tennis's stadium:
 // the static parts painted with vertex colours and merged into one lit and
@@ -285,24 +288,24 @@ export function bleacherLayout(seed = 42): CrowdLayout {
   };
 }
 
-export type Reaction = "big" | "cheer" | "groan";
-
 export interface Court {
   crowd: CrowdHandle;
   /** The chain net, to sway on a make. */
   net: Group;
-  /** The crowd reacts to a shot: jumps (a swish or the money ball higher and longer) or slumps. */
-  react(kind: Reaction): void;
-  /** The last reaction, for tests. */
-  reaction(): Reaction | null;
+  /** Each side's stand reacts (task 19: the shooter's side cheers or awws; client/audio/crowd.ts). Seat 1's fans sit in the blue left stand. */
+  react(moves: { side: Seat | null; kind: CrowdKind; size: Size }[]): void;
+  /** What a side is doing now, for tests: "cheer:1", "aww:0" or "". */
+  reaction(side: Seat): string;
+  /** The net ripples (a make). */
+  sway(): void;
   /** Moves the crowd and the net; `now` in seconds. */
   update(now: number): void;
 }
 
-const CHEER = { big: { lift: 0.38, rate: 3.2, share: 1, secs: 2.8 }, cheer: { lift: 0.22, rate: 2.6, share: 0.65, secs: 1.8 } } as const;
-const GROAN_SECS = 1.9;
+/** The bleachers never turn round: seat 1's (blue) stand is always the left one. */
+export const BLEACHER_LEFT: Seat = 0;
 
-export function buildCourt(scene: Scene): Court {
+export function buildCourt(scene: Scene, reduced: () => boolean = () => false): Court {
   const park = new Group();
   park.add(new HemisphereLight(0xe6f4ff, 0x5a6a4a, 1.5));
   const sun = new DirectionalLight(0xfff3dc, 2.2);
@@ -325,29 +328,30 @@ export function buildCourt(scene: Scene): Court {
   paint.build(park);
   scene.add(park);
 
-  // each fan's own beat, and whether they join in a plain cheer
-  const n = crowd.layout.seats.length;
-  const phase = Array.from({ length: n }, () => rand());
-  const keen = Array.from({ length: n }, () => rand());
-  const m = new Matrix4();
-  let current: { kind: Reaction; at: number } | null = null;
-  let pending: Reaction | null = null;
-  let last: Reaction | null = null;
-  let moved = false;
+  // each side's stand moves as the crowd table says (crowd-motion.ts)
+  const motion = createCrowdMotion(
+    crowd,
+    (i) => sectionSeat(crowd.layout.seats[i].section, null, BLEACHER_LEFT),
+    reduced,
+  );
+  let pending: { side: Seat | null; kind: CrowdKind; size: Size }[] | null = null;
   let swayAt = -Infinity;
+  let lastNow = 0;
 
   return {
     crowd,
     net,
-    react(kind) {
-      pending = kind;
-      last = kind;
-      if (kind !== "groan") swayAt = Number.NaN;
+    react(moves) {
+      pending = moves;
     },
-    reaction: () => last,
+    reaction: (side) => motion.state(side),
+    sway() {
+      swayAt = Number.NaN;
+    },
     update(now) {
+      lastNow = now;
       if (pending) {
-        current = { kind: pending, at: now };
+        motion.react(pending, now);
         pending = null;
       }
       if (Number.isNaN(swayAt)) swayAt = now;
@@ -356,45 +360,7 @@ export function buildCourt(scene: Scene): Court {
       const k = st >= 0 && st < 1.2 ? Math.exp(-st * 3) : 0;
       net.scale.set(1 - 0.12 * k * Math.abs(Math.sin(st * 14)), 1 + 0.18 * k, 1 - 0.12 * k * Math.abs(Math.sin(st * 14)));
       net.rotation.y = 0.15 * k * Math.sin(st * 9);
-
-      const t = current ? now - current.at : Infinity;
-      const kind = current?.kind;
-      const secs = kind === "groan" ? GROAN_SECS : kind ? CHEER[kind].secs : 0;
-      if (!current || t > secs) {
-        if (moved) {
-          for (let i = 0; i < n; i++) {
-            crowd.bodies.setMatrixAt(i, crowd.restBody[i]);
-            crowd.heads.setMatrixAt(i, crowd.restHead[i]);
-          }
-          crowd.bodies.instanceMatrix.needsUpdate = true;
-          crowd.heads.instanceMatrix.needsUpdate = true;
-          moved = false;
-        }
-        current = t > secs ? null : current;
-        return;
-      }
-      // fade in fast, out over the last half second
-      const env = Math.min(1, t / 0.15) * Math.min(1, (secs - t) / 0.5);
-      for (let i = 0; i < n; i++) {
-        let body = 0;
-        let head = 0;
-        if (kind === "groan") {
-          // a slump: shoulders down, head further down
-          body = -0.06 * env;
-          head = -0.14 * env;
-        } else if (kind) {
-          const c = CHEER[kind];
-          if (keen[i] < c.share) {
-            body = c.lift * env * Math.abs(Math.sin((t * c.rate + phase[i]) * Math.PI));
-            head = body;
-          }
-        }
-        crowd.bodies.setMatrixAt(i, m.makeTranslation(0, body, 0).multiply(crowd.restBody[i]));
-        crowd.heads.setMatrixAt(i, m.makeTranslation(0, head, 0).multiply(crowd.restHead[i]));
-      }
-      crowd.bodies.instanceMatrix.needsUpdate = true;
-      crowd.heads.instanceMatrix.needsUpdate = true;
-      moved = true;
+      motion.update(lastNow);
     },
   };
 }

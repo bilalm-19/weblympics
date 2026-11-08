@@ -10,7 +10,9 @@ import { createBowlCamera } from "./bowl-camera.ts";
 import { arrowPoints, callFor, curveWords, meterAt, reactionFor, speedRead } from "./calls.ts";
 import { createBowlingScene } from "./scene.ts";
 import type { BowlView, PinView } from "./scene.ts";
-import { createBowlingSound } from "./sound.ts";
+import { bowlingCues, newResult } from "./sound.ts";
+import { audioEngine, gameSounds, mountSoundToggle } from "../../audio/index.ts";
+import type { CrowdContext } from "../../audio/crowd.ts";
 import "./bowling.css";
 
 // The bowling view (task 29, ADR 004): the alley (scene.ts) behind the
@@ -163,7 +165,7 @@ export function startBowling(root: HTMLElement, conn: GameLink, info: RoomInfo, 
     conn.send({ t: "throw", speed: clamp(speed, 0.05, 1), aim: clamp(a, -1, 1), spin: clamp(sp, -1, 1), at: performance.now() });
     canvas.dataset.thrown = String(Number(canvas.dataset.thrown) + 1);
     swingStart = performance.now();
-    sound.roll(false);
+    sounds.play([{ loop: "roll", v: 0 }]);
     return true;
   };
   const startHold = () => {
@@ -305,7 +307,11 @@ export function startBowling(root: HTMLElement, conn: GameLink, info: RoomInfo, 
   readyPanel.camera("off");
   const camTimer = window.setInterval(() => readyPanel.camera(bowlCam.state()), 500);
 
-  const sound = createBowlingSound();
+  // task 19: sound through the shared module; a few onlookers, quiet applause
+  const sounds = gameSounds();
+  const crowdCtx: CrowdContext = { viewer: info.seat, stands: "onlookers", practice: info.practice };
+  const leaveBtn = view.querySelector("[data-action=leave]") as HTMLElement;
+  const disposeToggle = mountSoundToggle(audioEngine(), leaveBtn.parentElement as HTMLElement, leaveBtn);
   const bowlScene = createBowlingScene(canvas);
 
   // ---- the HUD ----
@@ -462,24 +468,17 @@ export function startBowling(root: HTMLElement, conn: GameLink, info: RoomInfo, 
         if (next.turn === info.seat) sendAim(true);
         swingStart = null;
       }
-      if (prev?.phase === "aim" && next.phase === "roll") {
-        swingStart ??= now;
-        sound.roll(true);
-      }
-      if (prev && next.bowl?.gutter && !prev.bowl?.gutter) sound.roll(true, true);
+      if (prev?.phase === "aim" && next.phase === "roll") swingStart ??= now;
       if (next.phase !== "tie-vote") myVote = null;
-      // after a ball: the call, the read, the sounds and the crowd
-      const r = next.last;
-      if (prev && r && (!prev.last || prev.last.seat !== r.seat || prev.last.frame !== r.frame || prev.last.ball !== r.ball || prev.matches !== next.matches) && next.phase === "result") {
+      // task 19: the roll, the pins, the gutter and the onlookers, from the snapshots (sound.ts)
+      sounds.play(bowlingCues(prev, next, crowdCtx));
+      // after a ball: the call, the read and the crowd
+      const r = prev ? newResult(prev, next) : null;
+      if (r) {
         const text = callFor(r);
         call(text, r.strike ? "strike" : r.spare ? "spare" : r.gutter && r.pins === 0 ? "gutter" : "pins");
         canvas.dataset.call = text;
-        sound.roll(false);
-        if (r.pins > 0) sound.crash(r.strike ? 10 : r.pins);
-        else if (r.gutter && !r.timeout) sound.gutter();
         const react = reactionFor(r);
-        if (react === "cheer") sound.cheer(r.strike);
-        else if (react === "groan") sound.groan();
         if (react) bowlScene.react(react);
         renderRead(r);
       }
@@ -586,7 +585,8 @@ export function startBowling(root: HTMLElement, conn: GameLink, info: RoomInfo, 
     window.removeEventListener("keyup", onKeyUp);
     bowlCam.dispose();
     disposeSpectating();
-    sound.dispose();
+    sounds.dispose();
+    disposeToggle();
     bowlScene.dispose();
   };
 }

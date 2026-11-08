@@ -1,0 +1,82 @@
+/* Task 19: the sound button and its little panel (client/audio/toggle.ts).
+   A 44 px round button that sits in a HUD's button row or beside the home
+   screen's profile button; the panel is fixed to the top right, inside the
+   screen at any width. */
+.snd {
+  display: inline-flex;
+  position: relative;
+  vertical-align: middle;
+  pointer-events: auto;
+}
+
+.snd-button {
+  display: inline-grid;
+  place-items: center;
+  width: 44px;
+  min-width: 44px;
+  height: 44px;
+  min-height: 44px;
+  padding: 0;
+  border-radius: 999px;
+}
+
+.snd-button[data-state="off"] {
+  opacity: 0.75;
+}
+
+/* on the home screen, beside the profile button, in the menu's pill style */
+.menu-corner .snd {
+  margin-right: 0.5rem;
+}
+
+.menu-corner .snd-button {
+  border: 2px solid var(--pill-edge, #9fbcd4);
+  background: linear-gradient(180deg, var(--pill-top, #fff), var(--pill-bottom, #e6f0f8));
+  color: var(--ink, #1d2a36);
+  cursor: pointer;
+}
+
+.menu-corner .snd-button:focus-visible {
+  outline: 3px solid var(--focus, #0081c8);
+  outline-offset: 3px;
+}
+
+.snd-panel {
+  position: fixed;
+  z-index: 60;
+  top: calc(max(0.5rem, env(safe-area-inset-top)) + 52px);
+  right: 0.5rem;
+  display: grid;
+  gap: 0.35rem;
+  width: max-content;
+  max-width: calc(100vw - 1rem);
+  padding: 0.6rem 0.75rem;
+  border-radius: 10px;
+  background: #0f1720f2;
+  color: #f4f7fb;
+  font: 0.95rem/1.3 system-ui, sans-serif;
+  box-shadow: 0 6px 20px #0006;
+  pointer-events: auto;
+}
+
+.snd-panel[hidden] {
+  display: none;
+}
+
+.snd-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 36px;
+  cursor: pointer;
+}
+
+.snd-row input[type="checkbox"] {
+  width: 20px;
+  height: 20px;
+}
+
+.snd-volume input {
+  flex: 1;
+  min-width: 7rem;
+}

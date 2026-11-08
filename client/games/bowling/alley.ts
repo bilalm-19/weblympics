@@ -23,6 +23,7 @@ import type { CrowdLayout, CrowdSeat } from "../tennis/crowd-layout.ts";
 import { rng } from "../tennis/crowd-layout.ts";
 import { PALETTE, Painter, crowdMeshes } from "../tennis/stadium.ts";
 import type { CrowdHandle } from "../tennis/stadium.ts";
+import { createCrowdMotion } from "../tennis/crowd-motion.ts";
 
 // The bowling alley (task 29), from primitives like tennis's arena: the
 // static parts are painted with vertex colours and merged into two meshes
@@ -181,7 +182,7 @@ export interface Alley {
   update(dt: number): void;
 }
 
-export function buildAlley(scene: Scene): Alley {
+export function buildAlley(scene: Scene, reduced: () => boolean = () => matchMedia("(prefers-reduced-motion: reduce)").matches): Alley {
   const hall = new Group();
   hall.add(new HemisphereLight(0xfff1e0, 0x2a2440, 1.4));
   const key = new DirectionalLight(0xfff6e8, 1.6);
@@ -279,41 +280,19 @@ export function buildAlley(scene: Scene): Alley {
   scene.add(hall);
 
   const crowd = crowdMeshes(hall, seatingLayout());
-  const n = crowd.layout.seats.length;
-  const o = new Matrix4();
-  const lift = new Matrix4();
-  let reaction: { kind: "cheer" | "groan"; t: number } | null = null;
+  // task 19: the onlookers back nobody; they jump for a strike or spare and
+  // slump and shake their heads at a gutter, holding the pose under reduced motion
+  const motion = createCrowdMotion(crowd, () => null, reduced);
   let clock = 0;
-  const phase = Array.from({ length: n }, (_, i) => (i * 2.39) % (Math.PI * 2));
-  const DURATION = 2.2;
 
   return {
     crowd,
     react(kind) {
-      reaction = { kind, t: 0 };
+      motion.react([{ side: null, kind: kind === "cheer" ? "cheer" : "aww", size: 1 }], clock);
     },
     update(dt) {
       clock += dt;
-      if (!reaction) return;
-      reaction.t += dt;
-      const fade = Math.max(0, 1 - reaction.t / DURATION);
-      for (let i = 0; i < n; i++) {
-        let dy = 0;
-        let dz = 0;
-        if (reaction.kind === "cheer") dy = Math.abs(Math.sin(clock * 9 + phase[i])) * 0.22 * fade;
-        else {
-          dy = -0.08 * fade;
-          dz = -0.06 * fade;
-        }
-        lift.makeTranslation(0, dy, dz);
-        crowd.bodies.setMatrixAt(i, o.multiplyMatrices(lift, crowd.restBody[i]));
-        // a groan drops the head further, a cheer lifts it with the body
-        lift.makeTranslation(0, reaction.kind === "groan" ? dy * 1.6 : dy * 1.15, dz * 1.5);
-        crowd.heads.setMatrixAt(i, o.multiplyMatrices(lift, crowd.restHead[i]));
-      }
-      crowd.bodies.instanceMatrix.needsUpdate = true;
-      crowd.heads.instanceMatrix.needsUpdate = true;
-      if (fade === 0) reaction = null;
+      motion.update(clock);
     },
   };
 }

@@ -26,7 +26,11 @@ import { bonusLine, heldPower, powerVerdict, shotCall, spotLine } from "./calls.
 import { buildCourt } from "./court.ts";
 import { createShootCamera } from "./shoot-camera.ts";
 import { SHOT_TIMES, makeShooter, shotPose } from "./shooter.ts";
-import { createSounds } from "./sound.ts";
+import { basketballCrowd, basketballCues } from "./sound.ts";
+import { BLEACHER_LEFT } from "./court.ts";
+import { audioEngine, gameSounds, mountSoundToggle } from "../../audio/index.ts";
+import { crowdVoices } from "../../audio/crowd.ts";
+import type { CrowdContext } from "../../audio/crowd.ts";
 import { createTiePanel } from "./tie-vote.ts";
 import type { TieChoice, WithVote } from "./tie-vote.ts";
 
@@ -133,7 +137,8 @@ export function startBasketball(root: HTMLElement, conn: GameLink, info: RoomInf
 
   // ---- the scene ----
   const scene = new Scene();
-  const court = buildCourt(scene);
+  const motionPref = matchMedia("(prefers-reduced-motion: reduce)");
+  const court = buildCourt(scene, () => motionPref.matches);
   const shooters = [makeShooter(DEFAULT_LOOKS[0]), makeShooter(DEFAULT_LOOKS[1])];
   for (const s of shooters) scene.add(s.group);
   const ball = new Group();
@@ -220,8 +225,11 @@ export function startBasketball(root: HTMLElement, conn: GameLink, info: RoomInf
   };
   // the shooter's arms: when a shot started (for the animation), per seat
   const shotStarted: [number | null, number | null] = [null, null];
-  // sound, only after a user gesture (sound.ts)
-  const sounds = createSounds();
+  // task 19: sound through the shared module (after a gesture, unless muted); the crowd placed by side
+  const sounds = gameSounds();
+  const crowdCtx: CrowdContext = { viewer: info.seat, stands: "sides", practice: info.practice, leftSeat: BLEACHER_LEFT };
+  const leaveBtn = view.querySelector("[data-action=leave]") as HTMLElement;
+  const disposeToggle = mountSoundToggle(audioEngine(), leaveBtn.parentElement as HTMLElement, leaveBtn);
   // the tie vote: level after the five spots, draw or sudden death (tie-vote.ts)
   const tiePanel = createTiePanel(document, info.seat, (choice) => conn.send({ t: "tie", choice }), (s) => label(s));
   view.append(tiePanel.el);
@@ -253,7 +261,6 @@ export function startBasketball(root: HTMLElement, conn: GameLink, info: RoomInf
     canvas.dataset.sent = String(Number(canvas.dataset.sent ?? 0) + 1);
   };
   const startHold = (key: string) => {
-    sounds.unlock();
     if (!myTurn() || shotSent || shootCam.on()) return;
     held.add(key);
     if (holdSince === null) holdSince = performance.now();
@@ -282,7 +289,6 @@ export function startBasketball(root: HTMLElement, conn: GameLink, info: RoomInf
     if (e.code === "Space" && e.target instanceof HTMLButtonElement && e.target !== shootBtn) return;
     e.preventDefault();
     if (e.repeat) return;
-    sounds.unlock();
     if (e.code === "Space") {
       if (down) startHold("Space");
       else endHold("Space");
@@ -306,7 +312,6 @@ export function startBasketball(root: HTMLElement, conn: GameLink, info: RoomInf
     if (e.pointerType === "mouse" || e.buttons) setAim(aimFromPointer(e));
   });
   canvas.addEventListener("pointerdown", (e) => {
-    sounds.unlock();
     if (!myTurn() || shootCam.on()) return;
     if (e.pointerType === "mouse") {
       canvas.setPointerCapture(e.pointerId);
@@ -327,7 +332,6 @@ export function startBasketball(root: HTMLElement, conn: GameLink, info: RoomInf
   for (const b of view.querySelectorAll<HTMLButtonElement>("[data-aim]")) {
     const key = `Btn${b.dataset.aim}`;
     b.addEventListener("pointerdown", (e) => {
-      sounds.unlock();
       b.setPointerCapture(e.pointerId);
       pressAim(key, Number(b.dataset.aim));
     });
@@ -515,22 +519,20 @@ export function startBasketball(root: HTMLElement, conn: GameLink, info: RoomInf
       if (prev) {
         // the shooter released: their arms go up (mine already did when I let go)
         if (prev.phase === "aim" && next.phase === "flight" && shotStarted[next.turn] === null) shotStarted[next.turn] = now;
-        // the ball touched the rim or the board
-        if (next.phase === "flight") {
-          if (next.contact.rim && !prev.contact.rim) sounds.clank();
-          if (next.contact.board && !prev.contact.board) sounds.thud();
+        // task 19: the rim, the board, the swish and the crowd, from the snapshots (sound.ts)
+        sounds.play(basketballCues(prev, next, crowdCtx));
+        const crowdEvent = basketballCrowd(prev, next);
+        if (crowdEvent) {
+          court.react(crowdVoices(crowdEvent, { ...crowdCtx, practice: false }));
+          canvas.dataset.crowd = crowdEvent.cheer != null ? `cheer:${crowdEvent.cheer}` : crowdEvent.aww != null ? `aww:${crowdEvent.aww}` : "applause";
         }
-        // a shot was decided: the call, the crowd, the bar
+        // a shot was decided: the call, the bar
         if ((prev.phase === "aim" || prev.phase === "flight") && next.phase === "result" && next.last) {
           const c = shotCall(next.last);
           const who = next.last.seat === info.seat ? "" : `${label(next.last.seat)}: `;
           showCall(`${who}${c.text}`, c.detail, next.last.made ? (c.crowd === "big" ? "big" : "make") : "miss");
           canvas.dataset.call = c.text;
-          court.react(c.crowd);
-          canvas.dataset.crowd = c.crowd;
-          if (next.last.made) sounds.swish();
-          if (c.crowd === "groan") sounds.groan();
-          else sounds.cheer(c.crowd === "big");
+          if (next.last.made) court.sway();
           showResultBar(next.last);
           canvas.dataset.shots = String(Number(canvas.dataset.shots ?? 0) + 1);
         }
@@ -751,6 +753,7 @@ export function startBasketball(root: HTMLElement, conn: GameLink, info: RoomInf
     shootCam.dispose();
     tiePanel.dispose();
     sounds.dispose();
+    disposeToggle();
     disposeSpectating();
     observer.disconnect();
     renderer.dispose();

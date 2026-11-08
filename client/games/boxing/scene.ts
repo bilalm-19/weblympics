@@ -5,6 +5,8 @@ import { FOE_DISTANCE, HEAD_Y } from "./boxer-pose.ts";
 import { buildRing, RING_Y } from "./ring.ts";
 import { SEAT_COLOURS } from "./scene-model.ts";
 import type { RingView } from "./scene-model.ts";
+import { createCrowdMotion } from "../tennis/crowd-motion.ts";
+import type { CrowdKind, Seat, Size } from "../../audio/crowd.ts";
 
 // The boxing scene (task 30): the ring, two boxers and the camera, drawn
 // from a RingView each frame. It reads nothing else: view.ts builds the
@@ -16,6 +18,10 @@ import type { RingView } from "./scene-model.ts";
 export interface BoxingScene {
   /** Draws one frame; `dt` is the seconds since the last one (for easing). */
   render(v: RingView, dt: number): void;
+  /** The crowd round the ring reacts, each boxer's half as the crowd table says (task 19). */
+  react(moves: { side: Seat | null; kind: CrowdKind; size: Size }[]): void;
+  /** What a side's fans are doing, for tests. */
+  crowdState(side: Seat): string;
   /** Fits the canvas to its container (also called on its own when the container resizes). */
   resize(): void;
   dispose(): void;
@@ -39,7 +45,11 @@ export function firstPersonCamera(aspect: number): { back: number; up: number; f
 
 export function createBoxingScene(canvas: HTMLCanvasElement): BoxingScene {
   const scene = new Scene();
-  const arena = buildRing(scene);
+  const { arena, crowd } = buildRing(scene);
+  // task 19: the crowd round the ring, each half its boxer's fans
+  const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)");
+  const crowdMotion = createCrowdMotion(crowd, crowd.sideOf, () => reducedMotion.matches);
+  let clock = 0;
   scene.add(new HemisphereLight(0xdfe6f2, 0x1a1c22, 1.1));
   // the lamps over the ring: a key light from above and in front of each boxer
   const key = new DirectionalLight(0xfff4e0, 2.2);
@@ -108,8 +118,14 @@ export function createBoxingScene(canvas: HTMLCanvasElement): BoxingScene {
 
   return {
     resize,
+    react(moves) {
+      crowdMotion.react(moves, clock);
+    },
+    crowdState: (side) => crowdMotion.state(side),
     render(v, dt) {
       const step = Math.min(Math.max(dt, 0), 0.1);
+      clock += step;
+      crowdMotion.update(clock);
       const fp = !v.spectator;
       if (fp !== firstPerson) {
         firstPerson = fp;

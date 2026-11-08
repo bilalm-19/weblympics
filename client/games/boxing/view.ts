@@ -10,6 +10,10 @@ import type { GameLink } from "../../net/link.ts";
 import { createReadyPanel } from "../tennis/ready-panel.ts";
 import { createBoxCamera } from "./box-camera.ts";
 import "./boxing.css";
+import { audioEngine, gameSounds, mountSoundToggle } from "../../audio/index.ts";
+import { crowdVoices } from "../../audio/crowd.ts";
+import type { CrowdContext } from "../../audio/crowd.ts";
+import { boxingCrowd, boxingCues } from "./sound.ts";
 
 // The boxing view (task 30): the 3D ring (scene.ts), first-person for a
 // player and side-on for a spectator, with the HUD over it. ADR 002: J jabs to the
@@ -78,6 +82,11 @@ export function startBoxing(root: HTMLElement, conn: GameLink, info: RoomInfo, o
   canvas.dataset.frames = "0";
 
   let snap: BoxingSnapshot | null = null;
+  // task 19: sound through the shared module; the crowd round the ring, your own fans behind you
+  const sounds = gameSounds();
+  const crowdCtx: CrowdContext = { viewer: info.seat, stands: "ends", practice: info.practice };
+  const leaveBtn = view.querySelector("[data-action=leave]") as HTMLElement;
+  const disposeToggle = mountSoundToggle(audioEngine(), leaveBtn.parentElement as HTMLElement, leaveBtn);
   let names: [string | null, string | null] = [null, null];
   let lobby: LobbyView | null = null;
   let looks: [Look, Look] = [DEFAULT_LOOKS[0], DEFAULT_LOOKS[1]];
@@ -265,6 +274,14 @@ export function startBoxing(root: HTMLElement, conn: GameLink, info: RoomInfo, o
         else if (prev.phase === "round" && next.phase === "break") call(`Round ${prev.round} over`, 1800);
         else if (prev.phase === "break" && next.phase === "round") call(`Round ${next.round}`, 1200);
       } else if (next.phase === "round" && next.phaseTick < 90) call(`Round ${next.round}`, 1200);
+      // task 19: gloves, the bell and the crowd round the ring, from the snapshots (sound.ts)
+      sounds.play(boxingCues(prev, next, crowdCtx));
+      const crowdEvent = prev ? boxingCrowd(prev, next) : null;
+      if (crowdEvent) {
+        ringScene.react(crowdVoices(crowdEvent, { ...crowdCtx, practice: false }));
+        canvas.dataset.crowd0 = ringScene.crowdState(0);
+        canvas.dataset.crowd1 = ringScene.crowdState(1);
+      }
       if (next.lastHit && (!prev?.lastHit || next.lastHit.tick !== prev.lastHit.tick)) {
         flash(next.lastHit.seat === 0 ? 1 : 0, next.lastHit.outcome, next.lastHit.target);
         canvas.dataset.outcome = next.lastHit.outcome;
@@ -363,6 +380,8 @@ export function startBoxing(root: HTMLElement, conn: GameLink, info: RoomInfo, o
     window.removeEventListener("keyup", onKeyUp);
     boxCam.dispose();
     disposeSpectating();
+    sounds.dispose();
+    disposeToggle();
     ringScene.dispose();
   };
 }

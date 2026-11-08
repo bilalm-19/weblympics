@@ -17,7 +17,6 @@ import {
   HemisphereLight,
   IcosahedronGeometry,
   InstancedMesh,
-  Matrix4,
   Mesh,
   MeshLambertMaterial,
   Object3D,
@@ -33,6 +32,8 @@ import type { CrowdLayout, CrowdSeat } from "../tennis/crowd-layout.ts";
 import { PALETTE, Painter, crowd } from "../tennis/stadium.ts";
 import type { CrowdHandle } from "../tennis/stadium.ts";
 import { flagFly } from "./cues.ts";
+import { createCrowdMotion } from "../tennis/crowd-motion.ts";
+import type { CrowdKind, Size } from "../../audio/crowd.ts";
 
 /** Ring colours from the outside in, in pairs: white, black, blue, red, gold. */
 export const RING_COLOURS = [0xf5f5f5, 0xf5f5f5, 0x222222, 0x222222, 0x2f8be0, 0x2f8be0, 0xe03131, 0xe03131, 0xffd43b, 0xffd43b];
@@ -70,17 +71,15 @@ const FLAG_X = 4.2;
 const POLE_H = 4.2;
 /** The spectators' stand: down the left of the range, facing it. */
 const STAND = { x: -9, z0: -20, z1: -36, rows: 4, depth: 1, rise: 0.5 } as const;
-/** How long the crowd cheers a 10 or a bullseye, seconds. */
-const CHEER_S = 1.8;
 
 export interface Range {
   /** The flags stream with this wind; `t` seconds, for the ripple. */
   setWind(w: Wind, t: number): void;
-  /** Starts the crowd cheering (a 10 or a bullseye). */
-  cheer(): void;
-  /** Animates the cheer; `dt` seconds. */
+  /** The onlookers react (task 19): jump for a 10 or the bullseye, clap for a good arrow, slump at a miss. */
+  react(kind: CrowdKind, size: Size): void;
+  /** Animates the crowd; `dt` seconds. */
   update(dt: number): void;
-  /** True while the crowd is cheering. */
+  /** True while the crowd is reacting. */
   cheering(): boolean;
 }
 
@@ -313,41 +312,19 @@ export function buildRange(scene: Scene, farthest: number): Range {
   const fans: CrowdHandle = crowd(group, standLayout());
   scene.add(group);
 
-  // the cheer: everyone jumps and sways, each on their own beat
-  let cheerLeft = 0;
+  // task 19: the onlookers back nobody; each on their own beat, holding the pose under reduced motion
+  const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)");
+  const motion = createCrowdMotion(fans, () => null, () => reducedMotion.matches);
   let clock = 0;
-  const n = fans.layout.seats.length;
-  const beat = Array.from({ length: n }, (_, i) => (i * 2.39) % (Math.PI * 2));
-  const lift = new Matrix4();
-  const m = new Matrix4();
-  const rest = () => {
-    for (let i = 0; i < n; i++) {
-      fans.bodies.setMatrixAt(i, fans.restBody[i]);
-      fans.heads.setMatrixAt(i, fans.restHead[i]);
-    }
-    fans.bodies.instanceMatrix.needsUpdate = true;
-    fans.heads.instanceMatrix.needsUpdate = true;
-  };
   return {
     setWind: setFlags,
-    cheer() {
-      cheerLeft = CHEER_S;
+    react(kind, size) {
+      motion.react([{ side: null, kind, size }], clock);
     },
-    cheering: () => cheerLeft > 0,
+    cheering: () => motion.state(null) !== "",
     update(dt) {
-      if (cheerLeft <= 0) return;
       clock += dt;
-      cheerLeft -= dt;
-      if (cheerLeft <= 0) return rest();
-      const fade = Math.min(1, cheerLeft / 0.4);
-      for (let i = 0; i < n; i++) {
-        const jump = Math.max(0, Math.sin(clock * 11 + beat[i])) * 0.28 * fade;
-        lift.makeTranslation(0, jump, 0);
-        fans.bodies.setMatrixAt(i, m.multiplyMatrices(lift, fans.restBody[i]));
-        fans.heads.setMatrixAt(i, m.multiplyMatrices(lift, fans.restHead[i]));
-      }
-      fans.bodies.instanceMatrix.needsUpdate = true;
-      fans.heads.instanceMatrix.needsUpdate = true;
+      motion.update(clock);
     },
   };
 }
