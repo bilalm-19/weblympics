@@ -605,8 +605,11 @@ export interface Calibration {
 export function calibrationFrom(t: TennisSettings): Calibration {
   return {
     hand: t.hand,
-    mode: t.mode,
-    aim: t.aim,
+    // Tennis keeps only the default controls (user, 2026-11-09; task 35): the
+    // classic swing and aim by timing, whatever an earlier session saved. The
+    // follow and point code stays, unreachable, until it is removed for good.
+    mode: "classic",
+    aim: "timing",
     autoNeutral: t.autoNeutral,
     neutralTilt: t.neutralTilt,
     neutralAcross: t.neutralAcross,

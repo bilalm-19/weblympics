@@ -213,3 +213,46 @@ describe("letting go by opening the drawing hand", () => {
     expect(events).toContainEqual({ t: "letdown" });
   });
 });
+
+describe("a turn never starts already drawn (user, 2026-11-09: it shoots early when it is your turn)", () => {
+  /** The hands drift apart to a draw while the other player shoots, then the pulling hand opens. */
+  function driftThenOpen(t: BowTracker): BowEvent[] {
+    const events: BowEvent[] = [];
+    for (let i = 0; i < 20; i++) {
+      const e = t.update({ yaw: 0.1, pitch: 0.05, draw: (0.8 * (i + 1)) / 20 }, i * 33, 0.1);
+      if (e) events.push(e);
+    }
+    return events;
+  }
+
+  it("off my turn the draw can't arm, so my turn's first open hand fires nothing", () => {
+    const t = new BowTracker();
+    t.setArmed(false);
+    driftThenOpen(t);
+    // my turn begins: armed again, still holding the same pose and the hand opens
+    t.setArmed(true);
+    expect(t.update({ yaw: 0.1, pitch: 0.05, draw: 0.8 }, 700, 1)?.t).toBe("aim");
+  });
+
+  it("without the arming, the same drift fires the moment the hand opens (the bug)", () => {
+    const t = new BowTracker();
+    driftThenOpen(t);
+    expect(t.update({ yaw: 0.1, pitch: 0.05, draw: 0.8 }, 700, 1)?.t).toBe("release");
+  });
+
+  it("once my turn is on, a real pull and open still shoots", () => {
+    const t = new BowTracker();
+    t.setArmed(false);
+    driftThenOpen(t);
+    t.setArmed(true);
+    for (let i = 0; i < 20; i++) t.update({ yaw: 0.1, pitch: 0.05, draw: (0.8 * (i + 1)) / 20 }, 1000 + i * 33, 0.1);
+    expect(t.update({ yaw: 0.1, pitch: 0.05, draw: 0.8 }, 1700, 1)?.t).toBe("release");
+  });
+
+  it("losing my turn drops a draw in progress without an arrow", () => {
+    const t = new BowTracker();
+    driftThenOpen(t);
+    t.setArmed(false);
+    expect(t.update({ yaw: 0.1, pitch: 0.05, draw: 0.8 }, 700, 1)?.t).toBe("aim");
+  });
+});

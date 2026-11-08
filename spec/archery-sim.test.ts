@@ -262,3 +262,18 @@ describe("archery determinism and adapter", () => {
     expect(games.tennis).toBeDefined();
   });
 });
+
+describe("the sight when the arrow would fall short (user, 2026-11-09: the aiming circle sometimes vanishes)", () => {
+  it("predictHit says nothing for an aim that falls short, which is common at range", () => {
+    // measured: level aim and a half draw at 30 m, and most low aims at 50 m
+    expect(predictHit({ yaw: 0, pitch: 0, draw: 0.5 }, 30)).toBeNull();
+    expect(predictHit({ yaw: 0, pitch: 0.02, draw: 1 }, 50)).toBeNull();
+    // while the same aim at 10 m lands on the face
+    expect(predictHit({ yaw: 0, pitch: 0, draw: 0.5 }, 10)).not.toBeNull();
+  });
+
+  it("aiming up and drawing harder brings the arrow back onto the target", () => {
+    expect(predictHit({ yaw: 0, pitch: 0.1, draw: 0.5 }, 30)).not.toBeNull();
+    expect(predictHit({ yaw: 0, pitch: 0.1, draw: 1 }, 50)).not.toBeNull();
+  });
+});

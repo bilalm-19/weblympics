@@ -232,3 +232,23 @@ describe("a hostile client and /api/camera-settings (running app)", () => {
     expect(((await reset.json()) as { cameraSettings: unknown }).cameraSettings).toBeNull();
   });
 });
+
+describe("tennis keeps only the default controls (user, 2026-11-09; task 35)", () => {
+  it("a saved follow-my-arm or aim-by-pointing is read as the classic swing and aim by timing", () => {
+    const saved = defaultCameraSettings().tennis;
+    saved.mode = "follow";
+    saved.aim = "point";
+    const c = calibrationFrom(saved);
+    expect(c.mode).toBe("classic");
+    expect(c.aim).toBe("timing");
+  });
+
+  it("the other settings still come through (hand, thresholds)", () => {
+    const saved = defaultCameraSettings().tennis;
+    saved.hand = "left";
+    saved.forehand = [4, 8];
+    const c = calibrationFrom(saved);
+    expect(c.hand).toBe("left");
+    expect(c.thresholds).toEqual([4, 8]);
+  });
+});

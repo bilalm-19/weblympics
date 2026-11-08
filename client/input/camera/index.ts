@@ -400,28 +400,12 @@ export function createCameraInput(
          <button data-hand="right">Right-handed</button>
          <button data-hand="left">Left-handed</button>
        </div>
-       <div class="row" role="group" aria-label="Swing style">
-         <button data-mode="follow" title="Your player copies your arm; the shot is when your hand sweeps through the ball">Follow my arm</button>
-         <button data-mode="classic" title="A quick swing plays a stroke">Classic swing</button>
-       </div>
-       <div class="row" role="group" aria-label="Aim">
-         <button data-aim="point" title="Point your racket hand where you want the ball to go, then swing">Aim by pointing</button>
-         <button data-aim="timing" title="Hit early to go cross-court, late to go down the line">Aim by timing</button>
-       </div>
        <div class="row">
          <button class="primary" data-step="start">Start camera</button>
          <button data-step="keyboard">Use keyboard instead</button>
        </div>`,
       { start: () => start(hand, mode, aimMode), keyboard: useKeyboard },
     );
-    const aimButtons = panel.querySelectorAll<HTMLButtonElement>("[data-aim]");
-    const markAim = () => aimButtons.forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.aim === aimMode)));
-    aimButtons.forEach((b) => b.addEventListener("click", () => ((aimMode = b.dataset.aim as AimMode), markAim())));
-    markAim();
-    const modeButtons = panel.querySelectorAll<HTMLButtonElement>("[data-mode]");
-    const markMode = () => modeButtons.forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.mode === mode)));
-    modeButtons.forEach((b) => b.addEventListener("click", () => ((mode = b.dataset.mode as SwingMode), markMode())));
-    markMode();
     const handButtons = panel.querySelectorAll<HTMLButtonElement>("[data-hand]");
     const mark = () => handButtons.forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.hand === hand)));
     handButtons.forEach((b) => b.addEventListener("click", () => ((hand = b.dataset.hand as Hand), mark())));
@@ -431,7 +415,8 @@ export function createCameraInput(
   const start = async (hand: Hand, mode: SwingMode, aimMode: AimMode) => {
     if (starting) return;
     starting = true;
-    calib = { ...calib, hand, mode, aim: aimMode };
+    // the swing style and aim are not choices any more (task 35): classic and timing
+    calib = { ...calib, hand, mode: "classic", aim: "timing" };
     controller = new CameraController(calib);
     show(`<h2>Starting camera…</h2><p class="muted" role="status">Waiting for permission.</p>`, {});
     try {

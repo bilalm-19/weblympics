@@ -42,13 +42,8 @@ test("camera path: starts the fake webcam, loads the model, skips the visibility
   await expect(panel.getByRole("heading", { name: /play with your camera/i })).toBeVisible();
   await insideViewport(page, panel);
   await expect(page.locator(".hud .status")).toHaveText(/paused/i);
-  // defaults: classic swing and aim by timing; follow-my-arm and pointing can be picked
-  await expect(panel.getByRole("button", { name: /classic swing/i })).toHaveAttribute("aria-pressed", "true");
-  await expect(panel.getByRole("button", { name: /aim by timing/i })).toHaveAttribute("aria-pressed", "true");
-  await panel.getByRole("button", { name: /follow my arm/i }).click();
-  await expect(panel.getByRole("button", { name: /follow my arm/i })).toHaveAttribute("aria-pressed", "true");
-  await panel.getByRole("button", { name: /aim by pointing/i }).click();
-  await expect(panel.getByRole("button", { name: /aim by pointing/i })).toHaveAttribute("aria-pressed", "true");
+  // tennis keeps only the default controls (user, 2026-11-09; task 35): no swing-style or aim choice
+  for (const gone of [/follow my arm/i, /classic swing/i, /aim by pointing/i, /aim by timing/i]) await expect(panel.getByRole("button", { name: gone })).toHaveCount(0);
   await panel.getByRole("button", { name: /left-handed/i }).click();
   await expect(panel.getByRole("button", { name: /left-handed/i })).toHaveAttribute("aria-pressed", "true");
   await panel.getByRole("button", { name: /start camera/i }).click();

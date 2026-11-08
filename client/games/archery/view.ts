@@ -152,8 +152,13 @@ export function startArchery(root: HTMLElement, conn: GameLink, info: RoomInfo, 
   scene.add(target);
 
   // the sight on the face: where the arrow would land with no wind
-  const sight = new Mesh(new RingGeometry(0.04, 0.07, 20), new MeshBasicMaterial({ color: 0xffffff, depthTest: false, transparent: true }));
-  sight.renderOrder = 10;
+  // A wider ring with a dark one behind it, so it reads on the white and gold
+  // rings and the pale sky alike (user, 2026-11-09: "easy to lose track of").
+  const sight = new Mesh(new RingGeometry(0.05, 0.095, 24), new MeshBasicMaterial({ color: 0xffffff, depthTest: false, transparent: true }));
+  sight.renderOrder = 11;
+  const sightEdge = new Mesh(new RingGeometry(0.095, 0.125, 24), new MeshBasicMaterial({ color: 0x0f1720, depthTest: false, transparent: true, opacity: 0.85 }));
+  sightEdge.renderOrder = 10;
+  sight.add(sightEdge);
   scene.add(sight);
   const pathMat = new LineDashedMaterial({ color: 0xffffff, dashSize: 0.4, gapSize: 0.3, transparent: true, opacity: 0.7 });
   const path = new Line(new BufferGeometry(), pathMat);
@@ -370,6 +375,7 @@ export function startArchery(root: HTMLElement, conn: GameLink, info: RoomInfo, 
   // The camera: bow hand aims, the other draws, a snap shoots.
   const cameraButton = view.querySelector("[data-action=camera]") as HTMLButtonElement;
   cameraButton.hidden = info.seat === null;
+  let cameraArmed = false;
   const bowCam = createBowCamera(view, cameraButton, view.querySelector(".tracking") as HTMLElement, {
     aim: (a) => {
       if (!myTurn()) return;
@@ -499,6 +505,11 @@ export function startArchery(root: HTMLElement, conn: GameLink, info: RoomInfo, 
     view.dataset.phase = l?.phase ?? "";
     view.dataset.turn = myTurn() ? "mine" : "";
     shootBtn.disabled = !myTurn();
+    // the camera's draw can only arm on my own turn, and starts undrawn each time
+    if (myTurn() !== cameraArmed) {
+      cameraArmed = myTurn();
+      bowCam.arm(cameraArmed);
+    }
     if (l?.phase === "paused" && l.hold) {
       statusEl.textContent = `Paused: waiting for ${l.hold.seat === info.seat ? "you" : l.hold.name} to reconnect (${l.hold.seconds} s)`;
     } else if (l?.match && l.phase === "countdown") statusEl.textContent = `Back. Resuming in ${l.countdown ?? 0}…`;
@@ -638,18 +649,23 @@ export function startArchery(root: HTMLElement, conn: GameLink, info: RoomInfo, 
       // the sight: mine while I aim, the shooter's (as sent) while I watch
       const shownAim = myTurn() ? aim : s.aim;
       const aiming = s.phase === "aim" && (myTurn() || shownAim.draw > 0 || s.aim.yaw !== 0 || s.aim.pitch !== 0);
-      const hit = aiming ? predictHit({ ...shownAim, draw: Math.max(shownAim.draw, MIN_DRAW) }, s.distance) : null;
+      const predicted = aiming ? predictHit({ ...shownAim, draw: Math.max(shownAim.draw, MIN_DRAW) }, s.distance) : null;
+      // Aimed so low the arrow would fall short: the sight used to vanish right
+      // when it was needed. It stays, pinned at the foot of the target and red,
+      // so it says "aim higher" (user, 2026-11-09: "sometimes vanishes").
+      const short = aiming && predicted === null;
+      const hit = predicted ?? (short ? { x: Math.max(-TARGET.radius, Math.min(TARGET.radius, 0)), y: -TARGET.radius * 1.15 } : null);
       sight.visible = hit !== null;
       cardSight.toggleAttribute("hidden", hit === null);
       if (hit) {
         sight.position.set(hit.x, TARGET.centerY + hit.y, -s.distance + 0.05);
         const sc = Math.max(1, s.distance / 15);
         sight.scale.setScalar(sc);
-        (sight.material as MeshBasicMaterial).color.setHex(s.turn === info.seat ? 0xffffff : SEAT_COLOURS[s.turn]);
+        (sight.material as MeshBasicMaterial).color.setHex(short ? 0xff5a5a : s.turn === info.seat ? 0xffffff : SEAT_COLOURS[s.turn]);
         cardSight.setAttribute("cx", (hit.x / TARGET.radius).toFixed(3));
         cardSight.setAttribute("cy", (-hit.y / TARGET.radius).toFixed(3));
-        cardSight.setAttribute("stroke", s.turn === info.seat ? "#fff" : SEAT_CSS[s.turn]);
-        canvas.dataset.preview = `${hit.x.toFixed(3)},${hit.y.toFixed(3)},${scoreHit(hit).points}`;
+        cardSight.setAttribute("stroke", short ? "#ff5a5a" : s.turn === info.seat ? "#fff" : SEAT_CSS[s.turn]);
+        canvas.dataset.preview = short ? "short" : `${hit.x.toFixed(3)},${hit.y.toFixed(3)},${scoreHit(hit).points}`;
       } else canvas.dataset.preview = "";
       // the no-wind arc, only while drawn, for whoever is shooting
       if (aiming && shownAim.draw >= MIN_DRAW) {

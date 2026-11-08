@@ -1719,6 +1719,18 @@ a:focus-visible {
 .hud .status {
   width: 100%;
   text-align: center;
+  /* on a phone the buttons wrap to two or three rows and this line sits right
+     under them over a busy background: a little air above it */
+  margin-top: 0.25rem;
+}
+
+.hud .status:not(:empty) {
+  width: fit-content;
+  max-width: 100%;
+  margin-inline: auto;
+  padding: 0.2rem 0.6rem;
+  border-radius: 8px;
+  background: #0f1720b3;
 }
 
 .controls {

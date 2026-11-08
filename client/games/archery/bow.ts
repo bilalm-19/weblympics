@@ -159,6 +159,11 @@ export class BowTracker {
   // recent (time, reading) while drawn, newest last
   private history: { t: number; r: BowReading }[] = [];
   private drawn = false;
+  // false while it isn't the player's turn: the sight still follows the hands,
+  // but a draw can't arm, so a turn never starts already drawn and fires on
+  // the first hand-open (user, 2026-11-09: "false shoots / shoots early when
+  // it's your turn")
+  private armed = true;
   // the most closed the drawing hand has been during this draw
   private grip: number | null = null;
   // the last openness read and when: a hand lost for a frame or two (turned
@@ -184,7 +189,7 @@ export class BowTracker {
     const smooth = { yaw: this.yaw.filter(r.yaw, t), pitch: this.pitch.filter(r.pitch, t), draw: r.draw };
     this.history.push({ t, r: smooth });
     while (this.history.length > 0 && t - this.history[0].t > this.cfg.releaseWindowMs) this.history.shift();
-    if (smooth.draw >= MIN_DRAW) this.drawn = true;
+    if (smooth.draw >= MIN_DRAW && this.armed) this.drawn = true;
     if (this.drawn && open !== null) {
       this.grip = this.grip === null ? open : Math.min(this.grip, open);
       if (smooth.draw >= MIN_DRAW && open >= this.grip + this.cfg.openBy && open >= this.cfg.openAt) {
@@ -209,6 +214,18 @@ export class BowTracker {
       return { t: "letdown" };
     }
     return { t: "aim", ...smooth };
+  }
+
+  /**
+   * Whether a draw can arm. Turning it off drops any draw in progress without
+   * an arrow; turning it on (the start of the player's turn) begins from a
+   * hand that is not drawn, so the pull has to be made again.
+   */
+  setArmed(armed: boolean): void {
+    this.armed = armed;
+    this.drawn = false;
+    this.grip = null;
+    this.history = [];
   }
 
   reset(): void {

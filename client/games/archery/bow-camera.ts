@@ -30,6 +30,8 @@ export interface BowCamera {
   bowHand(): Hand;
   /** The setup panel is open: the game waits, and no key, button or mouse shoots behind it. */
   setupOpen(): boolean;
+  /** True on the player's own turn: only then can a draw arm. Each change starts from an undrawn hand. */
+  arm(armed: boolean): void;
   dispose(): void;
 }
 
@@ -214,6 +216,7 @@ export function createBowCamera(view: HTMLElement, button: HTMLButtonElement, ch
     state: () => (!session ? "off" : tracking ? "ok" : "on"),
     bowHand: () => hand,
     setupOpen: () => !panel.hidden,
+    arm: (armed) => tracker.setArmed(armed),
     dispose() {
       button.removeEventListener("click", onButton);
       window.removeEventListener("keydown", onKey);

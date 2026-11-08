@@ -314,11 +314,20 @@ if (friendLink) {
   );
 }
 
-const invite = location.hash.match(/^#\/room\/([A-Za-z]{4})$/);
-if (invite) conn.send({ t: "join", room: invite[1].toUpperCase() });
-// task 24: the watch link always spectates, even when a seat is free
-const watchLink = location.hash.match(/^#\/watch\/([A-Za-z]{4})$/);
-if (watchLink) conn.send({ t: "join", room: watchLink[1].toUpperCase(), watch: true });
+// A room link (#/room/CODE) joins that room; the watch link (#/watch/CODE)
+// always spectates, even when a seat is free (task 24). Read at load AND when
+// the hash changes: a link typed into a tab that is already open changes only
+// the hash, and used to leave you on the home screen (user, 2026-11-09: "error
+// occurs when the link is typed in the URL, works when the code is put in the
+// code box"). The room you are already in is not joined twice.
+function useRoomLink(): void {
+  const invite = location.hash.match(/^#\/room\/([A-Za-z]{4})$/);
+  if (invite && invite[1].toUpperCase() !== currentRoom) conn.send({ t: "join", room: invite[1].toUpperCase() });
+  const watchLink = location.hash.match(/^#\/watch\/([A-Za-z]{4})$/);
+  if (watchLink && watchLink[1].toUpperCase() !== currentRoom) conn.send({ t: "join", room: watchLink[1].toUpperCase(), watch: true });
+}
+useRoomLink();
+window.addEventListener("hashchange", useRoomLink);
 if (location.hash === "#/train") train();
 else if (location.hash === "#/archery/practice") practiseArchery();
 else if (location.hash === "#/track/practice") practiseTrack();

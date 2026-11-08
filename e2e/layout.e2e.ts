@@ -191,3 +191,21 @@ test("the player who joins by invite link sees the whole court, not a wall", asy
   expect(await brightnessSpread(guest, await guest.locator("canvas").screenshot(), near)).toBeGreaterThan(60);
   await guestContext.close();
 });
+
+test("a room link typed into a tab that is already open joins the room (user, 2026-11-09)", async ({ page, browser }) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: /create/i }).first().click();
+  await expect(page).toHaveURL(/#\/room\/[A-Z]{4}$/);
+  const url = page.url();
+  const guestContext = await browser.newContext({ viewport: page.viewportSize()! });
+  const guest = await guestContext.newPage();
+  // already on the home screen, then the link goes into the address bar: only the hash changes
+  await guest.goto("/");
+  await expect(guest.locator(".sport").first()).toBeVisible();
+  await guest.evaluate((u) => {
+    location.href = u;
+  }, url);
+  await expect(guest.locator("canvas")).toBeVisible({ timeout: 15_000 });
+  await expect(guest).toHaveURL(url);
+  await guestContext.close();
+});

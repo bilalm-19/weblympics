@@ -657,6 +657,24 @@ lazily and only when a player enters a game. Video never leaves the browser.
   the invite, the camera chip. Checked at 1920x1080 and 390x844: Leave is at
   the same spot on desktop; on a phone it is right-aligned but its height
   follows each game's score panel.
+- Tennis keeps only the default controls (user, 2026-11-09; task 35 item 1):
+  the camera setup has no "Follow my arm" or "Aim by pointing" any more, only
+  the classic swing and aim by timing, and `calibrationFrom` reads a saved
+  follow or point as those (`spec/camera-settings.test.ts`). The follow and
+  point code stays, unreachable, until it is removed for good. Movement keeps
+  "auto" with leaning as the optional mode.
+- A room link typed into a tab that is already open joins the room (user,
+  2026-11-09): `useRoomLink` in `client/main.ts` runs at load and on
+  `hashchange`, and never re-joins the room you are in
+  (`e2e/layout.e2e.ts`, "typed into a tab").
+- Archery's camera draw can only arm on your own turn (`BowTracker.setArmed`,
+  `spec/archery-bow.test.ts`; user, 2026-11-09: it shot early at the start of
+  a turn). The aiming circle never vanishes: an arrow that would fall short
+  shows a red sight at the foot of the target, and the ring is wider with a
+  dark edge (`predictHit` is null for a short arrow, common at range).
+- `e2e/camera.e2e.ts` "sends no video" fails on the Vite dev server (:5173)
+  because the dev client's own hot-reload socket is on the page; it passes on
+  a built app. Run it against `pnpm build && pnpm start`.
 - Track's camera offers arm pumps only (user, 2026-11-09: the knees mode
   never detected the legs). A saved "knees" is read as "elbows"; the knees
   code and its settings shape stay for now.
