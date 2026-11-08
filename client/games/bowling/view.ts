@@ -306,7 +306,6 @@ export function startBowling(root: HTMLElement, conn: GameLink, info: RoomInfo, 
     {
       ready: (ready) => conn.send({ t: "ready", ready }),
       format: (format) => conn.send({ t: "format", format }),
-      rated: (rated) => conn.send({ t: "rated", rated }),
       openCamera: () => cameraButton.click(),
     },
     FORMATS,

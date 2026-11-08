@@ -83,12 +83,9 @@ function customise(look: Look, tab: string): string {
     </section>`;
 }
 
-/** Task 7: your rating per sport, wins and losses, and your longest rally. */
+/** Your longest rally. (Task 37 removed the ratings that used to sit here.) */
 function ratingLine(me: Me): string {
-  const parts = Object.entries(me.ratings ?? {}).map(
-    ([sport, r]) => `<li><strong>${sport.charAt(0).toUpperCase() + sport.slice(1)}</strong>: rating <span class="profile-rating">${r.rating}</span> (${r.wins} won, ${r.losses} lost)</li>`,
-  );
-  return `<ul class="profile-ratings">${parts.join("")}<li>Longest rally: ${me.longestRally} shots</li></ul>`;
+  return `<ul class="profile-ratings"><li>Longest rally: ${me.longestRally} shots</li></ul>`;
 }
 
 const fmtDate = (ms: number) => new Date(ms).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" });
@@ -159,7 +156,7 @@ export function openProfile(hooks: ProfileHooks): void {
     } else if (!me.account) {
       body.innerHTML = `
         <p class="profile-name">Playing as <strong></strong> (guest)</p>
-        <p class="profile-note">Your matches are kept for this browser. Add a passkey to keep this profile on any device, choose your name and play rated matches. No password, nothing to remember.</p>
+        <p class="profile-note">Your matches are kept for this browser. Add a passkey to keep this profile on any device, and choose your name. No password, nothing to remember.</p>
         <p class="profile-note">With an account you can also dress your player: clothes, hair, face, hats and glasses. Saving a look needs an account; guests wear the seat's default.</p>
         <div class="profile-actions">
           <button type="button" class="profile-btn profile-btn--primary" id="pf-claim" data-act="claim">Create account with a passkey</button>
@@ -170,7 +167,7 @@ export function openProfile(hooks: ProfileHooks): void {
     } else if (me.demo) {
       body.innerHTML = `
         <p class="profile-name">Signed in as <strong></strong></p>
-        <p class="profile-note">A demo account, for trying rated play. It is locked: no renaming, no passkeys, no deleting. Hidden from the public leaderboard.</p>
+        <p class="profile-note">A demo account, for trying two seats. It is locked: no renaming, no passkeys, no deleting.</p>
         ${ratingLine(me)}
         ${customise(draftLook ?? me.look ?? DEFAULT_LOOKS[0], lookTab)}
         <div class="profile-actions">

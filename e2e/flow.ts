@@ -46,7 +46,7 @@ export const DEFAULT_KEY = Object.values(DEFAULT_LOOK).join("/");
 
 // The home screen's profile button, top right (named "Profile: <name>"), and
 // its panel: sign in and out, the demo accounts behind "Dev tools", and the
-// ways to the profile dialog and the leaderboard.
+// way to the profile dialog.
 
 export const profileButton = (page: Page) => page.getByRole("button", { name: /^Profile: / });
 
@@ -74,15 +74,6 @@ export async function openProfileDialog(page: Page) {
   const panel = await openProfileMenu(page);
   await panel.getByRole("button", { name: /edit profile and look|profile details/i }).click();
   const dialog = page.getByRole("dialog", { name: "Profile" });
-  await expect(dialog).toBeVisible();
-  return dialog;
-}
-
-/** Opens the leaderboard through the panel. */
-export async function openLeaderboardFromMenu(page: Page) {
-  const panel = await openProfileMenu(page);
-  await panel.getByRole("button", { name: "Leaderboard" }).click();
-  const dialog = page.getByRole("dialog", { name: "Leaderboard" });
   await expect(dialog).toBeVisible();
   return dialog;
 }

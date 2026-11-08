@@ -9,7 +9,7 @@ import type { LobbyView, RoomFormat, ServerMsg } from "../shared/protocol.ts";
 import { Room } from "../server/room.ts";
 import type { Client } from "../server/room.ts";
 import { asRoomFormat } from "../server/rooms.ts";
-import { insertMatch, isRated, migrate, parseSetsColumn } from "../server/schema.ts";
+import { insertMatch, migrate, parseSetsColumn } from "../server/schema.ts";
 import type { MatchRecord } from "../server/schema.ts";
 
 const COUNTDOWN = 100;
@@ -49,7 +49,7 @@ const last = <T extends ServerMsg["t"]>(c: Fake, t: T) => c.seen.filter((m) => m
 const lobby = (c: Fake) => last(c, "lobby") as (LobbyView & { t: "lobby" }) | undefined;
 const state = (c: Fake) => last(c, "state")!.state as TrackSnapshot;
 
-/** `opts.rated`: both seats are accounts and the host (seat 0) turns the rated option on (task 7). */
+/** `opts.rated`: both seats are accounts (kept from task 7's rated rooms; ratings are gone, task 37). */
 function seated(format: RoomFormat = "race", opts: { rated?: boolean } = {}) {
   const s = setup(format);
   const a = client("a");
@@ -60,7 +60,6 @@ function seated(format: RoomFormat = "race", opts: { rated?: boolean } = {}) {
   }
   s.room.join(a);
   s.room.join(b);
-  if (opts.rated) expect(s.room.setRated(a, true)).toBeNull();
   s.room.ready(a, true);
   s.room.ready(b, true);
   s.run(COUNTDOWN + 50);
@@ -118,19 +117,17 @@ describe("track rooms", () => {
     raceToTheLine(s);
     expect(s.records).toHaveLength(1);
     expect(s.records[0]).toMatchObject({ game: "track", format: "race", winner: 0, practice: false, score: [1, 0] });
-    expect(isRated(s.records[0])).toBe(false);
     const snap = state(s.b);
     expect(snap.lanes[0].finish).toBeLessThan(snap.lanes[1].finish!);
     // back to the ready check for a rematch
     expect(lobby(s.a)!.phase).toBe("ready-check");
   });
 
-  it("a race is rated when the host turns it on and both seats are accounts", () => {
+  it("a finished race between two accounts is recorded", () => {
     const s = seated("race", { rated: true });
     raceToTheLine(s);
     expect(s.records).toHaveLength(1);
     expect(s.records[0]).toMatchObject({ game: "track", format: "race", winner: 0, practice: false });
-    expect(isRated(s.records[0])).toBe(true);
   });
 
   it("a flood of steps from one seat is cut at the door and capped by the sim", () => {
@@ -181,7 +178,6 @@ describe("track rooms", () => {
     s.room.leave(s.b);
     expect(s.records).toHaveLength(1);
     expect(s.records[0]).toMatchObject({ game: "track", format: "unlimited", winner: null });
-    expect(isRated(s.records[0])).toBe(false);
   });
 
   it("practice vs the bot starts at once, the bot runs its lane, and it is never rated", () => {
@@ -192,7 +188,7 @@ describe("track rooms", () => {
     s.run(25_000);
     expect(state(a).lanes[1].steps).toBeGreaterThan(20);
     expect(s.records.length).toBeGreaterThan(0);
-    expect(s.records.every((r) => r.practice && !isRated(r))).toBe(true);
+    expect(s.records.every((r) => r.practice)).toBe(true);
   });
 });
 

@@ -8,7 +8,6 @@ import type { LobbyView, RoomFormat, ServerMsg } from "../shared/protocol.ts";
 import { Room } from "../server/room.ts";
 import type { Client } from "../server/room.ts";
 import { asRoomFormat } from "../server/rooms.ts";
-import { isRated } from "../server/schema.ts";
 import type { MatchRecord } from "../server/schema.ts";
 
 const COUNTDOWN = 100;
@@ -46,7 +45,7 @@ const last = <T extends ServerMsg["t"]>(c: Fake, t: T) => c.seen.filter((m) => m
 const lobby = (c: Fake) => last(c, "lobby") as (LobbyView & { t: "lobby" }) | undefined;
 const state = (c: Fake) => last(c, "state")!.state as ArcherySnapshot;
 
-/** `opts.rated`: both seats are accounts and the host (seat 0) turns the rated option on (task 7). */
+/** `opts.rated`: both seats are accounts (kept from task 7's rated rooms; ratings are gone, task 37). */
 function seated(format: RoomFormat = "stages", opts: { rated?: boolean } = {}) {
   const s = setup(format);
   const a = client("a");
@@ -57,7 +56,6 @@ function seated(format: RoomFormat = "stages", opts: { rated?: boolean } = {}) {
   }
   s.room.join(a);
   s.room.join(b);
-  if (opts.rated) expect(s.room.setRated(a, true)).toBeNull();
   s.room.ready(a, true);
   s.room.ready(b, true);
   s.run(COUNTDOWN + 50);
@@ -126,10 +124,9 @@ describe("archery rooms", () => {
     s.run(500);
     expect(s.records).toHaveLength(1);
     expect(s.records[0]).toMatchObject({ game: "archery", format: "stages", winner: 0, practice: false });
-    expect(isRated(s.records[0])).toBe(false);
   });
 
-  it("a finished match is recorded as archery, rated when the host turns it on and both seats are accounts", () => {
+  it("a finished match is recorded as archery between two accounts", () => {
     const s = seated("stages", { rated: true });
     for (let i = 0; i < 16; i++) {
       const shooter = state(s.a).turn === 0 ? s.a : s.b;
@@ -142,7 +139,6 @@ describe("archery rooms", () => {
     const r = s.records[0];
     expect(r).toMatchObject({ game: "archery", format: "stages", winner: 0, practice: false });
     expect(r.score[1]).toBe(0);
-    expect(isRated(r)).toBe(true);
   });
 
   it("unlimited counts arrow points and the best arrow, and leaving stores it unrated", () => {
@@ -158,7 +154,6 @@ describe("archery rooms", () => {
     s.room.leave(s.b);
     expect(s.records).toHaveLength(1);
     expect(s.records[0]).toMatchObject({ game: "archery", format: "unlimited", winner: null });
-    expect(isRated(s.records[0])).toBe(false);
   });
 
   it("practice vs the bot starts at once, the bot shoots its turns, and it is never rated", () => {
@@ -171,6 +166,6 @@ describe("archery rooms", () => {
     const bot = state(a).shots.filter((sh) => sh.seat === 1);
     expect(bot.length).toBeGreaterThan(0);
     expect(bot.some((sh) => sh.points > 0)).toBe(true);
-    expect(s.records.every((r) => !isRated(r))).toBe(true);
+    expect(s.records.every((r) => r.practice)).toBe(true);
   });
 });

@@ -2111,3 +2111,9 @@ Merged home-36 (home screen redesign) onto main's tennis-fixes. Checked: no conf
 - Coach for boxing and track: `client/games/coach.ts`, pure rules in `spec/coach.test.ts`, panel checked in `e2e/coach.e2e.ts` at both viewports. First build used the class `.coach`, which is tennis training's and made the card absolutely positioned and overlapping Leave on a phone; renamed `practice-coach`. Decided by the user ("keep it simple").
 - A flaky test, not mine: `e2e/layout.e2e.ts` "the player who joins by invite link" failed 3 of 6 runs on a clean HEAD build and 0 of 6 on this tree; it also fails on the dev server under load. Not fixed.
 - `pnpm check` 79 files, 1233 tests green. Who: Claude.
+
+## 2026-11-09 04:10 - milestone - task 37 first bullet: ratings removed (agent built; user asked "removing ratings")
+- What: removed Elo (`server/ratings.ts`; its history and longest-rally reads moved to `server/history.ts`), the leaderboard (`client/ui/leaderboard.*`, its mount, the profile menu's Leaderboard button, `/api/leaderboard`), the room's "Rated match" switch and each seat's rating in the ready panel, the `rated` client message, `LobbyView.rated/ratedBlocked/ratings`, `Lobby.setRated/ratedBlocked`, `Room.setRated`, `isRated`, and `Me.ratings`. Schema step 10 drops the `ratings` table and its index; match rows and the `rated` column stay (never set to 1, never read).
+- Specs: deleted `spec/ratings.test.ts`, `spec/rated-match.test.ts`, `e2e/leaderboard.e2e.ts`; edited the room specs of every game, `spec/db.test.ts` (new "schema v10" test opens a v9 database with a rating row and migrates it), `friends-rules`, `rooms`, `spectate`, `e2e/home.e2e.ts`, `e2e/flow.ts`. CLAUDE.md Ratings rules rewritten as "No ratings", README and docs/accounts.md updated.
+- Not built (task 37 bullets 2-4): per-sport stats, head-to-head, profile stats.
+- Why: user decision 2026-11-08 (match stats instead of ratings). Who: user (decided), agent (built).

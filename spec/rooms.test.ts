@@ -212,14 +212,12 @@ describe("room rules over WebSocket (task 4)", () => {
     expect((await peer.next("error")).message).toMatch(/host/);
   });
 
-  it("an accepted format or rated change sends no error back (bug: success read as 'not in a room')", async () => {
+  it("an accepted format change sends no error back (bug: success read as 'not in a room')", async () => {
     const a = await Peer.connect();
     a.peer.send({ t: "create", game: "tennis", practice: false });
     await a.peer.next("room");
     a.peer.send({ t: "format", format: "bestOfThree" });
     await lobbyWhere(a.peer, (l) => l.format === "bestOfThree");
-    a.peer.send({ t: "rated", rated: true });
-    await lobbyWhere(a.peer, (l) => l.rated);
     await new Promise((r) => setTimeout(r, 200));
     expect(a.peer.seen.filter((m) => m.t === "error")).toEqual([]);
   });

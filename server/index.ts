@@ -318,11 +318,6 @@ wss.on("connection", (ws: WebSocket, req: IncomingMessage) => {
         if (refused) send(client, { t: "error", message: refused });
         break;
       }
-      case "rated": {
-        const refused = client.room ? client.room.setRated(client, msg.rated) : "not in a room";
-        if (refused) send(client, { t: "error", message: refused });
-        break;
-      }
       case "swing":
         client.room?.swing(client, msg);
         break;

@@ -18,7 +18,6 @@ export interface Me {
   /** Saved look (task 18); null for the default. */
   look: Look | null;
   /** Task 7: rating per sport (accounts only). */
-  ratings: Record<string, { rating: number; wins: number; losses: number }>;
   longestRally: number;
   /** Task 25: an account's camera settings (null: the defaults); always null for a guest. */
   cameraSettings: CameraSettings | null;

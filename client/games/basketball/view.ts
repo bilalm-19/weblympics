@@ -367,7 +367,6 @@ export function startBasketball(root: HTMLElement, conn: GameLink, info: RoomInf
     {
       ready: (ready) => conn.send({ t: "ready", ready }),
       format: (format) => conn.send({ t: "format", format }),
-      rated: (rated) => conn.send({ t: "rated", rated }),
       openCamera: () => cameraButton.click(),
     },
     FORMATS,

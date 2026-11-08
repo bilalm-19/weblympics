@@ -8,7 +8,6 @@ import type { LobbyView, RoomFormat, ServerMsg } from "../shared/protocol.ts";
 import { Room } from "../server/room.ts";
 import type { Client } from "../server/room.ts";
 import { asRoomFormat } from "../server/rooms.ts";
-import { isRated } from "../server/schema.ts";
 import type { MatchRecord } from "../server/schema.ts";
 
 const COUNTDOWN = 100;
@@ -49,7 +48,7 @@ const last = <T extends ServerMsg["t"]>(c: Fake, t: T) => c.seen.filter((m) => m
 const lobby = (c: Fake) => last(c, "lobby") as (LobbyView & { t: "lobby" }) | undefined;
 const state = (c: Fake) => last(c, "state")!.state as BoxingSnapshot;
 
-/** `opts.rated`: both seats are accounts and the host (seat 0) turns the rated option on (task 7). */
+/** `opts.rated`: both seats are accounts (kept from task 7's rated rooms; ratings are gone, task 37). */
 function seated(format: RoomFormat = "bout", opts: { rated?: boolean } = {}) {
   const s = setup(format);
   const a = client("a");
@@ -60,7 +59,6 @@ function seated(format: RoomFormat = "bout", opts: { rated?: boolean } = {}) {
   }
   s.room.join(a);
   s.room.join(b);
-  if (opts.rated) expect(s.room.setRated(a, true)).toBeNull();
   s.room.ready(a, true);
   s.room.ready(b, true);
   s.run(COUNTDOWN + 50);
@@ -150,26 +148,24 @@ describe("boxing rooms", () => {
     expect(state(s.b).boxers[0].thrown).toBeLessThanOrEqual(4 * 3 + 2);
   });
 
-  it("a knockout ends it, rated when the host asked and both are accounts; back to the ready check", () => {
+  it("a knockout ends it; back to the ready check", () => {
     const s = seated("bout", { rated: true });
     const hit = puncher(s, s.a);
     s.run(60_000, hit);
     expect(s.records).toHaveLength(1);
     expect(s.records[0]).toMatchObject({ game: "boxing", format: "bout", winner: 0, practice: false });
-    expect(isRated(s.records[0])).toBe(true);
     expect(state(s.b)).toMatchObject({ result: "ko", winner: 0 });
     expect(state(s.b).boxers[1].health).toBe(0);
     expect(lobby(s.a)!.phase).toBe("ready-check");
   });
 
-  it("a draw is recorded with no winner and rated when the host asked and both are accounts", () => {
+  it("a draw is recorded with no winner", () => {
     const s = seated("bout", { rated: true });
     s.room.box(s.a, { t: "punch", hand: "left", target: "head", at: 0 });
     s.room.box(s.b, { t: "punch", hand: "left", target: "head", at: 0 });
     s.run(3 * 30_000 + 2 * 5000 + 1000);
     expect(s.records).toHaveLength(1);
     expect(s.records[0]).toMatchObject({ winner: null, draw: true, score: [JAB_DAMAGE, JAB_DAMAGE] });
-    expect(isRated(s.records[0])).toBe(true);
   });
 
   it("a mid-round drop holds the seat and freezes the round clock and any punch in the air", () => {
@@ -206,7 +202,6 @@ describe("boxing rooms", () => {
     s.room.leave(s.b);
     expect(s.records).toHaveLength(1);
     expect(s.records[0]).toMatchObject({ game: "boxing", format: "unlimited", winner: null });
-    expect(isRated(s.records[0])).toBe(false);
   });
 
   it("practice vs the bot starts at once, the bot boxes, and it is never rated", () => {
@@ -227,6 +222,6 @@ describe("boxing rooms", () => {
     expect(health).toBeLessThan(HEALTH);
     s.run(3 * 30_000);
     expect(s.records.length).toBeGreaterThan(0);
-    expect(s.records.every((r) => r.practice && !isRated(r))).toBe(true);
+    expect(s.records.every((r) => r.practice)).toBe(true);
   });
 });

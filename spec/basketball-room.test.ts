@@ -1,18 +1,11 @@
 // Basketball through the same Room, Lobby and protocol as the other games
 // (task 32), with a fake clock and fake sockets like spec/archery-room.test.ts;
-// and a rated shootout moving only the basketball rating on a throwaway db.
-import { mkdtempSync, rmSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
-import { DatabaseSync } from "node:sqlite";
-import { afterEach, describe, expect, it } from "vitest";
-import { addPasskey, guestFor, newGuestToken } from "../server/accounts.ts";
-import { START_RATING, ratingOf, recordResult } from "../server/ratings.ts";
+// and a shootout stored as a match row.
+import { describe, expect, it } from "vitest";
 import { lateShotTicks } from "../server/rewind.ts";
 import { Room } from "../server/room.ts";
 import type { Client } from "../server/room.ts";
 import { asRoomFormat } from "../server/rooms.ts";
-import { isRated, migrate } from "../server/schema.ts";
 import type { MatchRecord } from "../server/schema.ts";
 import { SHOT_CLOCK_TICKS } from "../shared/games/basketball/sim.ts";
 import type { BasketballSnapshot } from "../shared/games/basketball/sim.ts";
@@ -65,7 +58,6 @@ function seated(format: RoomFormat = "shootout", opts: { rated?: boolean } = {})
   }
   s.room.join(a);
   s.room.join(b);
-  if (opts.rated) expect(s.room.setRated(a, true)).toBeNull();
   s.room.ready(a, true);
   s.room.ready(b, true);
   s.run(COUNTDOWN + 50);
@@ -190,18 +182,9 @@ describe("basketball rooms", () => {
     playOneSided(s);
     expect(s.records).toHaveLength(1);
     expect(s.records[0]).toMatchObject({ game: "basketball", format: "shootout", winner: 0, practice: false, score: [19, 0] });
-    expect(isRated(s.records[0])).toBe(false);
   });
 
-  it("a finished shootout between two accounts with rated on is rated by isRated", () => {
-    const s = seated("shootout", { rated: true });
-    playOneSided(s);
-    expect(s.records).toHaveLength(1);
-    expect(s.records[0]).toMatchObject({ game: "basketball", format: "shootout", winner: 0, practice: false });
-    expect(isRated(s.records[0])).toBe(true);
-  });
-
-  it("a level shootout asks both players through the room; a spectator's vote is ignored; a draw vote ends it as a rated draw", () => {
+  it("a level shootout asks both players through the room; a spectator's vote is ignored; a draw vote ends it as a draw", () => {
     const s = seated("shootout", { rated: true });
     playLevel(s);
     const w = client("w");
@@ -219,7 +202,6 @@ describe("basketball rooms", () => {
     s.run(100);
     expect(s.records).toHaveLength(1);
     expect(s.records[0]).toMatchObject({ game: "basketball", format: "shootout", winner: null, draw: true, score: [19, 19] });
-    expect(isRated(s.records[0])).toBe(true);
   });
 
   it("both continue through the room: a sudden-death round decides it", () => {
@@ -248,7 +230,6 @@ describe("basketball rooms", () => {
     s.room.leave(s.b);
     expect(s.records).toHaveLength(1);
     expect(s.records[0]).toMatchObject({ game: "basketball", format: "unlimited", winner: null });
-    expect(isRated(s.records[0])).toBe(false);
   });
 
   it("practice vs the bot starts at once, the bot shoots its turns, and it is never rated", () => {
@@ -261,7 +242,7 @@ describe("basketball rooms", () => {
     const bot = state(a).shots.filter((sh) => sh.seat === 1);
     expect(bot.length).toBeGreaterThan(0);
     expect(bot.some((sh) => !sh.lost)).toBe(true);
-    expect(s.records.every((r) => !isRated(r))).toBe(true);
+    expect(s.records.every((r) => r.practice)).toBe(true);
   });
 
   it("a bot match plays to the end in a practice room and records game: basketball, unrated", () => {
@@ -277,66 +258,5 @@ describe("basketball rooms", () => {
     expect(s.records.length).toBeGreaterThanOrEqual(1);
     expect(s.records[0]).toMatchObject({ game: "basketball", format: "shootout", practice: true });
     expect(s.records[0].winner === 0 || s.records[0].winner === 1).toBe(true);
-    expect(isRated(s.records[0])).toBe(false);
-  });
-});
-
-describe("basketball ratings", () => {
-  const dirs: string[] = [];
-  afterEach(() => {
-    for (const d of dirs.splice(0)) rmSync(d, { recursive: true, force: true });
-  });
-
-  function freshDb(): DatabaseSync {
-    const d = mkdtempSync(join(tmpdir(), "weblympics-hoop-"));
-    dirs.push(d);
-    const db = new DatabaseSync(join(d, "app.db"));
-    migrate(db);
-    return db;
-  }
-
-  function account(db: DatabaseSync): string {
-    const t = newGuestToken();
-    guestFor(db, t);
-    addPasskey(db, t, { id: `k-${Math.random()}`, publicKey: new Uint8Array([1]), counter: 0, transports: [] });
-    return t;
-  }
-
-  it("a rated shootout moves only the basketball rating", () => {
-    const db = freshDb();
-    const p = account(db);
-    const q = account(db);
-    const s = seated("shootout", { rated: true });
-    playOneSided(s);
-    const m = { ...s.records[0], tokens: [p, q] as [string, string] };
-    expect(recordResult(db, m).rated).toBe(true);
-    expect(ratingOf(db, p, "basketball").rating).toBeGreaterThan(START_RATING);
-    expect(ratingOf(db, q, "basketball").rating).toBeLessThan(START_RATING);
-    for (const sport of ["tennis", "archery", "track", "boxing"]) {
-      expect(ratingOf(db, p, sport).rating).toBe(START_RATING);
-      expect(ratingOf(db, q, sport).rating).toBe(START_RATING);
-    }
-    const row = db.prepare("SELECT game, rated FROM matches").get() as { game: string; rated: number };
-    expect(row).toEqual({ game: "basketball", rated: 1 });
-  });
-
-  it("a drawn shootout between two accounts is stored as a rated draw and moves no rating", () => {
-    const db = freshDb();
-    const p = account(db);
-    const q = account(db);
-    const s = seated("shootout", { rated: true });
-    playLevel(s);
-    // nobody votes: the 15 s vote clock runs out to a draw
-    s.run(16_000);
-    expect(s.records).toHaveLength(1);
-    const m = { ...s.records[0], tokens: [p, q] as [string, string] };
-    expect(m).toMatchObject({ winner: null, draw: true });
-    expect(recordResult(db, m)).toEqual({ rated: true, delta: 0 });
-    for (const sport of ["basketball", "tennis", "archery", "track", "boxing"]) {
-      expect(ratingOf(db, p, sport).rating).toBe(START_RATING);
-      expect(ratingOf(db, q, sport).rating).toBe(START_RATING);
-    }
-    const row = db.prepare("SELECT game, rated, winner FROM matches").get() as { game: string; rated: number; winner: number | null };
-    expect(row).toEqual({ game: "basketball", rated: 1, winner: null });
   });
 });
