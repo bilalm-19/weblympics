@@ -337,6 +337,21 @@ export interface SwingConfig {
    * cross the court and come back, so no real stroke is this close behind.
    */
   recoveryMs: number;
+  /**
+   * The hand is at rest when it makes no headway for this long (the backhand
+   * fix after task 25): a swing starts from rest, or straight after a wind-up
+   * that did. A hand drifting or swaying back and forth turns faster than this.
+   */
+  restMs: number;
+  /**
+   * A movement the other way that ended within this long before a sweep began
+   * is that sweep's wind-up: the sweep is then a stroke only if the wind-up
+   * started from rest and the sweep goes at least `strokeOverWindup` times as
+   * far, and its direction says which stroke. A sway's halves are mirror
+   * images, so none of them is ever a swing.
+   */
+  windupGapMs: number;
+  strokeOverWindup: number;
 }
 
 export const DEFAULT_SWING: SwingConfig = {
@@ -348,6 +363,12 @@ export const DEFAULT_SWING: SwingConfig = {
   // a GUESS (task 25): a recovery starts 0-300 ms after contact and the next
   // real stroke is at least a second away
   recoveryMs: 800,
+  // GUESSES (the backhand fix, 2026-11-08) until a real-webcam recording: a
+  // sway fast enough to look like a swing turns in under 150 ms; a stroke
+  // follows its take-back within 300 ms and goes further than it
+  restMs: 150,
+  windupGapMs: 300,
+  strokeOverWindup: 1.25,
 };
 
 /**
@@ -373,22 +394,86 @@ export interface SwingEvent {
   across: number;
 }
 
+/** A finished sweep, for a filter to judge. */
+export interface Sweep {
+  /** sideways travel along the shoulder line, shoulder-widths, positive toward the player's left */
+  across: number;
+  /** where along the shoulder line it started */
+  from: number;
+  /**
+   * true: the stroke straight after a wind-up (a movement the other way that
+   * set off from rest), so its direction says which stroke it is, whatever
+   * grip the hand showed on the take-back. false: a sweep from rest.
+   */
+  chained: boolean;
+}
+
 /**
- * Which sweeps count, and against which thresholds: given a finished sweep's
- * `across`, the thresholds to grade it with, or null when it isn't a swing for
- * the stroke wanted (a wind-up or a recovery). Without one every sweep counts.
+ * Which sweeps count, and against which thresholds: given a finished sweep,
+ * the thresholds to grade it with, or null when it isn't a swing for the
+ * stroke wanted (a wind-up). Without one every sweep that may count does.
  */
-export type SwingFilter = (across: number) => readonly [number, number] | null;
+export type SwingFilter = (sweep: Sweep) => readonly [number, number] | null;
+
+/** How far back (shoulder-widths) the hand must come to have turned, so webcam jitter isn't a turn. */
+const TURN_BACK = 0.1;
+/** Smallest headway (shoulder-widths) that counts as the hand moving on. */
+const HEADWAY = 0.03;
+
+/**
+ * The hand's movement along the shoulder line as legs: runs one way, split
+ * where the hand turns back by `TURN_BACK`, each measured from where it set
+ * off (from its turn, or from where it last rested on the way).
+ */
+class Legs {
+  cur: { dir: number; startA: number; extA: number; extT: number; moveT: number; fromRest: boolean } | null = null;
+  prev: { dir: number; travel: number; endT: number; fromRest: boolean } | null = null;
+
+  update(t: number, a: number, restMs: number): void {
+    const c = this.cur;
+    if (!c) {
+      // tracking just began: whether the hand was resting isn't known yet
+      this.cur = { dir: 0, startA: a, extA: a, extT: t, moveT: t, fromRest: false };
+      return;
+    }
+    const d = a - c.extA;
+    if (c.dir !== 0 && d * c.dir <= -TURN_BACK) {
+      const travel = Math.abs(c.extA - c.startA);
+      this.prev = { dir: c.dir, travel, endT: c.extT, fromRest: c.fromRest };
+      // it rested at the turn if it took this long to come back; a leg too
+      // short to be a sweep keeps the rest from before it
+      const fromRest = t - c.extT >= restMs || (travel < MIN_SWEEP && c.fromRest);
+      this.cur = { dir: -c.dir, startA: c.extA, extA: a, extT: t, moveT: t, fromRest };
+      return;
+    }
+    if (Math.abs(d) >= HEADWAY && (c.dir === 0 || d * c.dir > 0)) {
+      if (t - c.extT >= restMs) {
+        // moving on after a rest: the leg is measured from here
+        c.startA = c.extA;
+        c.moveT = t;
+        c.fromRest = true;
+      }
+      if (c.dir === 0) c.dir = Math.sign(d);
+      c.extA = a;
+      c.extT = t;
+    }
+  }
+}
 
 /**
  * Fast wrist movements to swings. One real stroke is three movements: the
  * wind-up (racket back), the stroke and the recovery (hand back to rest), and
  * each one is fast enough to look like a swing. So (task 25's double-count
  * fix): a sweep ends where the hand turns back; a sweep the filter rejects is
- * dropped whole and starts no cooldown (it used to start the 300 ms cooldown,
- * which then cut the real stroke behind the wind-up short); and a sweep the
- * opposite way to the last counted swing, starting within `recoveryMs` of it,
- * is the recovery and never counts.
+ * dropped whole and starts no cooldown; and a sweep the opposite way to the
+ * last counted swing, starting within `recoveryMs` of it, is the recovery.
+ *
+ * And (the backhand fix after task 25) a swing starts from rest, or straight
+ * after a wind-up that did and goes clearly further than it. Otherwise a hand
+ * drifting or swaying back and forth was a string of half-swings, and the
+ * filter counted the half that suited the grip. The stroke after a wind-up is
+ * judged by its own direction (`chained`), so a take-back that shows the palm
+ * can't turn a backhand into a forehand.
  */
 export class SwingDetector {
   private prev: { t: number; pos: Vec; across: number } | null = null;
@@ -396,6 +481,7 @@ export class SwingDetector {
   private lastEnd = -Infinity;
   private lastSign = 0;
   private lastLevel: Level | null = null;
+  private legs = new Legs();
   cfg: SwingConfig;
 
   constructor(cfg: SwingConfig) {
@@ -414,12 +500,13 @@ export class SwingDetector {
   /**
    * Feed one wrist sample. Returns whether a sweep just started, the swing if
    * one just ended and counted, and `rejected` if a sweep just ended that
-   * didn't (a wind-up or a recovery).
+   * didn't (a wind-up, a recovery, a sway).
    */
   update(t: number, w: Wrist, filter?: SwingFilter): { started: boolean; swing: SwingEvent | null; rejected: boolean } {
     const none = { started: false, swing: null, rejected: false };
     const prev = this.prev;
     this.prev = { t, pos: w.pos, across: w.across };
+    this.legs.update(t, w.across, this.cfg.restMs);
     if (!prev || t <= prev.t) return none;
     const speed = Math.hypot(w.pos.x - prev.pos.x, w.pos.y - prev.pos.y) / ((t - prev.t) / 1000);
 
@@ -441,7 +528,8 @@ export class SwingDetector {
     const across = end.across - a.across;
     const sign = Math.abs(across) >= MIN_SWEEP ? Math.sign(across) : 0;
     const recovery = sign !== 0 && sign === -this.lastSign && a.startedAt - this.lastEnd < this.cfg.recoveryMs;
-    const thresholds = recovery ? null : filter ? filter(across) : this.cfg.thresholds;
+    const chained = this.afterWindup(sign);
+    const thresholds = recovery || chained === null ? null : filter ? filter({ across, from: a.across, chained }) : this.cfg.thresholds;
     if (!thresholds) {
       // the hand turning back may already be the next sweep: it starts now
       if (turned) this.active = { startedAt: prev.t, peak: speed, across: prev.across, from: prev.pos };
@@ -454,10 +542,26 @@ export class SwingDetector {
     return { started: false, swing: { level, peak: a.peak, startedAt: a.startedAt, at: end.t, across }, rejected: false };
   }
 
+  /**
+   * For a sweep that just ended going `sign`: true when it is the stroke
+   * after a wind-up, false when it set off from rest, null when it is
+   * neither (a sway's half, or a hand that never rested).
+   */
+  private afterWindup(sign: number): boolean | null {
+    const leg = this.legs.cur;
+    const back = this.legs.prev;
+    if (sign === 0 || !leg || leg.dir !== sign) return null;
+    const windup = back && back.dir === -sign && back.travel >= MIN_SWEEP && leg.moveT - back.endT <= this.cfg.windupGapMs ? back : null;
+    if (!windup) return leg.fromRest ? false : null;
+    const travel = Math.abs(leg.extA - leg.startA);
+    return windup.fromRest && travel >= windup.travel * this.cfg.strokeOverWindup ? true : null;
+  }
+
   /** Tracking dropped out: forget the motion so far. */
   lose(): void {
     this.prev = null;
     this.active = null;
+    this.legs = new Legs();
   }
 }
 
@@ -716,11 +820,41 @@ export function swingMatchesGrip(across: number, grip: SwingKind, hand: Hand): b
   return grip === "forehand" ? a >= MIN_SWEEP : a <= -MIN_SWEEP;
 }
 
+/** The stroke a sweep's direction is: toward the off-hand side a forehand, back toward the racket side a backhand. */
+export function strokeOf(across: number, hand: Hand): SwingKind {
+  return (hand === "right" ? across : -across) > 0 ? "forehand" : "backhand";
+}
+
+/**
+ * How far onto the other side of the body a stroke from rest may start, in
+ * shoulder-widths from the middle. A "forehand" from further onto the
+ * off-hand side is a backhand's take-back (a backhand stance rests about half
+ * a shoulder-width out there), and the other way round. Aiming by pointing
+ * moves the resting hand up to `AIM_RANGE` from the neutral, so that mode
+ * allows as far as the aim goes. A GUESS (2026-11-08).
+ */
+export const OTHER_SIDE_START = 0.4;
+
+/**
+ * Whether a finished sweep is a shot for the grip held (in play): from rest it
+ * goes the way the grip hits and starts no further than `side` onto the other
+ * side of the body; straight after a wind-up only its direction matters.
+ */
+export function sweepCounts(sweep: Sweep, grip: SwingKind, hand: Hand, side = OTHER_SIDE_START): boolean {
+  if (Math.abs(sweep.across) < MIN_SWEEP) return false;
+  if (sweep.chained) return true;
+  if (!swingMatchesGrip(sweep.across, grip, hand)) return false;
+  // positive toward the off-hand side
+  const from = hand === "right" ? sweep.from : -sweep.from;
+  return grip === "forehand" ? from <= side : from >= -side;
+}
+
 /**
  * Tilt, grip, aim and swings from a stream of pose frames. From the start of
  * a swing to contact, the movement target, grip and aim stay as they were just
  * before the swing began, so the swinging arm and the lean it causes can't
- * move the player or change the shot; the swing is the grip held then.
+ * move the player or change the shot. The stroke is the grip held then, or,
+ * straight after a take-back that showed the other grip, the way the hand went.
  */
 export class CameraController {
   private aimFilter = new OneEuro(1, 0.5);
@@ -763,11 +897,13 @@ export class CameraController {
     // detector's. Follow: the swing is the hand crossing the hitting line with
     // the grip held before the swing began; the freeze ends there, or when
     // the motion dies out without crossing.
-    // A sweep counts only in the hitting direction of the grip held when it
-    // began; the wind-up and the recovery are dropped whole (task 25).
-    const filter: SwingFilter = (across) => {
+    // A sweep from rest counts only in the hitting direction of the grip held
+    // when it began; the wind-up and the recovery are dropped whole (task 25).
+    // The stroke straight after a wind-up is the stroke its direction says.
+    const side = this.calib.aim === "point" ? Math.max(OTHER_SIDE_START, AIM_RANGE - Math.abs(this.calib.neutralAcross)) : OTHER_SIDE_START;
+    const filter: SwingFilter = (sweep) => {
       const g = this.frozen?.grip ?? this.grip;
-      return swingMatchesGrip(across, g, this.calib.hand) ? strokeThresholds(this.calib, g) : null;
+      return sweepCounts(sweep, g, this.calib.hand, side) ? strokeThresholds(this.calib, strokeOf(sweep.across, this.calib.hand)) : null;
     };
     const classic = this.detector.update(f.t, w, filter);
     const started = classic.started;
@@ -794,7 +930,9 @@ export class CameraController {
     if (this.calib.mode === "classic") {
       // A forehand sweeps toward the off-hand side and a backhand back toward the
       // racket side; the opposite sweep is the wind-up or the recovery, not a shot.
-      if (classic.swing) swing = { level: classic.swing.level, kind: shown.grip, aim: shown.aim, at: classic.swing.at, peak: classic.swing.peak };
+      // The stroke is the sweep's direction: the grip held, or, straight after a
+      // wind-up that showed the other grip, the way the hand went.
+      if (classic.swing) swing = { level: classic.swing.level, kind: strokeOf(classic.swing.across, this.calib.hand), aim: shown.aim, at: classic.swing.at, peak: classic.swing.peak };
     } else {
       this.zone.thresholds = strokeThresholds(this.calib, shown.grip);
       const hit = this.zone.update(f.t, w, shown.grip, this.calib.hand);
@@ -821,7 +959,8 @@ export class CalibrationRecorder {
   /** `kind` is the stroke the player picked: its hitting direction counts, whatever grip the camera reads. */
   constructor(hand: Hand, kind: SwingKind) {
     this.hand = hand;
-    this.filter = (across) => (swingMatchesGrip(across, kind, hand) ? DEFAULT_SWING.thresholds : null);
+    // play's rest and wind-up rules; the stroke is the one picked, by direction
+    this.filter = (sweep) => (swingMatchesGrip(sweep.across, kind, hand) ? DEFAULT_SWING.thresholds : null);
   }
 
   /** One frame; returns the swing's peak if a swing of this stroke just ended. */

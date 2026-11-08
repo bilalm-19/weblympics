@@ -1780,14 +1780,58 @@ a:focus-visible {
   outline: 2px solid var(--accent);
 }
 
-.stroke {
+/* The shot messages (the stance pill, FOREHAND / BACKHAND and the stroke
+   line): one centred row between the timing meter and the swing buttons, so
+   they never cover the player or the court (user, 2026-11-08;
+   e2e/aid-messages.e2e.ts). Each message is one pill of a fixed height; the
+   row keeps its height whether or not anything shows, so the meter above
+   never jumps, and clips rather than spill onto the buttons. On a phone it
+   holds two lines. With the trajectory aid off none of it shows. */
+.game {
+  --shot-pill: 1.9rem;
+  --shot-row: var(--shot-pill);
+}
+
+@media (max-width: 560px) {
+  .game {
+    --shot-row: calc(2 * var(--shot-pill) + 0.3rem);
+  }
+}
+
+.shot-messages {
   position: absolute;
-  left: 50%;
-  bottom: calc(max(1rem, env(safe-area-inset-bottom)) + 72px);
-  transform: translateX(-50%);
-  width: max-content;
-  max-width: calc(100vw - 1.5rem);
-  padding: 0.25rem 0.75rem;
+  left: 0.75rem;
+  right: 0.75rem;
+  /* just above the swing buttons (56px tall) */
+  bottom: calc(max(1rem, env(safe-area-inset-bottom)) + 64px);
+  height: var(--shot-row);
+  overflow: hidden;
+  display: flex;
+  flex-wrap: wrap-reverse;
+  justify-content: center;
+  align-content: flex-start;
+  align-items: center;
+  gap: 0.3rem 0.5rem;
+  pointer-events: none;
+}
+
+.shot-messages > * {
+  box-sizing: border-box;
+  height: var(--shot-pill);
+  max-width: 100%;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.game.aid-off .shot-messages {
+  display: none;
+}
+
+.stroke {
+  max-width: 100%;
+  padding: 0 0.75rem;
+  line-height: var(--shot-pill);
   border-radius: 999px;
   background: #0f1720b3;
   font-weight: 700;
@@ -1808,30 +1852,18 @@ a:focus-visible {
   font-weight: 400;
 }
 
-/* FOREHAND / BACKHAND on every stroke. Wide screens: in the stands left of
-   the court, half way down (the camera dock is on the right). Narrow ones:
-   bottom left, between the near baseline and the stroke line. Never on the
-   court (e2e/stroke.e2e.ts). */
+/* FOREHAND / BACKHAND on every stroke, in the shot messages row. Never on
+   the court (e2e/stroke.e2e.ts) or the player (e2e/aid-messages.e2e.ts). */
 .shot-label {
-  position: absolute;
-  left: max(0.75rem, env(safe-area-inset-left));
-  bottom: calc(max(1rem, env(safe-area-inset-bottom)) + 120px);
-  display: grid;
-  gap: 0.1rem;
-  max-width: calc(100vw - 1.5rem);
-  padding: 0.35rem 0.8rem;
-  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  max-width: 100%;
+  padding: 0 0.75rem;
+  border-radius: 999px;
   background: #0f1720cc;
   pointer-events: none;
-  transform-origin: left center;
-}
-
-@media (min-width: 900px) and (min-aspect-ratio: 4/3) {
-  .shot-label {
-    left: max(1rem, 3vw);
-    top: 46%;
-    bottom: auto;
-  }
+  transform-origin: center;
 }
 
 .shot-label[hidden] {
@@ -1839,7 +1871,7 @@ a:focus-visible {
 }
 
 .shot-label b {
-  font-size: clamp(1.4rem, 2.6vw, 2.4rem);
+  font-size: clamp(1.1rem, 1.6vw, 1.4rem);
   letter-spacing: 0.08em;
   line-height: 1.1;
 }
@@ -1866,6 +1898,7 @@ a:focus-visible {
 .shot-label[data-wrong-side="true"] {
   background: #5a1d1dcc;
   outline: 2px solid #ff6b5a;
+  outline-offset: -2px;
 }
 
 .shot-label[data-wrong-side="true"] b {
@@ -1890,7 +1923,7 @@ a:focus-visible {
 @keyframes shot-pop {
   from {
     opacity: 0;
-    transform: translateX(-12px) scale(0.85);
+    transform: scale(0.85);
   }
 }
 

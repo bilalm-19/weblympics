@@ -10,7 +10,10 @@ import { TIMINGS, litTiming, meterPosition, realArc, shownStrength, timingArcs, 
 // arcs on the court for camera timing aim, depth ticks for light/medium/hard,
 // the real arc after your hit, and the strength of your last swing. A
 // prediction from the shared sim only; the server decides every hit. It can
-// be switched off, and nothing else reads it.
+// be switched off, and then nothing to aim with shows (user, 2026-11-08): no
+// reticle ring or single arc on the court, no stance pill and none of the
+// stroke messages ("Forehand", "Forehand · hard", "not sent"). Bounce marks
+// and the ball trail stay.
 
 const STORAGE_KEY = "trajectory-aid";
 
@@ -72,6 +75,8 @@ export function createTrajectoryAid(view: HTMLElement, scene: Scene, canvas: HTM
   const mark = bar.querySelector(".aid-mark") as HTMLElement;
   const strengthEl = bar.querySelector(".aid-strength") as HTMLElement;
   const stanceEl = bar.querySelector(".aid-stance") as HTMLElement;
+  // the stance pill goes with the view's other shot messages, below the meter
+  view.querySelector(".shot-messages")?.prepend(stanceEl);
   const toggle = bar.querySelector(".aid-toggle") as HTMLButtonElement;
   const fx = createAidFx(scene);
 
@@ -89,6 +94,9 @@ export function createTrajectoryAid(view: HTMLElement, scene: Scene, canvas: HTM
     meter.hidden = !on;
     bar.dataset.on = String(on);
     canvas.dataset.aid = on ? "on" : "off";
+    // off shows nothing to aim with (user, 2026-11-08): the view's shot
+    // messages hide by this class (aid.css), and the reticle by `on()`
+    view.classList.toggle("aid-off", !on);
   };
   toggle.addEventListener("click", () => {
     on = !on;
@@ -102,6 +110,8 @@ export function createTrajectoryAid(view: HTMLElement, scene: Scene, canvas: HTM
     fx.ticks(null, shownStrength(last, null, [1, 2]));
     fx.real(null);
     mark.hidden = true;
+    stanceEl.hidden = true;
+    canvas.dataset.stance = "";
     meter.dataset.lit = "";
     canvas.dataset.aidArcs = "0";
     canvas.dataset.aidLit = "";

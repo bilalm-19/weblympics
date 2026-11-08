@@ -68,7 +68,7 @@ test("the aid shows by default: timing meter at the bottom, chosen strength afte
   await expect.poll(() => page.locator(".aid-meter").getAttribute("data-lit"), { timeout: 30_000 }).toMatch(/^(early|ontime|late)$/);
 });
 
-test("the off switch hides the meter and arcs and keeps the game playing; it is remembered", async ({ page }) => {
+test("the off switch hides the meter, arcs and reticle and keeps the game playing; it is remembered", async ({ page }) => {
   await practice(page);
   const canvas = page.locator("canvas");
   const toggle = page.getByRole("button", { name: /trajectory aid/i });
@@ -79,8 +79,12 @@ test("the off switch hides the meter and arcs and keeps the game playing; it is 
   await expect(toggle).toHaveAttribute("aria-pressed", "false");
   await expect(canvas).toHaveAttribute("data-aid", "off");
   await expect(page.getByRole("img", { name: /timing meter/i })).toBeHidden();
-  // nothing else depends on it: the reticle and the game run on
-  await expect.poll(() => canvas.getAttribute("data-reticle")).not.toBe("");
+  // off shows nothing to aim with (user, 2026-11-08), even aiming by hand,
+  // and the game runs on without it
+  await page.keyboard.down("ArrowRight");
+  await page.waitForTimeout(300);
+  expect(await canvas.getAttribute("data-reticle")).toBe("");
+  await page.keyboard.up("ArrowRight");
   const frames = Number(await canvas.getAttribute("data-frames"));
   await expect.poll(async () => Number(await canvas.getAttribute("data-frames"))).toBeGreaterThan(frames + 5);
   expect(await canvas.getAttribute("data-aid-arcs")).toBe("0");
@@ -109,8 +113,9 @@ test("with the camera aiming by timing, three arcs show and the lit one follows 
   for (const el of [".aid", ".aid-meter", ".aid-toggle"]) expect(await overlaps(page.locator(el), dock), el).toBe(false);
   expect(await noHorizontalScroll(page)).toBe(true);
 
-  // off: the three arcs go, the plain reticle comes back
+  // off: the three arcs go, and no plain reticle replaces them
   await page.getByRole("button", { name: /trajectory aid/i }).click();
+  await expect(canvas).toHaveAttribute("data-reticle", "");
   await expect(canvas).toHaveAttribute("data-aid-arcs", "0");
   await expect(canvas).toHaveAttribute("data-aid-lit", "");
   await page.getByRole("button", { name: /stop camera/i }).click();

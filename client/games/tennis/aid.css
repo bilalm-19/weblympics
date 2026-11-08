@@ -1,12 +1,12 @@
 /* Trajectory aid (task 3): timing meter, last swing's strength and the
-   on/off switch, in one row along the bottom, above the stroke label and the
-   swing buttons. Its own file so the HUD and style.css stay untouched. */
+   on/off switch, in one row along the bottom, above the shot messages row
+   (style.css) and the swing buttons. */
 
 .aid {
   position: absolute;
   left: 50%;
-  /* above the stroke label, which sits 72px above the swing buttons */
-  bottom: calc(max(1rem, env(safe-area-inset-bottom)) + 72px + 2.5rem);
+  /* above the shot messages row, which sits on the swing buttons */
+  bottom: calc(max(1rem, env(safe-area-inset-bottom)) + 64px + var(--shot-row, 2.1rem) + 0.4rem);
   transform: translateX(-50%);
   width: min(32rem, calc(100% - 1.5rem));
   display: flex;
@@ -96,14 +96,11 @@
 }
 
 /* Which stroke your next swing is; red when the grip you hold is wrong for the
-   ball's side (the swing would be a "wrong side" miss). Sits above the meter
-   row so the row keeps its shape. */
+   ball's side (the swing would be a "wrong side" miss). In the shot messages
+   row under the meter (moved there by aid.ts), off the player's feet. */
 .aid-stance {
-  position: absolute;
-  left: 50%;
-  bottom: calc(100% + 0.35rem);
-  transform: translateX(-50%);
-  padding: 0.2rem 0.7rem;
+  padding: 0 0.7rem;
+  line-height: var(--shot-pill, 1.9rem);
   border-radius: 999px;
   background: #0f1720d9;
   color: #fff;
