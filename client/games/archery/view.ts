@@ -233,7 +233,8 @@ export function startArchery(root: HTMLElement, conn: GameLink, info: RoomInfo, 
   let names: [string | null, string | null] = [null, null];
   let lobby: LobbyView | null = null;
   const label = (seat: Seat) => (seat === info.seat ? "You" : (names[seat] ?? `Player ${seat + 1}`));
-  const myTurn = () => snap !== null && info.seat !== null && snap.phase === "aim" && snap.turn === info.seat && playing();
+  // nothing shoots behind the open camera setup (task 15)
+  const myTurn = () => snap !== null && info.seat !== null && snap.phase === "aim" && snap.turn === info.seat && playing() && !bowCam.setupOpen();
   const playing = () => !lobby || info.practice || lobby.phase === "playing";
 
   // the shooter's own sight and draw, from the mouse, keys or camera
@@ -681,6 +682,7 @@ export function startArchery(root: HTMLElement, conn: GameLink, info: RoomInfo, 
         flying.lookAt(pos.x - vel.x, pos.y - vel.y, pos.z - vel.z);
       }
       canvas.dataset.phase = s.phase;
+      canvas.dataset.tick = String(s.tick);
       canvas.dataset.turn = String(s.turn);
       canvas.dataset.distance = String(s.distance);
     }
@@ -696,6 +698,11 @@ export function startArchery(root: HTMLElement, conn: GameLink, info: RoomInfo, 
     canvas.dataset.frames = String(++frames);
   };
   raf = requestAnimationFrame(frame);
+
+  // Webcam by default (task 15): a seated player gets the camera setup first,
+  // with "Use keyboard instead" (bow-camera.ts); practice waits meanwhile. A
+  // spectator never does.
+  if (info.seat !== null) cameraButton.click();
 
   return () => {
     cancelAnimationFrame(raf);

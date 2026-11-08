@@ -9,7 +9,9 @@ import type { BowReading } from "./bow.ts";
 // Archery's camera (task 22): the same webcam and local pose model as tennis
 // (video never leaves the browser), read as a bow instead of a racket. The
 // panel only asks which hand holds the bow; there is nothing to calibrate.
-// Every step can be skipped, and keys, mouse and the hold button still work.
+// Webcam by default (task 15): the view opens this panel first for a seated
+// player. Every step has "Use keyboard instead"; that, Escape or a refused
+// camera leaves keys, mouse and the hold button.
 
 export interface BowCallbacks {
   aim(a: BowReading): void;
@@ -26,6 +28,8 @@ export interface BowCamera {
   state(): "off" | "on" | "ok";
   /** The hand that holds the bow and aims (the saved choice, camera on or not). */
   bowHand(): Hand;
+  /** The setup panel is open: the game waits, and no key, button or mouse shoots behind it. */
+  setupOpen(): boolean;
   dispose(): void;
 }
 
@@ -86,6 +90,7 @@ export function createBowCamera(view: HTMLElement, button: HTMLButtonElement, ch
   };
 
   const close = () => {
+    if (panel.hidden) return;
     panel.hidden = true;
     cb.pause(false);
   };
@@ -101,23 +106,45 @@ export function createBowCamera(view: HTMLElement, button: HTMLButtonElement, ch
     button.textContent = "Camera";
   };
 
+  /** "Use keyboard instead", Escape, or a refused camera: keys, mouse and the hold button. */
+  const useKeyboard = () => {
+    stop();
+    close();
+  };
+  const keyboardButton = `<button data-step="keys">Use keyboard instead</button>`;
+  const wire = () => panel.querySelector("[data-step=keys]")?.addEventListener("click", useKeyboard);
+
   const fail = (message: string) => {
     stop();
     panel.innerHTML = `<h2>No camera</h2><p class="error" role="alert"></p><div class="row"><button class="primary" data-step="close">OK</button></div>`;
     (panel.querySelector(".error") as HTMLElement).textContent = message;
     panel.querySelector("[data-step=close]")?.addEventListener("click", close);
+    (panel.querySelector("[data-step=close]") as HTMLElement | null)?.focus();
   };
 
   const start = async () => {
     if (starting) return;
     starting = true;
-    panel.innerHTML = `<h2>Starting camera…</h2><p class="muted" role="status">Waiting for permission.</p>`;
+    panel.innerHTML = `<h2>Starting camera…</h2><p class="muted" role="status">Waiting for permission.</p><div class="row">${keyboardButton}</div>`;
+    wire();
     try {
       const stream = await openCamera(video);
+      if (panel.hidden) {
+        // left for the keyboard while the browser asked
+        stream.getTracks().forEach((t) => t.stop());
+        video.srcObject = null;
+        return;
+      }
       video.hidden = false;
-      panel.innerHTML = `<h2>Loading pose model…</h2><p class="muted" role="status">The first time takes a few seconds.</p>`;
+      panel.innerHTML = `<h2>Loading pose model…</h2><p class="muted" role="status">The first time takes a few seconds.</p><div class="row">${keyboardButton}</div>`;
+      wire();
       setChip("Loading…", "warn");
       session = await startPose(video, stream, onFrame, () => {}, { hands: true });
+      if (panel.hidden) {
+        // Escape or the keyboard while the model loaded: keys it is
+        stop();
+        return;
+      }
       button.textContent = "Stop camera";
       readout.hidden = false;
       close();
@@ -148,7 +175,7 @@ export function createBowCamera(view: HTMLElement, button: HTMLButtonElement, ch
       <p class="muted">The video stays in this browser; only the pose is used.</p>
       <div class="row">
         <button class="primary" data-step="start">Start camera</button>
-        <button data-step="close">Not now</button>
+        ${keyboardButton}
       </div>`;
     const handButtons = panel.querySelectorAll<HTMLButtonElement>("[data-hand]");
     const mark = () => handButtons.forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.hand === hand)));
@@ -161,7 +188,7 @@ export function createBowCamera(view: HTMLElement, button: HTMLButtonElement, ch
     );
     mark();
     panel.querySelector("[data-step=start]")?.addEventListener("click", () => void start());
-    panel.querySelector("[data-step=close]")?.addEventListener("click", close);
+    wire();
   };
 
   const onButton = () => {
@@ -174,14 +201,22 @@ export function createBowCamera(view: HTMLElement, button: HTMLButtonElement, ch
     intro();
     (panel.querySelector("[data-step=start]") as HTMLElement | null)?.focus();
   };
+  const onKey = (e: KeyboardEvent) => {
+    if (e.key !== "Escape" || panel.hidden) return;
+    e.preventDefault();
+    useKeyboard();
+  };
   button.addEventListener("click", onButton);
+  window.addEventListener("keydown", onKey);
 
   return {
     on: () => session !== null,
     state: () => (!session ? "off" : tracking ? "ok" : "on"),
     bowHand: () => hand,
+    setupOpen: () => !panel.hidden,
     dispose() {
       button.removeEventListener("click", onButton);
+      window.removeEventListener("keydown", onKey);
       stop();
       dock.remove();
       panel.remove();

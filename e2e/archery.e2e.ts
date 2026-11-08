@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import type { Locator, Page } from "@playwright/test";
+import { useKeyboard } from "./flow.ts";
 
 // Task 22: archery at both viewports. Keys and the hold button stand in for
 // the bow gesture, as every camera action has one.
@@ -49,6 +50,12 @@ async function openArchery(page: Page): Promise<void> {
   await expect(page.locator("#options-title")).toHaveText("Archery");
 }
 
+/** Practice: the camera setup opens first (task 15); take the keyboard way. */
+async function startPractice(page: Page): Promise<void> {
+  await page.getByRole("button", { name: "Practice", exact: true }).click();
+  await useKeyboard(page);
+}
+
 /** Hold the shoot button for `ms`, then let go. */
 async function holdShoot(page: Page, ms: number): Promise<void> {
   const b = page.locator(".ar-shoot");
@@ -72,7 +79,7 @@ test("practice: aim, draw and shoot in the page, nothing sent to the server", as
   const frames: string[] = [];
   page.on("websocket", (ws) => ws.on("framesent", (f) => frames.push(String(f.payload))));
   await openArchery(page);
-  await page.getByRole("button", { name: "Practice", exact: true }).click();
+  await startPractice(page);
   await expect.poll(async () => Number(await canvas(page).getAttribute("data-frames"))).toBeGreaterThan(5);
   const sent = frames.length;
 
@@ -110,7 +117,7 @@ test("practice: aim, draw and shoot in the page, nothing sent to the server", as
 
 test("press and hold on the range draws and letting go shoots, with no drag needed", async ({ page }) => {
   await openArchery(page);
-  await page.getByRole("button", { name: "Practice", exact: true }).click();
+  await startPractice(page);
   await expect.poll(async () => Number(await canvas(page).getAttribute("data-frames"))).toBeGreaterThan(5);
   const box = (await canvas(page).boundingBox())!;
   // aim at the middle of the screen, then hold still: the draw grows while held
@@ -125,19 +132,18 @@ test("the bow is on the side of the aiming hand: left by default, right if chose
   await openArchery(page);
   await page.getByRole("button", { name: "Practice", exact: true }).click();
   await expect(canvas(page)).toHaveAttribute("data-bow-side", "left");
-  // choose the right hand in the camera panel (without starting the camera)
-  await page.getByRole("button", { name: "Camera" }).click();
+  // choose the right hand in the camera panel, open first (without starting the camera)
   await page.getByRole("button", { name: /Right \(pull with left\)/ }).click();
   await expect(canvas(page)).toHaveAttribute("data-bow-side", "right");
   // the setup dialog's buttons are reachable (on a phone the pickers sat over them)
-  await page.getByRole("button", { name: "Not now" }).click();
+  await page.getByRole("button", { name: /use keyboard instead/i }).click();
   await expect(page.locator(".camera-panel")).toBeHidden();
   await expect(page.locator(".ar-practice")).toBeVisible();
 });
 
 test("Space draws and shoots straight after opening practice", async ({ page }) => {
   await openArchery(page);
-  await page.getByRole("button", { name: "Practice", exact: true }).click();
+  await startPractice(page);
   await expect.poll(async () => Number(await canvas(page).getAttribute("data-frames"))).toBeGreaterThan(5);
   await page.keyboard.down("Space");
   await page.waitForTimeout(900);
@@ -149,6 +155,7 @@ test("vs the bot: the server takes turns, flies both arrows and scores them", as
   test.setTimeout(60_000);
   await openArchery(page);
   await page.getByRole("button", { name: "Play vs bot" }).click();
+  await useKeyboard(page);
   await expect.poll(async () => Number(await canvas(page).getAttribute("data-frames"))).toBeGreaterThan(5);
   await laidOut(page, [".hud .ar-score", ".hud .status", ".ar-wind", ".ar-card", ".ar-draw", ".controls"]);
   await expect(page.locator(".ar-row")).toHaveCount(2);
@@ -167,6 +174,7 @@ test("task 31: the other archer's turn is seen over their shoulder, both archers
   test.setTimeout(60_000);
   await openArchery(page);
   await page.getByRole("button", { name: "Play vs bot" }).click();
+  await useKeyboard(page);
   await expect.poll(async () => Number(await canvas(page).getAttribute("data-frames"))).toBeGreaterThan(5);
   // my turn: first person, my own archer hidden, the bot waiting behind the line
   await expect(canvas(page)).toHaveAttribute("data-view", "first");
@@ -186,6 +194,7 @@ test("task 31: the other archer's turn is seen over their shoulder, both archers
 test("a room offers archery's own formats", async ({ page }) => {
   await openArchery(page);
   await page.getByRole("button", { name: "Create a room" }).click();
+  await useKeyboard(page);
   const panel = page.locator(".ready-panel");
   await expect(panel).toBeVisible();
   await expect(panel.locator("[data-format]")).toHaveText(["Eight stages", "Unlimited"]);
