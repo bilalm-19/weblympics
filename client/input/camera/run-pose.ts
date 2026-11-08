@@ -55,7 +55,7 @@ export interface RunConfig extends RiseConfig {
   minGapMs: number;
 }
 
-// GUESSES until the recordings (docs/camera-playtest.md, "Track's moves").
+// GUESSES until the recordings (docs/camera-playtest.md, "Track's and hurdles' moves").
 // Until 2026-11-08 a step was a side `liftOn` above the stand-still rest and
 // re-armed only below `liftOff` above it (elbows 0.2 / 0.08, knees 0.3 / 0.12),
 // so hands held higher than at calibration never re-armed.
@@ -260,7 +260,7 @@ export class RunTracker {
 // low. The step reads above are relative to the shoulders, so the body rising
 // in a jump doesn't count as steps. All in shoulder widths.
 // FIRST GUESSES, every number in DEFAULT_JUMP, until the recordings in
-// docs/camera-playtest.md ("Hurdles' moves").
+// docs/camera-playtest.md ("Track's and hurdles' moves").
 
 /** The shoulder/hip midpoint's height, image heights (down is bigger), and the shoulder width that scales it. */
 export interface Torso {

@@ -205,10 +205,10 @@ lazily and only when a player enters a game. Video never leaves the browser.
   fans merged into one mesh, the cheer in the vertex shader), `runner.ts`
   (the tennis character with jointed legs and arms), `scene-model.ts`
   (pure: run pose, crowd excitement, clock: `spec/track-scene.test.ts`),
-  `run-camera.ts` (its camera panel: mode, stand-still calibration, the
-  jump), `practice.ts` + `practice-sim.ts` (in-page practice vs a pacer,
+  `run-camera.ts` (its camera panel, opened first for a seat: mode, the
+  optional stand-still, the jump, the `?debug` recorder), `practice.ts` + `practice-sim.ts` (in-page practice vs a pacer,
   either event), `track.css`; the pure camera maths is
-  `input/camera/run-pose.ts` (steps, and `JumpTracker`:
+  `input/camera/run-pose.ts` (`RiseMeter`: each side from its recent low; steps, and `JumpTracker`:
   `spec/track-jump-pose.test.ts`); it reuses tennis's ready panel, which
   shows an event picker when given events.
 - `spec/*.test.ts` vitest against the running app, plus the sim unit tests.
@@ -400,7 +400,11 @@ lazily and only when a player enters a game. Video never leaves the browser.
 - Track (task 26; `spec/track-*.test.ts`, `e2e/track-*.e2e.ts`): a 100 m
   lane per seat, lanes never interact. Clients send only `step` events (which
   foot, their own timestamp); the server owns distance, speed and the finish.
-  Speed follows a smoothed cadence and decays when you stop. A step on the
+  Speed follows a smoothed cadence and decays when you stop; top speed at
+  about 4 steps a second (`FULL_CADENCE`, was 6; user, 2026-11-08: "too many
+  pumps for speed"). The bot is a pacer a person stepping steadily beats
+  (user: "way too fast"; `spec/track-sim.test.ts`: slower than a steady 4 a
+  second by 15% or more, and than a steady 3.5, but under 20 s). A step on the
   same foot twice is ignored, not punished; steps faster than the human cap
   (10 a second, by the step's own timestamp and by the server's own clock)
   are dropped, so shaking or mashing buys nothing. Steps before the gun
@@ -410,12 +414,18 @@ lazily and only when a player enters a game. Video never leaves the browser.
   best times, unrated). Practice vs bot is never rated. Practice runs in the
   page against the bot as a pacer; nothing sent to the server. Camera
   (`spec/track-run-pose.test.ts`): two modes behind a setting, "elbows"
-  (a hand rising a fifth of a shoulder width is a step; either arm counts,
-  sent as alternating steps, since a small quick pump is what a person
-  does) and "knees" (a knee rising
-  is a step; stand back), measured in shoulder widths from a stand-still
-  calibration. "elbows" is the provisional default until a real-webcam
-  playtest picks one.
+  (a hand rising 0.15 shoulder widths is a step; either arm counts, sent as
+  alternating steps, since a small quick pump is what a person does) and
+  "knees" (a knee rising is a step; stand back). Each step is measured from
+  that side's own recent low, never from the stand-still calibration, which
+  is only where the low starts (user, 2026-11-08: "pumps don't register";
+  hands held higher than at calibration never re-armed); a side re-arms by
+  falling back part of the way or holding still. "elbows" is the
+  provisional default until a real-webcam playtest picks one. A seated
+  player's track game opens the camera setup first (task 15; practice holds
+  the race until it closes). `?debug` adds a readout and a recorder (the
+  moves in `docs/camera-playtest.md`); every camera number is a guess until
+  those recordings.
 - Hurdles (task 27; `spec/track-hurdles.test.ts`, `spec/track-jump-pose.test.ts`,
   `e2e/track-hurdles.e2e.ts`): track's second event, the host's pick like
   the format ("sprint" default or "hurdles", `event` message, `LobbyView.event`;
@@ -433,11 +443,13 @@ lazily and only when a player enters a game. Video never leaves the browser.
   rated exactly as the sprint. A track match row says which event: its
   `sets` JSON column holds `{ event, times, cleared, hit, sets }` (no schema
   step; `parseSetsColumn` reads either shape). Keys: Space or the Jump button.
-  Camera: elbows mode, both arms up together; knees mode, a hop on the spot
-  (the shoulder/hip midpoint rising fast above its stand-still height). A
-  running pump, a jogging step or one arm up never reads as a jump. Numbers
-  in `DEFAULT_JUMP` are guesses until the recordings ("Hurdles' moves" in
-  `docs/camera-playtest.md`).
+  Camera: elbows mode, both hands rising about 0.6 shoulder widths together
+  above their own recent lows, neither falling (was 1.2 above the
+  stand-still rest; user, 2026-11-08: "arms have to go too high"); knees
+  mode, a hop on the spot (the shoulder/hip midpoint rising fast above its
+  own recent low). A running pump, a jogging step or one arm up never reads
+  as a jump. Numbers in `DEFAULT_JUMP` are guesses until the recordings
+  ("Track's and hurdles' moves" in `docs/camera-playtest.md`).
 - Boxing's design is `docs/adr/002-boxing-judged-at-landing.md` (user,
   2026-11-05). The camera slip's numbers are first guesses until a lean is recorded. Camera
   numbers come from recordings (`docs/camera-playtest.md`), never guesses.

@@ -306,7 +306,7 @@ export function createRunCamera(view: HTMLElement, button: HTMLButtonElement, ch
 }
 
 // Playtest readout (`?debug` in the address, before the `#`), the method in
-// docs/camera-playtest.md ("Track's moves" and "Hurdles' moves"). Live: each
+// docs/camera-playtest.md ("Track's and hurdles' moves"). Live: each
 // side's height, its recent low and lift above it, steps a second, and the
 // jump's reading. Recording: press 1-9 (0 for move 10) for a move, a 3 s
 // countdown (beep), 5 s recorded (beep), saved (beep). Steps are "marked"

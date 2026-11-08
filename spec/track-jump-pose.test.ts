@@ -2,7 +2,7 @@
 // synthetic landmarks: elbows mode reads both arms up together, knees mode
 // reads jumping on the spot. A jump reads once; a running pump, a jogging
 // step or one arm up never reads as one. The numbers are first guesses
-// until the recordings (docs/camera-playtest.md, "Hurdles' moves").
+// until the recordings (docs/camera-playtest.md, "Track's and hurdles' moves").
 import { describe, expect, it } from "vitest";
 import { LM } from "../client/input/camera/pose.ts";
 import type { Point } from "../client/input/camera/pose.ts";
