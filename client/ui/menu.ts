@@ -427,7 +427,7 @@ function member(m: PartyMember, i: number, alone: boolean): HTMLElement {
   el.className = `member m-${MOVES[i % MOVES.length]}`;
   el.dataset.status = m.status;
   if (m.you) el.dataset.you = "true";
-  el.innerHTML = `${alone ? `<p class="bubble">Ready to play!</p>` : ""}<div class="member-fig">${lookSvg(look, null)}</div><p class="nameplate"><span class="sdot sdot--${m.status}" aria-hidden="true"></span><span class="np-name"></span>${m.leader ? `<span class="lead" role="img" aria-label="leader" title="Party leader">👑</span>` : ""}</p>`;
+  el.innerHTML = `${alone ? `<p class="bubble">Ready to play!</p>` : ""}<div class="member-fig">${lookSvg(look, null).replace("<svg ", `<svg preserveAspectRatio="xMidYMax meet" `)}</div><p class="nameplate"><span class="sdot sdot--${m.status}" aria-hidden="true"></span><span class="np-name"></span>${m.leader ? `<span class="lead" role="img" aria-label="leader" title="Party leader">👑</span>` : ""}</p>`;
   el.querySelector(".np-name")!.textContent = m.name;
   el.setAttribute("aria-label", `${m.name}${m.you ? " (you)" : ""}, ${STATUS_WORDS[m.status]}${m.leader ? ", party leader" : ""}`);
   el.setAttribute("role", "group");

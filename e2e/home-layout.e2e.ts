@@ -174,6 +174,51 @@ test("the party panel shows you alone, then a friend who joins by the party link
   await friend.context().close();
 });
 
+// Bug (found in the build's screenshots): on a phone, a party wider than the
+// screen made the strip as wide as its people and pushed the panel off the
+// left edge (the page clips sideways overflow, so no scrollbar showed it).
+test("a party of seven: two rows on a desktop, a strip that scrolls inside itself on a phone", async ({ browser }) => {
+  test.setTimeout(120_000);
+  const lead = await at(browser, SIZES[1]);
+  await lead.goto("/");
+  await lead.getByRole("button", { name: /^party$/i }).click();
+  const dialog = lead.getByRole("dialog", { name: "Party" });
+  await dialog.getByRole("button", { name: "Start a party" }).click();
+  await dialog.getByRole("button", { name: "Copy party link" }).click();
+  await expect(dialog.getByRole("status")).toContainText(/party link/i);
+  const link = await lead.evaluate(() => navigator.clipboard.readText());
+  await dialog.getByRole("button", { name: "Close party" }).click();
+  const others: Page[] = [];
+  for (let i = 0; i < 6; i++) {
+    const p = await (await browser.newContext()).newPage();
+    await p.goto(link);
+    await expect(p.getByRole("dialog", { name: "Party" })).toBeVisible();
+    others.push(p);
+  }
+  const panel = lead.getByRole("complementary", { name: "Your party" });
+  await expect(panel.locator(".party-title")).toHaveText(/your party · 7 of 10/i);
+  await expect(panel.locator(".member")).toHaveCount(7);
+  // two rows of four (seven and the invite slot), nothing outside the panel
+  const ys = new Set(await panel.locator(".member").evaluateAll((els) => els.map((e) => (e as HTMLElement).offsetTop)));
+  expect(ys.size).toBe(2);
+  await expect(panel.getByRole("button", { name: /invite a friend/i })).toBeVisible();
+  await nothingSpills(lead, ".menu-party");
+
+  await lead.setViewportSize({ width: 390, height: 844 });
+  const box = (await panel.boundingBox())!;
+  expect(box.x).toBeGreaterThanOrEqual(0);
+  expect(box.x + box.width).toBeLessThanOrEqual(390);
+  // the title and Change my look inside the screen's width (the strip is below the panel: scroll to it)
+  for (const el of [panel.locator(".party-title"), panel.getByRole("button", { name: /change my look/i })]) {
+    await el.scrollIntoViewIfNeeded();
+    await expect(el).toBeInViewport({ ratio: 1 });
+  }
+  // the people scroll sideways inside the strip
+  expect(await panel.locator(".crew").evaluate((c) => c.scrollWidth > c.clientWidth)).toBe(true);
+  for (const p of others) await p.context().close();
+  await lead.context().close();
+});
+
 test("Change my look opens the profile at its customise section", async ({ browser }) => {
   const page = await at(browser, SIZES[0]);
   await page.goto("/");

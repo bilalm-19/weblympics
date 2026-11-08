@@ -394,7 +394,7 @@ a:focus-visible {
 }
 
 .sport-tag {
-  grid-column: 1;
+  grid-column: 1 / -1;
   grid-row: 3;
   align-self: end;
   font-size: 13px;
@@ -409,7 +409,7 @@ a:focus-visible {
 
 .sport-art {
   grid-column: 2;
-  grid-row: 2 / span 2;
+  grid-row: 2;
   align-self: center;
   display: grid;
   width: clamp(56px, 5.2vw, 104px);
@@ -781,6 +781,8 @@ a:focus-visible {
   max-width: 100%;
   display: flex;
   justify-content: center;
+  /* feet on the floor: a narrow figure sits at the bottom of its cell */
+  align-items: flex-end;
 }
 
 .member-fig .look-svg {
@@ -855,9 +857,12 @@ a:focus-visible {
   font-size: 0.85em;
 }
 
+/* the invite slot: a dashed figure-sized space beside the party */
 .slot {
-  align-self: stretch;
+  align-self: end;
   width: 100%;
+  height: min(100%, 60%, 240px);
+  margin-bottom: 34px;
   min-height: 48px;
   max-width: 180px;
   border: 3px dashed rgba(18, 48, 74, 0.35);
@@ -1081,6 +1086,9 @@ a:focus-visible {
   .menu-body {
     display: flex;
     flex-direction: column;
+    /* stretch, not the desktop's centre: a centred child is as wide as its
+       content, and a long party strip pushed off the screen */
+    align-items: stretch;
     gap: 12px;
     padding: 4px 16px 0;
   }
@@ -1220,10 +1228,14 @@ a:focus-visible {
     font-size: 13px;
   }
 
+  /* min-width 0: a long party scrolls inside the strip instead of widening
+     the panel off the screen (spec: e2e/home-layout.e2e.ts, a party of 7) */
   .crew,
   .crew[data-size] {
     display: flex;
     flex: 1 1 100%;
+    min-width: 0;
+    max-width: 100%;
     gap: 10px;
     overflow-x: auto;
     align-items: center;
@@ -1274,6 +1286,8 @@ a:focus-visible {
   .crew[data-size="big"] .slot {
     flex: 0 0 auto;
     width: auto;
+    height: auto;
+    margin: 0;
     min-height: 44px;
     padding: 0 12px;
     font-size: 12px;
