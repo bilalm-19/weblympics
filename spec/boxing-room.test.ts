@@ -120,7 +120,7 @@ describe("boxing rooms", () => {
   it("the server times the jab: it lands after the wind-up and the guard counts at landing", () => {
     const s = seated();
     s.room.box(s.a, { t: "punch", hand: "right", target: "head", at: s.now() });
-    // inside the 150 ms wind-up nothing has landed
+    // inside the 100 ms wind-up nothing has landed
     s.run(50);
     expect(state(s.b).boxers[1].health).toBe(HEALTH);
     expect(state(s.b).boxers[0].punches.right).toMatchObject({ target: "head" });

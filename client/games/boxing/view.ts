@@ -9,6 +9,7 @@ import type { LobbyView, RoomFormat, RoomInfo, ServerMsg } from "../../../shared
 import type { GameLink } from "../../net/link.ts";
 import { createReadyPanel } from "../tennis/ready-panel.ts";
 import { createBoxCamera } from "./box-camera.ts";
+import { chooseHand } from "./hand-pick.ts";
 import "./boxing.css";
 import { audioEngine, gameSounds, mountSoundToggle } from "../../audio/index.ts";
 import { crowdVoices } from "../../audio/crowd.ts";
@@ -96,13 +97,20 @@ export function startBoxing(root: HTMLElement, conn: GameLink, info: RoomInfo, o
 
   // ---- input: jabs, the guard and the slip, never a claim of damage ----
   let nextHand: Hand = "left";
+  const sentAt: Record<Hand, number | null> = { left: null, right: null };
   const count = () => (canvas.dataset.sent = String(Number(canvas.dataset.sent ?? 0) + 1));
   const punch = (target: Target, hand?: Hand) => {
     if (!canBox()) return false;
-    // alternate hands; the server refuses a busy one and the other is tried next press
-    const h = hand ?? nextHand;
+    // alternate hands; the server refuses a hand still out or recovering and
+    // the press is lost, so a busy hand gives way to a free one (playtest 5)
+    const at = performance.now();
+    const h = chooseHand(hand ?? nextHand, {
+      left: sentAt.left === null ? null : at - sentAt.left,
+      right: sentAt.right === null ? null : at - sentAt.right,
+    });
+    sentAt[h] = at;
     nextHand = h === "left" ? "right" : "left";
-    conn.send({ t: "punch", hand: h, target, at: performance.now() });
+    conn.send({ t: "punch", hand: h, target, at });
     count();
     return true;
   };
@@ -369,6 +377,11 @@ export function startBoxing(root: HTMLElement, conn: GameLink, info: RoomInfo, o
     canvas.dataset.frames = String(++frames);
   };
   raf = requestAnimationFrame(frame);
+
+  // Webcam by default (task 15; user, 2026-11-08): a seated player gets the
+  // camera setup first, with "Use keyboard instead" on each step, and practice
+  // stays paused until it closes; a spectator never does.
+  if (info.seat !== null) cameraButton.click();
 
   return () => {
     cancelAnimationFrame(raf);

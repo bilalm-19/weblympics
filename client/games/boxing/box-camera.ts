@@ -2,7 +2,7 @@ import { CameraError, openCamera, startPose } from "../../input/camera/camera.ts
 import type { CameraSession } from "../../input/camera/camera.ts";
 import { bodyFrame as bodyFrameOf } from "../../input/camera/pose.ts";
 import type { CameraFrame } from "../../input/camera/pose.ts";
-import { DEFAULT_SLIP, SlipDetector, TrialDetector, armMeasures, boxFrame, cameraBoxing, handMeasures } from "../../input/camera/box-pose.ts";
+import { DEFAULT_SLIP, SlipDetector, TRIAL_BOX, TrialDetector, armMeasures, boxFrame, cameraBoxing, handMeasures } from "../../input/camera/box-pose.ts";
 import type { ArmMeasures, BoxGuard, BoxHand, BoxTarget, HandMeasures, TrialRead } from "../../input/camera/box-pose.ts";
 
 // Boxing's camera (task 30): the same webcam and local pose model as the other
@@ -84,8 +84,10 @@ export function createBoxCamera(view: HTMLElement, button: HTMLButtonElement, ch
     const hands = lm ? handMeasures(f.hands, lm, f.aspect) : null;
     const tr = lm ? detector.update({ hands, arms }, f.t) : null;
     const tilt = lm ? (bodyFrameOf(lm, f.aspect)?.tilt ?? null) : null;
+    // a jab twists the shoulders: it mustn't start a lean (2026-11-08)
+    if (tr?.punch) slipper.jab(f.t);
     const leanChange = slipper.update(tilt, f.t);
-    debug?.frame(f, arms, hands, tr, slipper.offset(tilt), slipper.lean);
+    debug?.frame(f, arms, hands, tr, slipper.offset(tilt), slipper.lean, slipper.neutral);
     if (leanChange !== undefined) cb.slip(leanChange);
     const { guard: guardNow, jab } = tr ? cameraBoxing(tr) : { guard: guardSent, jab: null };
     if (guardNow !== guardSent) {
@@ -122,6 +124,18 @@ export function createBoxCamera(view: HTMLElement, button: HTMLButtonElement, ch
     button.textContent = "Camera";
   };
 
+  /** "Use keyboard instead", Escape, or a refused camera (task 15): the keys and buttons. */
+  const useKeyboard = () => {
+    stop();
+    close();
+  };
+  const keyboardButton = `<button data-step="keys">Use keyboard instead</button>`;
+  const wire = () => panel.querySelector("[data-step=keys]")?.addEventListener("click", useKeyboard);
+  const onEscape = (e: KeyboardEvent) => {
+    if (e.key === "Escape" && !panel.hidden) useKeyboard();
+  };
+  window.addEventListener("keydown", onEscape);
+
   const fail = (message: string) => {
     stop();
     panel.innerHTML = `<h2>No camera</h2><p class="error" role="alert"></p><div class="row"><button class="primary" data-step="close">OK</button></div>`;
@@ -132,15 +146,28 @@ export function createBoxCamera(view: HTMLElement, button: HTMLButtonElement, ch
   const start = async () => {
     if (starting) return;
     starting = true;
-    panel.innerHTML = `<h2>Starting camera…</h2><p class="muted" role="status">Waiting for permission.</p>`;
+    panel.innerHTML = `<h2>Starting camera…</h2><p class="muted" role="status">Waiting for permission.</p><div class="row">${keyboardButton}</div>`;
+    wire();
     try {
       const stream = await openCamera(video);
+      if (panel.hidden) {
+        // left for the keyboard while the browser asked
+        stream.getTracks().forEach((t) => t.stop());
+        video.srcObject = null;
+        return;
+      }
       video.hidden = false;
-      panel.innerHTML = `<h2>Loading pose model…</h2><p class="muted" role="status">The first time takes a few seconds.</p>`;
+      panel.innerHTML = `<h2>Loading pose model…</h2><p class="muted" role="status">The first time takes a few seconds.</p><div class="row">${keyboardButton}</div>`;
+      wire();
       setChip("Loading…", "warn");
       // the hand model reads the fists; the pose model, every third frame,
       // only the shoulders (both every frame was choppy, playtest 3)
       session = await startPose(video, stream, onFrame, () => {}, { hands: true, poseEvery: 3 });
+      if (panel.hidden) {
+        // the keyboard was chosen while the model loaded
+        stop();
+        return;
+      }
       button.textContent = "Stop camera";
       read.hidden = false;
       panel.innerHTML = `<h2>Ready to box</h2><p role="status">Hands up by your face to guard. Jab: punch straight at the screen. Lean your shoulders to one side and hold it to slip; straighten up to come back. Sit still for a second first, so it learns your centre. Keep your shoulders in view.</p><div class="row"><button class="primary" data-step="close">Start boxing</button></div>`;
@@ -163,10 +190,10 @@ export function createBoxCamera(view: HTMLElement, button: HTMLButtonElement, ch
       <p class="muted">The video stays in this browser; only the pose is used.</p>
       <div class="row">
         <button class="primary" data-step="start">Start camera</button>
-        <button data-step="close">Use keyboard instead</button>
+        ${keyboardButton}
       </div>`;
     panel.querySelector("[data-step=start]")?.addEventListener("click", () => void start());
-    panel.querySelector("[data-step=close]")?.addEventListener("click", close);
+    wire();
   };
 
   const onButton = () => {
@@ -187,6 +214,7 @@ export function createBoxCamera(view: HTMLElement, button: HTMLButtonElement, ch
     dispose() {
       clearTimeout(punchTimer);
       button.removeEventListener("click", onButton);
+      window.removeEventListener("keydown", onEscape);
       stop();
       dock.remove();
       panel.remove();
@@ -199,17 +227,27 @@ export function createBoxCamera(view: HTMLElement, button: HTMLButtonElement, ch
 // for a move, a 3 s countdown, 5 s recorded, and the move's row joins a table
 // (typical = median, high = 90th percentile, so one bad frame can't skew it).
 // C copies the table as text to paste into the chat. Never shown otherwise.
-const MOVES = ["relaxed", "high guard", "low guard", "jab to head", "hook to head", "jab to body", "moving, no punch", "hook to body", "lean left, back, right, back"] as const;
+// While recording, press P at each real punch you throw: the table then says,
+// per mark, whether the detector fired and the highest palm ratio around it,
+// and counts detector jabs with no mark (false reads). Every move also gets
+// the tilt's own spread (does a jab or a guard lean you by accident?).
+// 2026-11-08: hooks are off, so their slots (5, 8) record the fixed version's
+// questions, plus a tenth on key 0 (docs/camera-playtest.md)
+const MOVES = ["relaxed", "high guard", "low guard", "jab to head", "jabs fast, both hands", "jab to body", "moving, no punch", "jabs while guarding", "lean left, back, right, back", "lean slightly while jabbing"] as const;
 const COUNTDOWN_MS = 3000;
 const RECORD_MS = 5000;
 
 type Sample = { size: number | null; e3: number | null; e2: number | null; fwd: number; reach: number; height: number };
 type HandSample = { size: number; height: number; across: number };
+/** One frame for the per-punch trace: time, each hand's palm size over its rest, the tilt from neutral, and what the detector fired. */
+type TraceFrame = { t: number; grow: Record<BoxHand, number | null>; tilt: number | null; fired: BoxHand | null };
+/** A mark (the user pressing P as they throw a real punch) is matched to a detector punch within this long (ms). */
+const MARK_WINDOW_MS = 400;
 
 function createDebugReadout(
   dock: HTMLElement,
 ): {
-  frame(f: CameraFrame, m: Record<BoxHand, ArmMeasures | null>, hm: Record<BoxHand, HandMeasures | null> | null, tr: TrialRead | null, tilt: number | null, lean: BoxHand | null): void;
+  frame(f: CameraFrame, m: Record<BoxHand, ArmMeasures | null>, hm: Record<BoxHand, HandMeasures | null> | null, tr: TrialRead | null, tilt: number | null, lean: BoxHand | null, neutral: number | null): void;
 } | null {
   if (!new URLSearchParams(location.search).has("debug")) return null;
   const el = document.createElement("pre");
@@ -224,8 +262,8 @@ function createDebugReadout(
   let lastPunchAt = -Infinity;
   let fps = 0;
   let lastT = 0;
-  let status = "Press 1-9 to record a move, C to copy";
-  let rec: { move: number; startsAt: number; endsAt: number; frames: number; samples: Record<BoxHand, Sample[]>; hands: Record<BoxHand, HandSample[]>; punches: string[]; tilts: number[] } | null = null;
+  let status = "Press 1-9 or 0 (move 10) to record a move (P at each real punch), C to copy";
+  let rec: { move: number; startsAt: number; endsAt: number; frames: number; samples: Record<BoxHand, Sample[]>; hands: Record<BoxHand, HandSample[]>; punches: string[]; tilts: number[]; trace: TraceFrame[]; marks: number[]; neutral: number | null } | null = null;
   const results = new Map<number, string>();
 
   const beep = (hz: number) => {
@@ -251,6 +289,9 @@ function createDebugReadout(
   const summarise = (move: number, r: NonNullable<typeof rec>): string => {
     const lines = [`[${move}] ${MOVES[move - 1]}  frames ${r.frames}  read ${r.punches.length}: ${r.punches.join(", ") || "none"}`];
     lines.push(`  tilt from neutral (deg, + right) lo ${n(q(r.tilts, 0.05), 1)} typ ${n(q(r.tilts, 0.5), 1)} hi ${n(q(r.tilts, 0.95), 1)}`);
+    lines.push(tiltLine(r));
+    const tr = traceLines(r);
+    if (tr) lines.push(...tr);
     for (const hand of ["left", "right"] as const) {
       const xs = r.samples[hand];
       const col = <K extends keyof Sample>(k: K) => xs.map((x) => x[k]).filter((v): v is number => v !== null);
@@ -275,14 +316,53 @@ function createDebugReadout(
     }
     return lines.join("\n");
   };
+  const pct = (xs: number[], pred: (v: number) => boolean) => Math.round((100 * xs.filter(pred).length) / Math.max(1, xs.length));
+  const tiltLine = (r: NonNullable<typeof rec>): string => {
+    const ts = r.tilts;
+    const mean = ts.reduce((a, b) => a + b, 0) / Math.max(1, ts.length);
+    const sd = Math.sqrt(ts.reduce((a, b) => a + (b - mean) ** 2, 0) / Math.max(1, ts.length));
+    const leans = r.punches.filter((p) => p.startsWith("lean")).length;
+    const around = r.trace.filter((f) => f.fired && f.tilt !== null).map((f) => r.trace.filter((g) => g.tilt !== null && Math.abs(g.t - f.t) <= 300).map((g) => Math.abs(g.tilt as number)));
+    const worst = around.map((xs) => Math.max(...xs));
+    return (
+      `  tilt spread: min ${n(Math.min(...ts), 1)} max ${n(Math.max(...ts), 1)} sd ${n(sd, 1)} | frames past ${DEFAULT_SLIP.rearmAt} deg ${pct(ts, (v) => Math.abs(v) >= DEFAULT_SLIP.rearmAt)}%, past ${DEFAULT_SLIP.slipAt} deg ${pct(ts, (v) => Math.abs(v) >= DEFAULT_SLIP.slipAt)}%` +
+      ` | leans started ${leans} | neutral ${n(r.neutral, 1)} abs` +
+      (worst.length ? ` | tilt within 300 ms of a read jab: worst ${n(q(worst, 0.5), 1)} typ, ${n(Math.max(...worst), 1)} max (n ${worst.length})` : "")
+    );
+  };
+  const traceLines = (r: NonNullable<typeof rec>): string[] | null => {
+    const fires = r.trace.filter((f) => f.fired);
+    if (r.marks.length === 0 && fires.length === 0) return null;
+    const out: string[] = [];
+    const matched = new Set<TraceFrame>();
+    r.marks.forEach((m, i) => {
+      const win = r.trace.filter((f) => Math.abs(f.t - m) <= MARK_WINDOW_MS);
+      const hit = win.find((f) => f.fired);
+      if (hit) matched.add(hit);
+      const peak = (hand: BoxHand) => Math.max(0, ...win.map((f) => f.grow[hand] ?? 0));
+      const seenFrames = (hand: BoxHand) => win.filter((f) => f.grow[hand] !== null).length;
+      out.push(
+        `    punch ${i + 1} at +${((m - r.trace[0]?.t) / 1000 || 0).toFixed(1)}s: ${hit ? `READ (${hit.fired}, ${Math.round(hit.t - m)} ms after the mark)` : "MISSED"}` +
+          ` | peak ratio left ${n(peak("left"))} right ${n(peak("right"))} (needs ${TRIAL_BOX.jabGrow})` +
+          ` | frames with the hand seen: left ${seenFrames("left")} right ${seenFrames("right")} of ${win.length}`,
+      );
+    });
+    const extra = fires.filter((f) => !matched.has(f) && !r.marks.some((m) => Math.abs(f.t - m) <= MARK_WINDOW_MS)).length;
+    const read = r.marks.filter((m) => r.trace.some((f) => f.fired && Math.abs(f.t - m) <= MARK_WINDOW_MS)).length;
+    out.unshift(`  marked punches ${r.marks.length}: read ${read}, missed ${r.marks.length - read} | detector jabs with no mark (false reads or unmarked) ${extra}`);
+    return out;
+  };
   const table = () => [...results.keys()].sort((a, b) => a - b).map((k) => results.get(k)).join("\n");
 
   window.addEventListener("keydown", (e) => {
-    const d = Number(e.key);
+    const d = e.key === "0" ? 10 : Number(e.key);
     if (Number.isInteger(d) && d >= 1 && d <= MOVES.length && !rec) {
       const now = performance.now();
-      rec = { move: d, startsAt: now + COUNTDOWN_MS, endsAt: now + COUNTDOWN_MS + RECORD_MS, frames: 0, samples: { left: [], right: [] }, hands: { left: [], right: [] }, punches: [], tilts: [] };
+      rec = { move: d, startsAt: now + COUNTDOWN_MS, endsAt: now + COUNTDOWN_MS + RECORD_MS, frames: 0, samples: { left: [], right: [] }, hands: { left: [], right: [] }, punches: [], tilts: [], trace: [], marks: [], neutral: null };
       beep(440);
+    } else if ((e.key === "p" || e.key === "P") && rec && performance.now() >= rec.startsAt && performance.now() < rec.endsAt) {
+      // a real punch, marked by the player as they throw it
+      rec.marks.push(performance.now());
     } else if (e.key === "c" || e.key === "C") {
       const text = `fps ~${fps.toFixed(0)}\n${table()}`;
       navigator.clipboard?.writeText(text).then(
@@ -304,7 +384,7 @@ function createDebugReadout(
     `${hand.padEnd(5)} size ${n(m?.size ?? null)}  elbow3d ${n(m?.elbow3d ?? null, 0)}  depth ${n(m?.forward ?? null)}  reach ${n(m?.reach ?? null)}  height ${n(m ? -m.down : null)}`;
 
   return {
-    frame(f, m, hm, tr, tilt, lean) {
+    frame(f, m, hm, tr, tilt, lean, neutral) {
       if (lastT) fps = 0.9 * fps + 0.1 * (1000 / Math.max(1, f.t - lastT));
       lastT = f.t;
       grow = tr?.grow ?? { left: null, right: null };
@@ -328,6 +408,8 @@ function createDebugReadout(
           if (rec.frames === 0) beep(660);
           rec.frames++;
           if (tilt !== null) rec.tilts.push(tilt);
+          rec.neutral = neutral;
+          rec.trace.push({ t: f.t, grow: tr?.grow ?? { left: null, right: null }, tilt, fired: tr?.punch?.kind === "jab" ? tr.punch.hand : null });
           for (const hand of ["left", "right"] as const) {
             const a = m[hand];
             if (a) rec.samples[hand].push({ size: a.size, e3: a.elbow3d, e2: a.elbow2d, fwd: a.forward, reach: a.reach, height: -a.down });
@@ -343,10 +425,10 @@ function createDebugReadout(
           head = status;
         }
       }
-      const done = MOVES.map((name, i) => `${results.has(i + 1) ? "✓" : " "} ${i + 1} ${name}`).join("   ");
+      const done = MOVES.map((name, i) => `${results.has(i + 1) ? "✓" : " "} ${(i + 1) % 10} ${name}`).join("   ");
       if (now - drawnAt < 200) return;
       drawnAt = now;
-      el.textContent = [`fps ${fps.toFixed(0)}   ${head}`, live("left", m.left), live("right", m.right), liveHand("left", hm?.left), liveHand("right", hm?.right), `tilt from neutral ${liveTilt === null ? "(sit still: learning your centre)" : `${liveTilt.toFixed(1)} deg`}  lean at ±${DEFAULT_SLIP.slipAt}, upright within ±${DEFAULT_SLIP.rearmAt}`, "", done, "", table()].join("\n");
+      el.textContent = [`fps ${fps.toFixed(0)}   ${head}`, live("left", m.left), live("right", m.right), liveHand("left", hm?.left), liveHand("right", hm?.right), `tilt from neutral ${liveTilt === null ? "(sit still: learning your centre)" : `${liveTilt.toFixed(1)} deg`}  lean at ±${DEFAULT_SLIP.slipAt} held ${DEFAULT_SLIP.holdMs} ms, upright within ±${DEFAULT_SLIP.rearmAt}`, "", done, "", table()].join("\n");
     },
   };
 }

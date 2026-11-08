@@ -140,3 +140,56 @@ Measures, in shoulder widths against the shoulders:
   probably too noisy to use alone.
 - **reach**: wrist to shoulder on screen.
 - **height**: wrist above the shoulder line (negative below): head or body.
+
+## Marking real punches and reading the tilt (playtest 5, 2026-11-06)
+Findings after the push: "it keeps leaning to either side too easily", "the
+punches are registering inconsistently". The old table can't say whether a
+punch was missed (it lists only what the detector read) or whether a jab
+leaned you by accident. So:
+
+- **Press P at each real punch** as you throw it (moves 4, 6 and 9 matter most;
+  it works in any move). The table then adds `marked punches N: read R, missed
+  M | detector jabs with no mark K`, and per mark: READ or MISSED, the highest
+  palm ratio (palm over that hand's resting size) in the 400 ms either side, and
+  how many frames the hand model saw each hand there. A MISSED mark with a peak
+  under 1.35 is the threshold or the rest; one with few frames seen is the hand
+  model losing the fist.
+- **Tilt spread** is on every move: min, max, standard deviation, the share of
+  frames past 4 and 8 degrees from neutral, how many leans started, the neutral
+  in degrees, and (when jabs were read) the worst tilt within 300 ms of a read
+  jab. Move 4 (jab to head) with leans started above 0 means the jab itself
+  leans you.
+- Record move 1 (relaxed) first and sit as you will play for a few seconds
+  before the camera starts, since neutral is learned from the first second.
+
+## Boxing on the fixed version (2026-11-08)
+After "it seems to easily slip left and right, punching is not registered
+that easily and theres alot of delay, and i cant throw lots of punches at
+once", the user chose four changes: a lean needs the tilt held past 12
+degrees for 200 ms and never starts within 250 ms of a read jab; the cap is
+6 a second with a burst of 3; one hand jabs every 200 ms (the camera's
+`minGapMs` 200 to match); a jab lands 100 ms after it is thrown. Every one
+of those is a guess. Record this on the fixed version, with `?debug`, sat or
+stood as you play, and press **P at each real punch** in every move with
+punches. The recorder's moves since then (hooks are off, so their keys
+were reused; key 0 is move 10):
+
+1. **relaxed** first, sat still, so the neutral is right.
+4. **jab to head**: one hand then the other, about one a second (the
+   baseline the old table has).
+5. **jabs fast, both hands**: as fast as you would in a flurry, left right
+   left right. Answers: are fast punches read (P marks READ) and does the
+   game keep up (no MISSED marks with a peak over 1.35)?
+8. **jabs while guarding**: hands up in the high guard, jab out of it and
+   back to it. Answers: does a jab from the guard read, and does the guard
+   come back without a stray jab?
+9. **lean left, back, right, back**: deliberate leans, about a second
+   each. Answers: does each lean start (leans started 2), and how far do you
+   tilt (the spread's max)? `slipAt` belongs under that.
+10. **lean slightly while jabbing** (key 0): a small natural sway as you jab,
+    not meaning to slip. Answers: leans started must be 0; the tilt within
+    300 ms of a read jab is how far a jab twists you, and `slipAt` and
+    `jabQuietMs` belong above it.
+
+Then 6 (jab to body) and 7 (moving, no punch) as before. Copy with C and
+paste the table into the chat.

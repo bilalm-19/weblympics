@@ -47,7 +47,7 @@ lazily and only when a player enters a game. Video never leaves the browser.
   primitives), `boxer.ts` (the tennis character with no arms plus boxing
   arms and gloves) and `boxer-pose.ts` (pure poses: `spec/boxing-pose.test.ts`),
   `box-camera.ts` (its camera panel; the pure maths is
-  `box-pose.ts`), `practice.ts` + `practice-sim.ts` (in-page practice vs
+  `box-pose.ts`), `hand-pick.ts` (a busy hand's jab goes to the free one), `practice.ts` + `practice-sim.ts` (in-page practice vs
   the bot), `boxing.css`; it reuses tennis's ready panel.
   Basketball (task 32, parts 1-2 so far) is `shared/games/basketball/`:
   `sim.ts` (spots, turns, the shot clock and late-shot grace, the flight
@@ -461,7 +461,8 @@ lazily and only when a player enters a game. Video never leaves the browser.
   exactly `punch` {hand, target "head"|"body", their own timestamp},
   `guard` {"high"|"low"|null} and `slip` {"left"|"right"|null}; anything else, or any
   extra field, is dropped whole (`asInput`, `parseClientMsg`). A jab lands
-  150 ms after it is thrown and is judged on that tick: a head jab on a
+  100 ms after it is thrown (was 150; user, 2026-11-08: "alot of delay")
+  and is judged on that tick: a head jab on a
   slipping boxer is "slipped" (no damage), a head jab on a high guard or a
   body jab on a low guard is "blocked" (20%, rounded), anything else is
   "clean"; the slip doesn't help against a body jab. So a guard or slip
@@ -474,10 +475,13 @@ lazily and only when a player enters a game. Video never leaves the browser.
   body jab still meets the guard. No punching while leaning or guarding. Health 500 (100 ended bot bouts in
   about 15 s; `spec/boxing-sim.test.ts` holds bouts to well over a round),
   jab 6; these numbers are guesses for the playtest. A hand can't throw
-  again until its jab lands plus 150 ms; a punch cap (4 a second per
-  boxer, burst of 2, by the punch's own timestamp and by the server's
-  clock) so flailing buys nothing. The bot guards the height of the jab it
-  sees after a reaction delay, sometimes slips a head jab, jabs more to the
+  again until its jab lands plus 100 ms, so one hand jabs every 200 ms; a
+  punch cap (6 a second per boxer, burst of 3, by the punch's own timestamp
+  and by the server's clock) so flailing buys nothing (user, 2026-11-08:
+  "i cant throw lots of punches at once"; was 300 ms, 4 a second, burst 2;
+  guesses until the next recording). The bot guards the height of the jab it
+  sees after a reaction delay (4 ticks at the quickest, so it blocks
+  roughly a fifth of what it notices), sometimes slips a head jab, jabs more to the
   body against a high guard, and stays beatable. Three rounds of 30 s with
   a 5 s break; jabs in the air at the bell don't count; a knockout ends it
   at once; after three rounds the most damage dealt wins and an exact tie
@@ -487,17 +491,29 @@ lazily and only when a player enters a game. Video never leaves the browser.
   and "unlimited" (bout after bout, counts bouts won and knockouts,
   unrated). Practice vs bot is never rated. Camera
   (`spec/boxing-box-pose.test.ts`, `cameraBoxing` in `box-pose.ts`): it
-  sends the same messages a key does, never a hit. Everyone gets the trial
+  sends the same messages a key does, never a hit. A seated player's bout
+  opens the camera setup first, practice paused until it closes (task 15;
+  user, 2026-11-08; `e2e/boxing.e2e.ts`). Everyone gets the trial
   detector (`TrialDetector`, `spec/boxing-trial-detector.test.ts`; the old
   `BoxTracker` read "jabs" from depth noise in a held guard, playtest 4): the
   hand model's palm growing past its own resting size is a jab, its height
   the target; both palms up is the guard, high or low by height, one arm up
-  is none. A shoulder lean is a held slip (`SlipDetector`): neutral is the
-  median of the first second of tracking; past 8 degrees from it you lean
-  that way for as long as you stay past 4, back within 4 you're upright
-  (first guesses from tennis's tilt). The pose model
+  is none; a jab's minimum gap per hand (`minGapMs` 200) matches the sim's,
+  so the camera is never the bottleneck. A busy hand's jab goes to the free
+  hand (`hand-pick.ts`), and a resting fist that drifted settles after
+  `restSettleMs` (playtest 5). A shoulder lean is a held slip
+  (`SlipDetector`), and deliberate (user, 2026-11-08: "it seems to easily
+  slip"): neutral is the median of the first second of tracking; the tilt
+  must stay past 12 degrees from it for 200 ms (time, not frames, so the
+  frame rate doesn't matter) to lean, and no lean starts within 250 ms of
+  a jab the camera read (a jab twists the shoulders,
+  `spec/boxing-lean-noise.test.ts`); you lean for as long as you stay past
+  6, back within 6 you're upright (guesses until the recording in
+  `docs/camera-playtest.md`). The pose model
   runs every third frame (shoulders only). No hooks. `?debug` adds a readout
-  and a recorder only (move 9 records a lean). Keys: J head jab, K body jab, hold Space
+  and a recorder only (P marks each real punch; moves 5, 8, 9 and 10 on
+  key 0 record fast jabs, jabs from the guard, leans and a slight lean
+  while jabbing). Keys: J head jab, K body jab, hold Space
   high guard, hold L low guard, hold A/D to lean; six buttons on a phone
   (the slip ones held like the guards).
 - Basketball (task 32, ADR 003; `spec/basketball-*.test.ts`): five spots

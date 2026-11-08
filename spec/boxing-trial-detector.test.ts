@@ -171,35 +171,37 @@ describe("camera slip: a held shoulder lean (playtest 4)", () => {
     expect(d.neutral).toBeCloseTo(6, 5);
   });
 
-  it("past 8 degrees you lean that way and stay leaned while you hold it; back within 4 you're upright", () => {
+  // since 2026-11-08: past 12 degrees held 200 ms leans, back within 6 is upright
+  it("past 12 degrees held you lean that way and stay leaned while you hold it; back within 6 you're upright", () => {
     const d = new SlipDetector();
-    const r = feed(d, [...still(0, 30), ...still(10, 72), ...still(6, 12), ...still(2, 6)]);
+    const r = feed(d, [...still(0, 30), ...still(15, 72), ...still(9, 12), ...still(3, 6)]);
     expect(r).toEqual(["right", null]);
   });
 
-  it("between 4 and 8 degrees keeps whatever you were doing (no flicker at the edge)", () => {
+  it("between 6 and 12 degrees keeps whatever you were doing (no flicker at the edge)", () => {
     const d = new SlipDetector();
-    expect(feed(d, [...still(0, 30), ...still(6, 24)])).toEqual([]);
+    expect(feed(d, [...still(0, 30), ...still(9, 24)])).toEqual([]);
     expect(d.lean).toBeNull();
-    feed(d, still(10, 3), 5000);
-    expect(feed(d, still(6, 24), 6000)).toEqual([]);
+    feed(d, still(15, 12), 5000);
+    expect(d.lean).toBe("right");
+    expect(feed(d, still(9, 24), 6000)).toEqual([]);
     expect(d.lean).toBe("right");
   });
 
-  it("swinging straight from one side to the other switches the lean", () => {
+  it("swinging straight from one side to the other: upright at once, then the other lean once held", () => {
     const d = new SlipDetector();
-    expect(feed(d, [...still(0, 30), ...still(10, 6), ...still(-10, 6)])).toEqual(["right", "left"]);
+    expect(feed(d, [...still(0, 30), ...still(15, 12), ...still(-15, 12)])).toEqual(["right", null, "left"]);
   });
 
-  it("a small sway (within 8 degrees) is nothing", () => {
+  it("a sway within 12 degrees is nothing", () => {
     const d = new SlipDetector();
-    const sway = Array.from({ length: 96 }, (_, i) => 5 * Math.sin(i / 4));
+    const sway = Array.from({ length: 96 }, (_, i) => 10 * Math.sin(i / 4));
     expect(feed(d, [...still(0, 30), ...sway])).toEqual([]);
   });
 
   it("lost shoulders (null) keep the lean as it was and don't reset the neutral", () => {
     const d = new SlipDetector();
-    feed(d, [...still(0, 30), ...still(10, 3)]);
+    feed(d, [...still(0, 30), ...still(15, 12)]);
     expect(d.update(null, 5000)).toBeUndefined();
     expect(d.lean).toBe("right");
     expect(d.neutral).toBe(0);

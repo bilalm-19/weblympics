@@ -14,6 +14,8 @@ import {
   JAB_WINDUP_MS,
   JAB_WINDUP_TICKS,
   MAX_PUNCH_RATE,
+  PUNCH_BURST,
+  RECOVER_MS,
   RECOVER_TICKS,
   ROUNDS,
   ROUND_TICKS,
@@ -43,11 +45,31 @@ describe("boxing jabs", () => {
     expect(boxing.formats).toEqual(["bout", "unlimited"]);
   });
 
-  it("the playtest's first numbers: jab 6, a 150 ms wind-up, health 500", () => {
+  it("the playtest's numbers: jab 6, a 100 ms wind-up (150 until the 2026-11-08 playtest), health 500", () => {
     expect(JAB_DAMAGE).toBe(6);
-    expect(JAB_WINDUP_MS).toBe(150);
-    expect(JAB_WINDUP_TICKS).toBe(9);
+    expect(JAB_WINDUP_MS).toBe(100);
+    expect(JAB_WINDUP_TICKS).toBe(6);
     expect(HEALTH).toBe(500);
+  });
+
+  it("2026-11-08: the cap is 6 a second with a burst of 3, and one hand jabs again 200 ms after its last throw", () => {
+    expect(MAX_PUNCH_RATE).toBe(6);
+    expect(PUNCH_BURST).toBe(3);
+    expect(JAB_WINDUP_MS + RECOVER_MS).toBe(200);
+    expect(JAB_WINDUP_TICKS + RECOVER_TICKS).toBe(12);
+  });
+
+  it("2026-11-08: left, right, left 100 ms apart are all thrown (the burst of 3; the left is free again at 200 ms)", () => {
+    const s = createState(1);
+    const hands: Hand[] = ["left", "right", "left"];
+    let i = 0;
+    for (let tick = 0; tick < 14; tick++) {
+      // a press every 6 ticks (100 ms), stamped on the client's clock
+      const inputs: BoxingInput[] = tick % 6 === 0 && i < 3 ? [{ t: "punch", seat: 0, hand: hands[i++], target: "head", at: tick * TICK_MS }] : [];
+      step(s, inputs);
+    }
+    expect(s.boxers[0].thrown).toBe(3);
+    expect(s.boxers[0].capped).toBe(0);
   });
 
   it("a jab lands after its wind-up, for full damage on an open boxer, to the head or the body", () => {
@@ -156,14 +178,14 @@ describe("boxing jabs", () => {
     expect(early.boxers[1].health).toBe(HEALTH - JAB_DAMAGE);
   });
 
-  it("a hand can't throw again until its jab lands plus 150 ms; the other hand can", () => {
+  it("a hand can't throw again until its jab lands plus 100 ms; the other hand can", () => {
     const s = createState(1);
     step(s, [punch(s, 0, "head", "right")]);
-    idle(s, 3);
+    idle(s, 2);
     step(s, [punch(s, 0, "head", "right")]);
     expect(s.boxers[0].thrown).toBe(1);
-    // the other hand is free (time apart from the cap's minimum gap)
-    idle(s, 3);
+    // the other hand is free (100 ms on: the cap's minimum gap)
+    idle(s, 2);
     step(s, [punch(s, 0, "head", "left")]);
     expect(s.boxers[0].thrown).toBe(2);
     const readyAt = s.boxers[0].readyAt.right;
@@ -196,7 +218,7 @@ describe("boxing jabs", () => {
         { t: "punch", seat: 0, hand: "right", target: "body", at: (at += 50) },
       ]);
     }
-    expect(s.boxers[0].thrown).toBeLessThanOrEqual(MAX_PUNCH_RATE * 10 + 2);
+    expect(s.boxers[0].thrown).toBeLessThanOrEqual(MAX_PUNCH_RATE * 10 + PUNCH_BURST);
     expect(s.boxers[0].capped).toBeGreaterThan(0);
   });
 
