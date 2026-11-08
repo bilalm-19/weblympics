@@ -76,8 +76,11 @@ lazily and only when a player enters a game. Video never leaves the browser.
   `sound.ts` (its cues, task 19), `tie-vote.ts` (the level-score
   pop-up: Draw or Continue, D/C, sends `tie`; a spectator sees both
   choices: `spec/basketball-tie-vote.test.ts`), `shoot-camera.ts` (its camera,
-  task 32 part 3), `practice.ts` + `practice-sim.ts` (in-page practice vs
-  the bot), `basketball.css`; it reuses tennis's ready panel.
+  task 32 part 3), `practice.ts` + `practice-sim.ts` (in-page practice:
+  "Just me" by default, alone with no shot clock, a spot or Cycle, makes /
+  shots and streak; or vs the bot, task 38), `basketball.css`; it reuses
+  tennis's ready panel. `client/games/practice-panel.ts` + `.css` is the
+  small Just me / vs Bot panel basketball, bowling and track share (task 38).
   Bowling (task 29) is `shared/games/bowling/`: `sim.ts` (frames
   and ten-pin scoring `scoreCard`, turns, shot clock and grace, the tie
   vote, the 2D lane: ball path and bend, ball-pin and pin-pin circles,
@@ -90,7 +93,9 @@ lazily and only when a player enters a game. Video never leaves the browser.
   `alley.ts` (the hall from merged primitives, tennis's crowd via
   `crowdMeshes`), `calls.ts` (pure: the call, speed and curve read, the
   guide arrow, the meter: `spec/bowling-calls.test.ts`), `sound.ts`
-  (its cues, task 19), `practice.ts` + `practice-sim.ts`, `bowling.css`; it
+  (its cues, task 19), `practice.ts` + `practice-sim.ts` (in-page practice: "Just
+  me" by default, frames alone or "Reset pins each ball"; or vs the bot,
+  task 38), `bowling.css`; it
   reuses tennis's ready panel. Its camera (part 3):
   `client/input/camera/bowl-pose.ts` (pure: aim across the picture, the
   release past the hip, speed, the curve window, the chest fallback;
@@ -226,8 +231,9 @@ lazily and only when a player enters a game. Video never leaves the browser.
   (the tennis character with jointed legs and arms), `scene-model.ts`
   (pure: run pose, crowd excitement, clock: `spec/track-scene.test.ts`),
   `run-camera.ts` (its camera panel: mode, stand-still calibration, the
-  jump), `practice.ts` + `practice-sim.ts` (in-page practice vs a pacer,
-  either event), `track.css`; the pure camera maths is
+  jump), `practice.ts` + `practice-sim.ts` (in-page practice,
+  either event: "Just me" by default, your lane alone with the sim's `solo`;
+  or vs a pacer, task 38), `track.css`; the pure camera maths is
   `input/camera/run-pose.ts` (steps, and `JumpTracker`:
   `spec/track-jump-pose.test.ts`); it reuses tennis's ready panel, which
   shows an event picker when given events.
@@ -428,7 +434,7 @@ lazily and only when a player enters a game. Video never leaves the browser.
   other runner has 5 s after the first finish. Formats: "race" (rated
   between two people) and "unlimited" (race after race, counts races won and
   best times, unrated). Practice vs bot is never rated. Practice runs in the
-  page against the bot as a pacer; nothing sent to the server. Camera
+  page; nothing sent to the server. Camera
   (`spec/track-run-pose.test.ts`): two modes behind a setting, "elbows"
   (a hand rising a fifth of a shoulder width is a step; either arm counts,
   sent as alternating steps, since a small quick pump is what a person
@@ -594,6 +600,20 @@ lazily and only when a player enters a game. Video never leaves the browser.
   seen: a chest line instead, and the panel says stand back. One throw a
   turn, nothing off-turn, a wrist lost mid-swing never fires. Every number
   in `DEFAULT_BOWL` is a guess until task 29's ten recordings.
+- "Just me" practice (task 38; `spec/basketball-practice.test.ts`,
+  `spec/bowling-practice.test.ts`, `spec/track-practice.test.ts`,
+  `e2e/{basketball,bowling,track}-practice.e2e.ts`): basketball, bowling and
+  track practice open on "Just me", alone and unlimited, like archery's; a
+  "vs Bot" switch in the practice panel (`client/games/practice-panel.ts`)
+  changes it any time and restarts cleanly, and vs Bot is the old practice
+  unchanged. Basketball: no turns, no shot clock, the ball comes back; a
+  spot or Cycle; makes / shots and the streak. Bowling: frames alone (two
+  balls, spares and strikes count), game after game, no shot clock, a
+  running total; "Reset pins each ball" gives every ball a full rack and
+  shows pins per ball. Track: your lane alone (the sim's `solo`), race after
+  race, sprint or hurdles, your last and best time this session per event.
+  All in each game's `practice-sim.ts`; the shared sims are unchanged. In
+  the page, nothing sent to the server, never in stats.
 - Camera is used for gameplay only. Every camera action has a keyboard/mouse
   equivalent, and the lobby and room work with no camera at all. The one
   exception is calibration (task 25): swing or push speed has no key

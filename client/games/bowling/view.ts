@@ -41,6 +41,12 @@ const clock = (ticks: number) => `0:${String(Math.max(0, Math.ceil(ticks / 60)))
 export interface BowlingViewOptions {
   local?: boolean;
   leaveLabel?: string;
+  /** Task 38: practice's "Just me": one bowler, no second row, no one waiting. */
+  solo?: () => boolean;
+  /** Task 38: practice's own head line ("Just me · reset pins"), or null for the frame. */
+  head?: () => string | null;
+  /** Task 38: practice puts its panel in the view. */
+  onView?(view: HTMLElement): void;
 }
 
 export function startBowling(root: HTMLElement, conn: GameLink, info: RoomInfo, onLeave: () => void, opts: BowlingViewOptions = {}): () => void {
@@ -98,6 +104,7 @@ export function startBowling(root: HTMLElement, conn: GameLink, info: RoomInfo, 
     </div>
   `;
   root.replaceChildren(view);
+  opts.onView?.(view);
   if (opts.local) {
     view.classList.add("local");
     for (const el of view.querySelectorAll<HTMLElement>(".code, [data-action=copy]")) el.hidden = true;
@@ -337,12 +344,15 @@ export function startBowling(root: HTMLElement, conn: GameLink, info: RoomInfo, 
     return `<td class="bw-frame${current ? " is-current" : ""}"><span class="bw-marks">${marks.map((m) => `<i>${m}</i>`).join("")}</span><b>${fr.score ?? ""}</b></td>`;
   };
   const renderBoard = (s: BowlingSnapshot) => {
-    const head = opts.local ? "Practice" : s.format === "unlimited" ? `Unlimited · game ${s.matches + 1}` : "Five frames";
+    const solo = !!opts.solo?.();
+    const head = solo ? "Just me" : opts.local ? "Practice" : s.format === "unlimited" ? `Unlimited · game ${s.matches + 1}` : "Five frames";
     const where = s.tieFrame > 0 ? `tie frame ${s.tieFrame}` : `frame ${Math.min(s.frame, FRAMES - 1) + 1} of ${FRAMES}`;
-    $(".bw-head").innerHTML = `<span>${head} · ${where}</span>${s.clock !== null ? `<span class="bw-clock" data-low="${s.clock <= 5 * 60}">${clock(s.clock)}</span>` : ""}`;
+    const own = opts.head?.() ?? null;
+    $(".bw-head").innerHTML = `<span>${own ?? `${head} · ${where}`}</span>${s.clock !== null ? `<span class="bw-clock" data-low="${s.clock <= 5 * 60}">${clock(s.clock)}</span>` : ""}`;
     const showTie = s.tieFrame > 0 || s.cards.some((c) => c.tie.length > 0);
     for (const seat of [0, 1] as const) {
       const row = view.querySelector(`.bw-card tr[data-seat="${seat}"]`) as HTMLElement;
+      row.hidden = seat === 1 && solo;
       const c = s.cards[seat];
       row.style.setProperty("--seat", SEAT_CSS[seat]);
       row.dataset.turn = String(s.turn === seat && s.phase !== "over" && s.phase !== "tie-vote");
@@ -413,6 +423,12 @@ export function startBowling(root: HTMLElement, conn: GameLink, info: RoomInfo, 
     endEl.hidden = !show;
     if (s.phase !== "over") return;
     const t = [s.cards[0].total, s.cards[1].total];
+    if (opts.solo?.()) {
+      $(".bw-end-title").textContent = "Game over";
+      $(".bw-end-score").textContent = `You scored ${t[0]}${s.best[0] ? ` · best ${s.best[0]}` : ""}`;
+      $(".bw-end-next").textContent = "Next game in a moment…";
+      return;
+    }
     const title = s.draw ? "Draw" : s.winner === info.seat ? "You win!" : `${label(s.winner ?? 0)} wins`;
     $(".bw-end-title").textContent = title;
     $(".bw-end-score").textContent = `${label(0)} ${t[0]} · ${label(1)} ${t[1]}`;
@@ -434,6 +450,7 @@ export function startBowling(root: HTMLElement, conn: GameLink, info: RoomInfo, 
     aimEl.hidden = meterEl.hidden = !mine;
     const result = () => {
       const t = [s.cards[0].total, s.cards[1].total];
+      if (opts.solo?.()) return `Game over: ${t[0]}`;
       if (s.draw) return `A draw, ${t[0]} all.`;
       const w = (s.winner ?? 0) as Seat;
       return w === info.seat ? `You win, ${t[w]} to ${t[w === 0 ? 1 : 0]}!` : `${label(w)} wins, ${t[w]} to ${t[w === 0 ? 1 : 0]}.`;
@@ -483,7 +500,7 @@ export function startBowling(root: HTMLElement, conn: GameLink, info: RoomInfo, 
         renderRead(r);
       }
       if (next.phase === "roll") readEl.hidden = true;
-      if (prev && prev.phase !== "over" && next.phase === "over") call(next.draw ? "Draw" : next.winner === info.seat ? "You win!" : `${label((next.winner ?? 0) as Seat)} wins`, "end", 2200);
+      if (prev && prev.phase !== "over" && next.phase === "over") call(opts.solo?.() ? `Game: ${next.cards[0].total}` : next.draw ? "Draw" : next.winner === info.seat ? "You win!" : `${label((next.winner ?? 0) as Seat)} wins`, "end", 2200);
       canvas.dataset.phase = next.phase;
       canvas.dataset.turn = String(next.turn);
       canvas.dataset.frame = String(next.frame);
@@ -540,7 +557,7 @@ export function startBowling(root: HTMLElement, conn: GameLink, info: RoomInfo, 
     return {
       spectator: info.seat === null,
       bowler: { seat: s.turn, look: looks[s.turn], x: startX(s.phase === "aim" ? shownAim : (s.thrown?.aim ?? shownAim)), back, swing, holding },
-      waiting: { seat: other, look: looks[other] },
+      waiting: opts.solo?.() ? null : { seat: other, look: looks[other] },
       ball,
       pins,
       arrow: a.length > 1 ? { from: a[0], to: a.at(-1)! } : null,

@@ -1,0 +1,78 @@
+/* Task 38: the practice panel (Just me / vs Bot and a game's own pickers),
+   a compact row in the HUD's flow, so it never covers the court or the scores. */
+
+.hud .pr-panel {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.25rem 0.4rem;
+  border-radius: 10px;
+  background: #0f1720cc;
+  color: #fff;
+  font-size: 0.85rem;
+  pointer-events: auto;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.hud .pr-modes {
+  display: inline-flex;
+  gap: 0.25rem;
+}
+
+.hud .pr-panel button,
+.hud .pr-panel select {
+  min-height: 36px;
+}
+
+.hud .pr-modes button[aria-checked="true"] {
+  outline: 2px solid #ffd23f;
+}
+
+.hud .pr-panel label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  min-height: 36px;
+}
+
+.hud .pr-panel input[type="checkbox"] {
+  width: 1.2rem;
+  height: 1.2rem;
+  margin: 0;
+}
+
+.hud .pr-panel [hidden] {
+  display: none;
+}
+
+/* the camera setup is a dialog: the panel steps aside meanwhile */
+.game:has(.camera-panel:not([hidden])) .pr-panel {
+  visibility: hidden;
+}
+
+@media (max-width: 600px) {
+  .hud .pr-panel {
+    font-size: 0.78rem;
+    padding: 0.2rem 0.3rem;
+  }
+
+  .hud .pr-panel button,
+  .hud .pr-panel select {
+    min-height: 34px;
+    font-size: 0.78rem;
+  }
+}
+
+/* basketball's Just me: one shooter, so the second row goes */
+.basketball .bb-row[hidden] {
+  display: none;
+}
+
+/* bowling's Just me: one bowler's row; with the pins reset each ball the
+   frame card means nothing, so the panel's pins-per-ball line replaces it */
+.bowling .bw-card tr[hidden],
+.bowling.bw-reset .bw-card {
+  display: none;
+}

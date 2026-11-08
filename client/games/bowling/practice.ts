@@ -1,10 +1,13 @@
 import type { ClientMsg, ServerMsg } from "../../../shared/protocol.ts";
 import type { GameLink } from "../../net/link.ts";
+import { createPracticePanel } from "../practice-panel.ts";
 import { PracticeSim } from "./practice-sim.ts";
 import { startBowling } from "./view.ts";
 
 // Bowling practice (task 29): the bowling view on a PracticeSim in the page,
-// like the other games' practice. Nothing goes over the network.
+// like the other games' practice. Nothing goes over the network. Task 38: it
+// opens on "Just me" (frames alone, game after game, or "Reset pins each
+// ball"); the panel's "vs Bot" switches to the game against the bot, any time.
 
 const TICK_MS = 1000 / 60;
 
@@ -13,6 +16,7 @@ class PracticeLink implements GameLink {
   private timer: ReturnType<typeof setInterval> | null = null;
   private ticks = 0;
   readonly sim: PracticeSim;
+  onState: () => void = () => {};
 
   constructor(sim: PracticeSim) {
     this.sim = sim;
@@ -35,9 +39,18 @@ class PracticeLink implements GameLink {
     for (const h of this.handlers) h(msg);
   }
 
-  start(): void {
-    this.emit({ t: "presence", names: ["You", "Bot"], spectators: 0 });
+  presence(): void {
+    this.emit({ t: "presence", names: ["You", this.sim.mode === "bot" ? "Bot" : null], spectators: 0 });
+  }
+
+  emitState(): void {
     this.emit({ t: "state", state: this.sim.snapshot() });
+    this.onState();
+  }
+
+  start(): void {
+    this.presence();
+    this.emitState();
     const startedAt = performance.now();
     let done = 0;
     // 60 Hz like a room, a state every other tick; after a stall, catch up at most 5
@@ -47,7 +60,7 @@ class PracticeLink implements GameLink {
       done = due;
       for (let i = 0; i < n; i++) {
         this.sim.tick();
-        if (++this.ticks % 2 === 0) this.emit({ t: "state", state: this.sim.snapshot() });
+        if (++this.ticks % 2 === 0) this.emitState();
       }
     }, TICK_MS);
   }
@@ -59,11 +72,51 @@ class PracticeLink implements GameLink {
 }
 
 export function startBowlingPractice(root: HTMLElement, onExit: () => void): () => void {
-  const link = new PracticeLink(new PracticeSim((Math.random() * 2 ** 32) >>> 0));
-  const stopView = startBowling(root, link, { room: "PRACTICE", game: "bowling", seat: 0, practice: true }, onExit, { local: true, leaveLabel: "Done" });
+  const sim = new PracticeSim((Math.random() * 2 ** 32) >>> 0);
+  const link = new PracticeLink(sim);
+  let view: HTMLElement | null = null;
+  const stopView = startBowling(root, link, { room: "PRACTICE", game: "bowling", seat: 0, practice: true }, onExit, {
+    local: true,
+    leaveLabel: "Done",
+    onView: (v) => (view = v),
+    solo: () => sim.mode === "solo",
+    head: () => (sim.mode === "solo" && sim.resetPins ? "Just me · reset pins each ball" : null),
+  });
+  const reset = document.createElement("label");
+  reset.dataset.for = "solo";
+  reset.innerHTML = `<input type="checkbox" data-pick="reset"> Reset pins each ball`;
+  const stat = document.createElement("span");
+  stat.className = "pr-stat";
+  stat.dataset.for = "solo";
+  stat.setAttribute("aria-live", "polite");
+  const markReset = () => view?.classList.toggle("bw-reset", sim.mode === "solo" && sim.resetPins);
+  const panel = createPracticePanel(view ?? root, [reset, stat], (mode) => {
+    sim.setMode(mode);
+    markReset();
+    link.presence();
+    link.emitState();
+  });
+  const box = reset.querySelector("input") as HTMLInputElement;
+  box.addEventListener("change", () => {
+    sim.setResetPins(box.checked);
+    box.blur();
+    // the frame card means nothing when every ball is a first ball
+    markReset();
+    link.emitState();
+  });
+  let shown = "";
+  link.onState = () => {
+    let text: string;
+    if (sim.resetPins) {
+      const last = sim.balls.at(-1);
+      text = `Pins per ball: ${sim.balls.join(" ") || "–"}${last !== undefined ? ` · last ${last}` : ""} · ${sim.strikes}/${sim.bowled} strikes`;
+    } else text = `Total ${sim.total()}`;
+    if (text !== shown) stat.textContent = shown = text;
+  };
   link.start();
   return () => {
     link.stop();
+    panel.dispose();
     stopView();
   };
 }

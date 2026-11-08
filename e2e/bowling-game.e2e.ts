@@ -92,8 +92,11 @@ test("practice: aim, curve and bowl on keys in the page; the call and the speed 
   await expect.poll(async () => Number(await canvas(page).getAttribute("data-frames"))).toBeGreaterThan(5);
   const sent = frames.length;
 
+  // task 38: practice opens on Just me (one row); vs Bot brings the bot's row back
+  await expect(page.locator(".bw-card tr:visible")).toHaveCount(1);
+  await page.getByRole("radio", { name: "vs Bot" }).click();
   await expect(page.locator(".status")).toHaveText("Your turn");
-  await expect(page.locator(".bw-card tr")).toHaveCount(2);
+  await expect(page.locator(".bw-card tr:visible")).toHaveCount(2);
   await laidOut(page, [".hud .bw-board", ".hud button:visible", ".hud .status", ".bw-aim", ".bw-meter", ".controls"]);
   // the guide arrow covers the first third of the lane only
   await expect(canvas(page)).toHaveAttribute("data-arrow", /,6\.10$/);

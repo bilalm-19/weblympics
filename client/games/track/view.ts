@@ -33,6 +33,8 @@ export interface TrackViewOptions {
   local?: boolean;
   leaveLabel?: string;
   onView?(view: HTMLElement): void;
+  /** Task 38: practice's "Just me": your lane alone, no second row or runner. */
+  solo?: () => boolean;
 }
 
 const fmt = (t: number | null) => (t === null ? "–" : `${t.toFixed(2)} s`);
@@ -226,9 +228,10 @@ export function startTrack(root: HTMLElement, conn: GameLink, info: RoomInfo, on
     const head = document.createElement("div");
     head.className = "tr-head";
     const ev = EVENT_LABELS[s.event as TrackEvent];
-    head.textContent = opts.local ? `Practice · ${ev} · ${s.length} m` : s.format === "unlimited" ? `Unlimited · ${ev} · ${s.length} m · race ${s.races + 1}` : `${ev} · ${s.length} m`;
+    head.textContent = opts.solo?.() ? `Just me · ${ev} · ${s.length} m` : opts.local ? `Practice · ${ev} · ${s.length} m` : s.format === "unlimited" ? `Unlimited · ${ev} · ${s.length} m · race ${s.races + 1}` : `${ev} · ${s.length} m`;
     board.append(head);
     for (const seat of [0, 1] as const) {
+      if (seat === 1 && opts.solo?.()) continue;
       const lane = s.lanes[seat];
       const row = document.createElement("div");
       row.className = "tr-row";
@@ -276,7 +279,7 @@ export function startTrack(root: HTMLElement, conn: GameLink, info: RoomInfo, on
     else if (s.phase === "set") statusEl.textContent = "On your marks… set…";
     else if (s.phase === "over" && s.winner !== null) {
       const t = s.lanes[s.winner].finish;
-      statusEl.textContent = s.winner === info.seat ? `You win in ${fmt(t)}!` : `${label(s.winner)} wins in ${fmt(t)}`;
+      statusEl.textContent = opts.solo?.() ? `Your time: ${fmt(t)}${s.best[0] === t ? " · best!" : ""}` : s.winner === info.seat ? `You win in ${fmt(t)}!` : `${label(s.winner)} wins in ${fmt(t)}`;
     } else if (s.phase === "running") {
       const mine = info.seat === null ? null : s.lanes[info.seat];
       statusEl.textContent =
@@ -375,6 +378,7 @@ export function startTrack(root: HTMLElement, conn: GameLink, info: RoomInfo, on
         shown[seat] += lane.speed * dt;
         shown[seat] += (lane.distance - shown[seat]) * Math.min(1, dt * 8);
         const r = runners[seat];
+        r.group.visible = !(seat === 1 && opts.solo?.());
         r.group.position.x = shown[seat];
         // a stride is about two metres at speed; on the spot it still ticks over with steps
         phase[seat] += dt * (lane.speed * 1.6 + lane.cadence * 1.2);

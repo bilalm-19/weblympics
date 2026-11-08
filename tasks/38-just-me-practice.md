@@ -1,6 +1,6 @@
 # 38 "Just me" practice for basketball, bowling and track
 
-Status: decided (user, 2026-11-08); building.
+Status: built on `just-me-38` (agent, 2026-11-08); waiting for Claude to merge.
 Model: Opus 5.5
 Waits on: nothing (the sound agent, task 19, also touches these views: keep changes to the practice files).
 
@@ -20,6 +20,6 @@ Waits on: nothing (the sound agent, task 19, also touches these views: keep chan
   your best time this session, either event.
 
 ## Done when
-- [ ] Each game's practice offers Just me (default) and vs Bot; specs for the solo sims (`spec/<game>-practice.test.ts`).
-- [ ] E2e at both viewports for each game's solo practice.
-- [ ] CLAUDE.md (practice lines) and README agree.
+- [x] Each game's practice offers Just me (default) and vs Bot; specs for the solo sims (`spec/<game>-practice.test.ts`).
+- [x] E2e at both viewports for each game's solo practice.
+- [x] CLAUDE.md (practice lines) and README agree (README makes no practice claim).
