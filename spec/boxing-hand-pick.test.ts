@@ -41,23 +41,26 @@ describe("choosing the hand for a jab", () => {
     expect(chooseHand("right", { left: 600, right: 200 })).toBe("left");
   });
 
-  it("two right-hand jabs 200 ms apart (a camera player jabbing with one hand): the second is lost without it, thrown with it", () => {
+  // 150 ms apart: inside one hand's 200 ms gap (100 ms wind-up + 100 ms
+  // recovery since 2026-11-08; these were 200 ms apart against the old 300)
+  it("two right-hand jabs 150 ms apart (a camera player jabbing with one hand): the second is lost without it, thrown with it", () => {
     const asks: Array<[number, Hand]> = [
       [100, "right"],
-      [300, "right"],
+      [250, "right"],
     ];
     expect(thrown(asks, false)).toBe(1);
     expect(thrown(asks, true)).toBe(2);
   });
 
-  it("a keyboard player whose alternation was flipped by a refused press: J every 200 ms keeps landing", () => {
+  it("a keyboard player whose alternation was flipped by a refused press: J every 150 ms keeps landing", () => {
     // R, R (asked twice by the camera), then the alternation continues
     const asks: Array<[number, Hand]> = [
       [100, "right"],
-      [300, "right"],
-      [500, "left"],
-      [700, "right"],
+      [250, "right"],
+      [400, "left"],
+      [550, "right"],
     ];
-    expect(thrown(asks, true)).toBeGreaterThan(thrown(asks, false));
+    expect(thrown(asks, false)).toBe(3);
+    expect(thrown(asks, true)).toBe(4);
   });
 });

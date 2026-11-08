@@ -14,7 +14,7 @@ import type { Hand } from "../../../shared/games/boxing/sim.ts";
 /** Ms since this player last sent a jab with each hand, or null if never. */
 export type SinceSent = Record<Hand, number | null>;
 
-/** A little over the sim's 300 ms, for the tick the server happens to see it on. */
+/** A little over the sim's per-hand gap (200 ms since 2026-11-08, was 300), for the tick the server happens to see it on. */
 export const BUSY_MS = JAB_WINDUP_MS + RECOVER_MS + 20;
 
 const busy = (since: number | null): boolean => since !== null && since < BUSY_MS;

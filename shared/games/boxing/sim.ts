@@ -33,16 +33,26 @@ export const HEALTH = 500;
 export const JAB_DAMAGE = 6;
 /** Share of a jab's damage that gets through a guard of the right height (rounded to whole points). */
 export const BLOCKED_SHARE = 0.2;
-/** Thrown to landing. Short: on camera the read already comes late in the punch, and 200 ms felt like lag. */
-export const JAB_WINDUP_MS = 150;
+/**
+ * Thrown to landing. Short: on camera the read already comes late in the
+ * punch; 200 ms felt like lag (2026-11-05), and 150 ms still did (user,
+ * 2026-11-08: "theres alot of delay"). A GUESS until the 2026-11-08 ?debug
+ * recording.
+ */
+export const JAB_WINDUP_MS = 100;
 export const JAB_WINDUP_TICKS = ticks(JAB_WINDUP_MS);
-/** A hand can throw again this long after its punch lands. */
-export const RECOVER_MS = 150;
+/**
+ * A hand can throw again this long after its punch lands, so one hand jabs
+ * at most every JAB_WINDUP_MS + RECOVER_MS = 200 ms (was 150 + 150 = 300;
+ * user, 2026-11-08: "i cant throw lots of punches at once"). A GUESS until
+ * the 2026-11-08 ?debug recording.
+ */
+export const RECOVER_MS = 100;
 export const RECOVER_TICKS = ticks(RECOVER_MS);
-/** The punch cap: punches a second the server counts per boxer, both hands together... */
-export const MAX_PUNCH_RATE = 4;
-/** ...with this many allowed together (a one-two) before it bites. */
-export const PUNCH_BURST = 2;
+/** The punch cap: punches a second the server counts per boxer, both hands together (was 4; 2026-11-08, a GUESS)... */
+export const MAX_PUNCH_RATE = 6;
+/** ...with this many allowed together (a one-two-three) before it bites (was 2; 2026-11-08, a GUESS). */
+export const PUNCH_BURST = 3;
 /** A punch's own timestamp must be at least this long after the last counted one. */
 export const MIN_PUNCH_GAP_MS = 100;
 export const ROUNDS = 3;

@@ -89,3 +89,14 @@ other boxer's guard and lean at that moment in its own sim.
   about the body is stored or logged.
 - Hooks are kept in code behind a switch for the camera (`TRIAL_BOX.hooks`),
   off, in case a later recording finds a signal.
+
+## Note, 2026-11-08 (user's playtest)
+
+"There's a lot of delay" and "I can't throw lots of punches at once": a jab
+now lands 100 ms after it is thrown (was 150), still judged on that landing
+tick; a hand can throw again 100 ms after its jab lands, so one hand jabs
+every 200 ms (was 300); the cap is 6 a second with a burst of 3 (was 4 and
+2). The bot reacts 3 ticks sooner so it still blocks some. "It slips too
+easily": the camera's lean needs a held tilt and ignores a jab's twist
+(CLAUDE.md, Boxing). Nothing above changes; the numbers are guesses until
+the next recording (`docs/camera-playtest.md`).

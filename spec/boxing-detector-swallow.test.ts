@@ -54,7 +54,7 @@ describe("other ways a jab is missed (measured, not changed)", () => {
     expect(jabs([...hold(0.21, 24), ...slow, ...hold(0.21, 12)])).toHaveLength(1);
   });
 
-  it("a hand lost for more than the 250 ms minimum while the fist is out re-arms, and the same fist seen again is read as a second jab", () => {
+  it("a hand lost for more than the minimum gap (200 ms since 2026-11-08) while the fist is out re-arms, and the same fist seen again is read as a second jab", () => {
     // 3 frames out, lost 8 frames (333 ms), then still out: a double count of one punch
     const sizes = [...hold(0.21, 24), ...hold(0.21 * 1.5, 3), ...hold(null, 8), ...hold(0.21 * 1.5, 3), ...hold(0.21, 12)];
     expect(jabs(sizes)).toHaveLength(2);

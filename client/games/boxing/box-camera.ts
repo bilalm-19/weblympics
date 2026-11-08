@@ -84,6 +84,8 @@ export function createBoxCamera(view: HTMLElement, button: HTMLButtonElement, ch
     const hands = lm ? handMeasures(f.hands, lm, f.aspect) : null;
     const tr = lm ? detector.update({ hands, arms }, f.t) : null;
     const tilt = lm ? (bodyFrameOf(lm, f.aspect)?.tilt ?? null) : null;
+    // a jab twists the shoulders: it mustn't start a lean (2026-11-08)
+    if (tr?.punch) slipper.jab(f.t);
     const leanChange = slipper.update(tilt, f.t);
     debug?.frame(f, arms, hands, tr, slipper.offset(tilt), slipper.lean, slipper.neutral);
     if (leanChange !== undefined) cb.slip(leanChange);
@@ -203,7 +205,9 @@ export function createBoxCamera(view: HTMLElement, button: HTMLButtonElement, ch
 // per mark, whether the detector fired and the highest palm ratio around it,
 // and counts detector jabs with no mark (false reads). Every move also gets
 // the tilt's own spread (does a jab or a guard lean you by accident?).
-const MOVES = ["relaxed", "high guard", "low guard", "jab to head", "hook to head", "jab to body", "moving, no punch", "hook to body", "lean left, back, right, back"] as const;
+// 2026-11-08: hooks are off, so their slots (5, 8) record the fixed version's
+// questions, plus a tenth on key 0 (docs/camera-playtest.md)
+const MOVES = ["relaxed", "high guard", "low guard", "jab to head", "jabs fast, both hands", "jab to body", "moving, no punch", "jabs while guarding", "lean left, back, right, back", "lean slightly while jabbing"] as const;
 const COUNTDOWN_MS = 3000;
 const RECORD_MS = 5000;
 
@@ -232,7 +236,7 @@ function createDebugReadout(
   let lastPunchAt = -Infinity;
   let fps = 0;
   let lastT = 0;
-  let status = "Press 1-9 to record a move (P at each real punch), C to copy";
+  let status = "Press 1-9 or 0 (move 10) to record a move (P at each real punch), C to copy";
   let rec: { move: number; startsAt: number; endsAt: number; frames: number; samples: Record<BoxHand, Sample[]>; hands: Record<BoxHand, HandSample[]>; punches: string[]; tilts: number[]; trace: TraceFrame[]; marks: number[]; neutral: number | null } | null = null;
   const results = new Map<number, string>();
 
@@ -295,7 +299,7 @@ function createDebugReadout(
     const around = r.trace.filter((f) => f.fired && f.tilt !== null).map((f) => r.trace.filter((g) => g.tilt !== null && Math.abs(g.t - f.t) <= 300).map((g) => Math.abs(g.tilt as number)));
     const worst = around.map((xs) => Math.max(...xs));
     return (
-      `  tilt spread: min ${n(Math.min(...ts), 1)} max ${n(Math.max(...ts), 1)} sd ${n(sd, 1)} | frames past 4 deg ${pct(ts, (v) => Math.abs(v) >= 4)}%, past 8 deg ${pct(ts, (v) => Math.abs(v) >= 8)}%` +
+      `  tilt spread: min ${n(Math.min(...ts), 1)} max ${n(Math.max(...ts), 1)} sd ${n(sd, 1)} | frames past ${DEFAULT_SLIP.rearmAt} deg ${pct(ts, (v) => Math.abs(v) >= DEFAULT_SLIP.rearmAt)}%, past ${DEFAULT_SLIP.slipAt} deg ${pct(ts, (v) => Math.abs(v) >= DEFAULT_SLIP.slipAt)}%` +
       ` | leans started ${leans} | neutral ${n(r.neutral, 1)} abs` +
       (worst.length ? ` | tilt within 300 ms of a read jab: worst ${n(q(worst, 0.5), 1)} typ, ${n(Math.max(...worst), 1)} max (n ${worst.length})` : "")
     );
@@ -325,7 +329,7 @@ function createDebugReadout(
   const table = () => [...results.keys()].sort((a, b) => a - b).map((k) => results.get(k)).join("\n");
 
   window.addEventListener("keydown", (e) => {
-    const d = Number(e.key);
+    const d = e.key === "0" ? 10 : Number(e.key);
     if (Number.isInteger(d) && d >= 1 && d <= MOVES.length && !rec) {
       const now = performance.now();
       rec = { move: d, startsAt: now + COUNTDOWN_MS, endsAt: now + COUNTDOWN_MS + RECORD_MS, frames: 0, samples: { left: [], right: [] }, hands: { left: [], right: [] }, punches: [], tilts: [], trace: [], marks: [], neutral: null };
@@ -395,10 +399,10 @@ function createDebugReadout(
           head = status;
         }
       }
-      const done = MOVES.map((name, i) => `${results.has(i + 1) ? "✓" : " "} ${i + 1} ${name}`).join("   ");
+      const done = MOVES.map((name, i) => `${results.has(i + 1) ? "✓" : " "} ${(i + 1) % 10} ${name}`).join("   ");
       if (now - drawnAt < 200) return;
       drawnAt = now;
-      el.textContent = [`fps ${fps.toFixed(0)}   ${head}`, live("left", m.left), live("right", m.right), liveHand("left", hm?.left), liveHand("right", hm?.right), `tilt from neutral ${liveTilt === null ? "(sit still: learning your centre)" : `${liveTilt.toFixed(1)} deg`}  lean at ±${DEFAULT_SLIP.slipAt}, upright within ±${DEFAULT_SLIP.rearmAt}`, "", done, "", table()].join("\n");
+      el.textContent = [`fps ${fps.toFixed(0)}   ${head}`, live("left", m.left), live("right", m.right), liveHand("left", hm?.left), liveHand("right", hm?.right), `tilt from neutral ${liveTilt === null ? "(sit still: learning your centre)" : `${liveTilt.toFixed(1)} deg`}  lean at ±${DEFAULT_SLIP.slipAt} held ${DEFAULT_SLIP.holdMs} ms, upright within ±${DEFAULT_SLIP.rearmAt}`, "", done, "", table()].join("\n");
     },
   };
 }

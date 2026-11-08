@@ -366,7 +366,10 @@ export const TRIAL_BOX: TrialConfig = {
   highGuardAt: 0.47,
   lowGuardAt: 0.27,
   guardFrames: 3,
-  minGapMs: 250,
+  // a hand's jabs this far apart at least: the sim's per-hand gap (wind-up 100
+  // + recovery 100) since 2026-11-08, was 250, so the camera isn't the
+  // bottleneck. A GUESS until the 2026-11-08 ?debug recording.
+  minGapMs: 200,
   restFollow: 0.05,
   restSettleMs: 600,
 };
@@ -497,21 +500,36 @@ export function cameraBoxing(read: TrialRead | BoxRead): CameraBoxing {
 // (`bodyFrame(...).tilt`, degrees, positive when leaning to the player's
 // right). Neutral is the median of the first `neutralMs` of tracking, as
 // tennis's tilt does, so how you sit doesn't matter. A slip is a held lean
-// (playtest 4): past `slipAt` degrees from neutral you are leaning that way
-// for as long as you stay past `rearmAt`; back within it, upright. FIRST GUESSES from tennis's playtested tilt (dead zone 3,
-// full 11 degrees), to be set from a recorded lean.
+// (playtest 4): held past `slipAt` degrees from neutral for `holdMs` you are
+// leaning that way for as long as you stay past `rearmAt`; back within it,
+// upright. Deliberate, not twitchy (user, 2026-11-08: "it seems to easily slip
+// left and right"): one frame past the line used to lean, so a jab's shoulder
+// twist or a pose-model glitch leaned and ate the jabs after it. The hold is
+// in ms, not frames, so 15 fps and 30 fps behave the same; and no lean starts
+// within `jabQuietMs` of a jab the camera read (`jab(t)`), the hold counting
+// only from then on. GUESSES until the 2026-11-08 ?debug recording (moves 9
+// and "lean slightly while jabbing"; docs/camera-playtest.md).
 
 export interface SlipConfig {
+  /** Degrees from neutral that start a lean, if held (was 8 until 2026-11-08; a GUESS). */
   slipAt: number;
+  /** Back within this many degrees of neutral is upright (was 4; a GUESS). */
   rearmAt: number;
+  /** The tilt must stay past `slipAt` this long (ms) before it leans (2026-11-08; a GUESS). */
+  holdMs: number;
+  /** No lean starts within this long (ms) after a jab the camera read: a jab twists the shoulders (2026-11-08; a GUESS). */
+  jabQuietMs: number;
   neutralMs: number;
 }
 
-export const DEFAULT_SLIP: SlipConfig = { slipAt: 8, rearmAt: 4, neutralMs: 1000 };
+export const DEFAULT_SLIP: SlipConfig = { slipAt: 12, rearmAt: 6, holdMs: 200, jabQuietMs: 250, neutralMs: 1000 };
 
 export class SlipDetector {
   private samples: number[] = [];
   private start: number | null = null;
+  /** The side the tilt has been past `slipAt` on, and since when (ms), not yet a lean. */
+  private pending: { side: BoxHand; since: number } | null = null;
+  private lastJab = -Infinity;
   neutral: number | null = null;
   /** The lean now: a side, or null when upright. */
   lean: BoxHand | null = null;
@@ -521,17 +539,24 @@ export class SlipDetector {
     this.cfg = cfg;
   }
 
+  /** The camera read a jab at `t` ms: its shoulder twist mustn't start a lean. */
+  jab(t: number): void {
+    this.lastJab = t;
+    this.pending = null;
+  }
+
   /**
    * One frame's shoulder tilt (null when the shoulders aren't seen) at `t` ms.
    * Returns the lean when it changes (a side, or null back upright), else
-   * undefined. A lost frame keeps the lean as it was.
+   * undefined. A lost frame keeps the lean (and a pending one) as it was.
    */
   update(tilt: number | null, t: number): BoxHand | null | undefined {
     if (tilt === null) return undefined;
+    const c = this.cfg;
     if (this.neutral === null) {
       if (this.start === null) this.start = t;
       this.samples.push(tilt);
-      if (t - this.start >= this.cfg.neutralMs && this.samples.length >= 5) {
+      if (t - this.start >= c.neutralMs && this.samples.length >= 5) {
         const s = [...this.samples].sort((a, b) => a - b);
         this.neutral = s[Math.floor(s.length / 2)];
       }
@@ -540,8 +565,15 @@ export class SlipDetector {
     const d = tilt - this.neutral;
     const side: BoxHand = d > 0 ? "right" : "left";
     let next = this.lean;
-    if (Math.abs(d) >= this.cfg.slipAt) next = side;
-    else if (this.lean !== null && (Math.abs(d) <= this.cfg.rearmAt || side !== this.lean)) next = null;
+    if (this.lean !== null && (Math.abs(d) <= c.rearmAt || side !== this.lean)) next = null;
+    if (next === null) {
+      const quiet = t - this.lastJab < c.jabQuietMs;
+      if (Math.abs(d) >= c.slipAt && !quiet) {
+        if (this.pending?.side !== side) this.pending = { side, since: t };
+        if (t - this.pending.since >= c.holdMs) next = side;
+      } else this.pending = null;
+    }
+    if (next !== null) this.pending = null;
     if (next === this.lean) return undefined;
     this.lean = next;
     return next;
@@ -557,5 +589,7 @@ export class SlipDetector {
     this.start = null;
     this.neutral = null;
     this.lean = null;
+    this.pending = null;
+    this.lastJab = -Infinity;
   }
 }

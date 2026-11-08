@@ -2,12 +2,17 @@ import { TICK_MS, other } from "./sim.ts";
 import type { BoxingInput, BoxingState, Guard, Hand, Seat, Side, Target } from "./sim.ts";
 
 // GUESSES to be playtested, like the sim's numbers.
-/** Ticks from a jab being thrown to the bot reacting to it, at the quickest (about 117 ms)... */
-export const BOT_REACTION_TICKS = 7;
 /**
- * ...plus up to this many more, by noise. The jab lands 9 ticks after it is
- * thrown, so a reaction drawn at 7 or 8 ticks is in time and anything slower
- * is late: the bot defends roughly a fifth of the jabs it notices.
+ * Ticks from a jab being thrown to the bot reacting to it, at the quickest
+ * (about 67 ms; was 7 with the 150 ms wind-up, moved with the 100 ms one on
+ * 2026-11-08 so the bot still blocks some, a GUESS)...
+ */
+export const BOT_REACTION_TICKS = 4;
+/**
+ * ...plus up to this many more, by noise. The jab lands JAB_WINDUP_TICKS (6)
+ * after it is thrown and a reaction must be in by the tick before, so a
+ * reaction drawn at 4 or 5 ticks is in time and anything slower is late: the
+ * bot defends roughly a fifth of the jabs it notices, as before.
  */
 export const BOT_REACTION_SPREAD = 10;
 /** Share of jabs the bot doesn't notice at all. */
