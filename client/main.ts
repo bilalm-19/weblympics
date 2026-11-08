@@ -32,6 +32,7 @@ let roomInMatch = false;
 const partyActions = {
   games: SPORTS.filter((s) => s.playable).map((s) => ({ id: s.id, name: s.name })),
   onWatch: (room: string) => conn.send({ t: "join", room, watch: true }),
+  account: () => conn.account,
 };
 let currentPractice = false;
 const friendActions = {
@@ -262,12 +263,17 @@ social.onInvite((invite) =>
   }),
 );
 // a party link (#/party/CODE) joins the party; a friend link (#/friend/CODE) makes you friends
-const partyLink = location.hash.match(/^#\/party\/([A-Za-z0-9_-]{8,32})$/);
-if (partyLink) {
+// (guests too, user 2026-11-08); a page with no socket yet sends it on connect
+function usePartyLink(): void {
+  const partyLink = location.hash.match(/^#\/party\/([A-Za-z0-9_-]{8,32})$/);
+  if (!partyLink) return;
   conn.send({ t: "party", act: "join", code: partyLink[1] });
   history.replaceState(null, "", location.pathname);
   queueMicrotask(() => openParty(null, social, partyActions));
 }
+usePartyLink();
+// the link pasted into a tab already open only changes the hash
+window.addEventListener("hashchange", usePartyLink);
 const friendLink = location.hash.match(/^#\/friend\/([A-Za-z0-9_-]{10,64})$/);
 if (friendLink) {
   history.replaceState(null, "", location.pathname);
