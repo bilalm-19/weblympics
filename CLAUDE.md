@@ -91,7 +91,8 @@ lazily and only when a player enters a game. Video never leaves the browser.
   (its panel: stand-back silhouette, aim arrow, a try swing, the `?debug`
   readout and the 1-9/0 recorder).
   `shared/look.ts`
-  is the fixed palette and hat/hair list for a player's look (task 18).
+  is the fixed lists for a player's look (tasks 18 and 33: clothes, colours,
+  hair, face, headwear, eyewear) and `fromTask18`, the old shape's mapping.
 - `server/` `index.ts` (http + ws + `/readme/`), `rooms.ts` (live rooms with
   the real clock and db), `room.ts` (one room: 60 Hz tick loop, seats,
   spectators, game), `lobby.ts` (pure room rules: phases, ready, format,
@@ -124,8 +125,11 @@ lazily and only when a player enters a game. Video never leaves the browser.
   two vertex-coloured meshes, instanced crowd/trees; returns the crowd handle),
   `games/tennis/crowd-layout.ts` (pure: stands and seats in four sections,
   left, right, frontLeft, frontRight, for task 19 to drive),
-  `games/tennis/character.ts` (Mii-style player and racket, coloured and
-  hatted from the seat's look, task 18),
+  `games/tennis/character.ts` (Mii-style player and racket, dressed from
+  the seat's look: clothes, hair, hats, glasses as primitives, the face
+  drawn on the head; tasks 18 and 33; every game's character: a sport
+  that draws its own limbs dresses them from `parts`' `sleeve`, `forearm`
+  and `bottom`, as `spec/track-runner-look.test.ts` checks for track),
   `games/tennis/stroke.ts` (forehand/backhand keyframes, shot label text),
   `games/tennis/shot-fx.ts` (ball trail, bounce marks, shot arc),
   `games/tennis/trajectory-aid.ts` (pure: timing arcs, meter, strength ticks)
@@ -147,8 +151,9 @@ lazily and only when a player enters a game. Video never leaves the browser.
   the leaderboard: `e2e/home.e2e.ts`), `ui/brand.ts` (the five ring
   colours and every text/background pair, held to WCAG AA by
   `spec/brand.test.ts`; task 14), `ui/profile.ts` + `.css` (task 17's profile
-  dialog, with task 18's customise section; `ui/look-preview.ts` draws the
-  look as SVG, since the menu never loads Three.js), `net/account.ts`
+  dialog, with task 33's look editor: live preview, Face/Hair/Clothes/Extras
+  tabs of picture swatches, Save and Cancel; `ui/look-preview.ts` draws the
+  look as SVG, whole or cropped, since the menu never loads Three.js), `net/account.ts`
   (`/api/*` calls; the passkey prompt is loaded only when needed),
   `ui/leaderboard.ts` + `.css` (task 7: a tab per sport, polled each second). Camera swings have two modes,
   "classic" (default) and "follow" (character copies the arm, hit at the
@@ -266,12 +271,19 @@ lazily and only when a player enters a game. Video never leaves the browser.
   demo accounts are locked (no rename, delete or passkey), hidden from the
   board, and reached only from the closed "Dev tools" in the home screen's
   profile panel.
-- Looks (task 18; `spec/look.test.ts`, `e2e/look.e2e.ts`): an account's look
-  is five enum values from `shared/look.ts`, checked on the server (anything
-  outside the lists, or any extra field, is refused and nothing is stored).
-  Guests always wear their seat's default. The server puts each seat's look
-  in the room state, so both players and spectators see it. The demo
-  accounts may change their look (it is how two seats get tested).
+- Looks (tasks 18 and 33; `spec/look.test.ts`, `e2e/look.e2e.ts`): an
+  account's look is fourteen enum values from `shared/look.ts` (top, top
+  colour, bottom, bottom colour, skin, hair colour, hair style, headwear,
+  eyes, brows, nose, mouth, facial hair, eyewear), checked on the server
+  (anything outside the lists, a missing field or any extra field is refused
+  and nothing is stored). A dress hides the bottom; tall hair is drawn short
+  under a cap or beanie; a hat takes the top's colour. Guests always wear
+  their seat's default (seat 1 differs from seat 0). The server puts each
+  seat's look in the room state, so both players and spectators see it. The
+  demo accounts may change their look (it is how two seats get tested).
+  Schema step 7 rewrote every stored task-18 look as `fromTask18` does.
+  `makePlayer`/`setLook` still take a task-18 look, and `setLook` never
+  shows or hides a part (boxing hides some in first person).
 - A schema change is a new step in `server/schema.ts` plus a test that opens
   a database made by the previous version; never edit an old step.
 - A ball in the air is live for everyone, even one going out: a person may

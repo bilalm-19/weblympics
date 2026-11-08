@@ -11,6 +11,10 @@ dialog.profile {
   font-family: system-ui, sans-serif;
   box-shadow: 0 18px 48px #0b2a4a55;
   overflow: auto;
+  /* an option scrolled into view (a tap, or keyboard focus) clears the
+     sticky Save bar below it: with more sports in the stats above, an option
+     sat right under the bar on a phone, and a tap there hit Save's bar */
+  scroll-padding-bottom: 4.5rem;
 }
 
 dialog.profile::backdrop {
@@ -162,21 +166,35 @@ dialog.profile::backdrop {
   background: #e8f3fc;
 }
 
-/* Task 18: customise your player */
-.look-layout {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.75rem;
-  align-items: flex-start;
+/* Tasks 18 and 33: customise your player. A big live preview beside four
+   tabs of picture swatches on a wide screen; on a phone the preview sits
+   above the tabs and stays in view while the options scroll under it. */
+dialog.profile:has(.look-editor) {
+  width: min(56rem, calc(100vw - 2rem));
+}
+
+.look-editor {
+  display: grid;
+  grid-template-columns: minmax(10rem, 15rem) minmax(0, 1fr);
+  gap: 1rem;
+  align-items: start;
+  margin-top: 0.5rem;
 }
 
 .look-preview {
-  flex: 0 0 6.5rem;
+  position: sticky;
+  top: 0;
   display: flex;
   justify-content: center;
-  padding: 0.25rem;
-  border-radius: 14px;
+  padding: 0.5rem;
+  border-radius: 16px;
   background: linear-gradient(180deg, #cfe8fa, #eaf5fd);
+}
+
+.look-preview .look-svg {
+  width: 100%;
+  max-width: 13rem;
+  height: auto;
 }
 
 .look-svg {
@@ -184,19 +202,51 @@ dialog.profile::backdrop {
   height: auto;
 }
 
-.look-form {
-  flex: 1 1 14rem;
+.look-choices {
   min-width: 0;
 }
 
+.look-tabs {
+  display: flex;
+  gap: 0.25rem;
+  border-bottom: 2px solid #c6dbee;
+}
+
+.look-tab {
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: 44px;
+  padding: 0 0.5rem;
+  border: 2px solid transparent;
+  border-bottom: 0;
+  border-radius: 12px 12px 0 0;
+  background: transparent;
+  color: #3d5873;
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+
+.look-tab[aria-selected="true"] {
+  border-color: #c6dbee;
+  background: #fff;
+  color: #12385e;
+  box-shadow: 0 2px 0 #fff;
+}
+
+.look-panel {
+  padding: 0.6rem 0 0;
+}
+
 .look-field {
-  margin: 0 0 0.5rem;
+  margin: 0 0 0.6rem;
   padding: 0;
   border: 0;
+  min-width: 0;
 }
 
 .look-field legend {
   padding: 0;
+  margin-bottom: 0.2rem;
   font-weight: 600;
   font-size: 0.92rem;
 }
@@ -204,7 +254,7 @@ dialog.profile::backdrop {
 .look-options {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.25rem;
+  gap: 0.3rem;
 }
 
 .look-option {
@@ -232,30 +282,81 @@ dialog.profile::backdrop {
   border-radius: 999px;
 }
 
-.look-chip {
-  padding: 0.35rem 0.6rem;
-  border: 2px solid #8fb3d1;
-  border-radius: 999px;
+/* a picture of your player wearing the option */
+.look-thumb {
+  display: block;
+  width: 56px;
+  height: 56px;
+  border: 2px solid #c6dbee;
+  border-radius: 12px;
   background: #fff;
-  font-size: 0.85rem;
-  white-space: nowrap;
+  overflow: hidden;
+}
+
+.look-thumb .look-svg {
+  display: block;
+  width: 100%;
+  height: 100%;
 }
 
 .look-option input:checked + .look-swatch,
-.look-option input:checked + .look-chip {
+.look-option input:checked + .look-thumb {
   border-color: #0b63c4;
   box-shadow: 0 0 0 3px #0b63c455;
 }
 
-.look-option input:checked + .look-chip {
-  background: #dcebf7;
-  font-weight: 600;
+.look-option input:checked + .look-thumb {
+  background: #e3effa;
 }
 
 .look-option input:focus-visible + .look-swatch,
-.look-option input:focus-visible + .look-chip {
+.look-option input:focus-visible + .look-thumb,
+.look-tab:focus-visible {
   outline: 3px solid #0b63c4;
   outline-offset: 2px;
+}
+
+.look-actions {
+  position: sticky;
+  bottom: 0;
+  padding: 0.5rem 0;
+  background: #f7fbff;
+}
+
+@media (max-width: 640px) {
+  .look-editor {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0.5rem;
+  }
+
+  /* and the sticky preview above it */
+  dialog.profile {
+    scroll-padding-top: 10rem;
+  }
+
+  /* the head and shoulders stay in view above the options */
+  .look-preview {
+    z-index: 1;
+    padding: 0.25rem;
+    height: 9.5rem;
+    overflow: hidden;
+    align-items: flex-start;
+  }
+
+  .look-preview .look-svg {
+    width: 9rem;
+    max-width: none;
+  }
+
+  .look-thumb {
+    width: 48px;
+    height: 48px;
+  }
+
+  .look-tab {
+    font-size: 0.88rem;
+    padding: 0 0.2rem;
+  }
 }
 
 .sr-only {

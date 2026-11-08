@@ -26,7 +26,7 @@ const UP = new Vector3(0, 1, 0);
 
 export function makeArcher(look: Look): Archer {
   const player = makePlayer(look, 0, { arms: false });
-  const { body, top, skin, head } = player.parts;
+  const { body, sleeve, forearm, skin, head } = player.parts;
   const root = new Group();
   root.add(player.group);
   // the head (with its hair or hat) turns at the neck to look down the arrow
@@ -44,8 +44,8 @@ export function makeArcher(look: Look): Archer {
   const foreGeo = new CapsuleGeometry(0.055, ARM.fore - 0.1, 4, 8);
   const handGeo = new SphereGeometry(0.065, 8, 6);
   const arm = () => {
-    const upper = new Mesh(upperGeo, top);
-    const fore = new Mesh(foreGeo, top);
+    const upper = new Mesh(upperGeo, sleeve);
+    const fore = new Mesh(foreGeo, forearm);
     const hand = new Mesh(handGeo, skin);
     body.add(upper, fore, hand);
     return { upper, fore, hand };

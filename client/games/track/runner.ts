@@ -38,7 +38,7 @@ function segment(radius: number, length: number, material: MeshLambertMaterial):
 
 export function makeRunner(look: Look): Runner {
   const player = makePlayer(look, 0, { arms: false });
-  const { body, upper, head, top, skin } = player.parts;
+  const { body, upper, head, sleeve, bottom, skin } = player.parts;
 
   // hide the character's straight legs and shoes: everything on the body that
   // isn't the torso, the head or the hair is a leg or a shoe
@@ -55,9 +55,9 @@ export function makeRunner(look: Look): Runner {
     torso.add(m);
   }
 
-  // shorts' colour comes from the leg the character would have drawn
-  const legMesh = body.children.find((c) => c instanceof Mesh && !keep.has(c)) as Mesh | undefined;
-  const shorts = (legMesh?.material as MeshLambertMaterial | undefined) ?? new MeshLambertMaterial({ color: 0x2b303b });
+  // the thighs wear the look's bottom (its shorts, trousers or skirt colour;
+  // the character's own leg is skin under shorts since task 33)
+  const shorts = bottom;
   const shoe = new MeshLambertMaterial({ color: 0xf2f4f7 });
 
   const legs = ([-1, 1] as const).map((s) => {
@@ -73,7 +73,7 @@ export function makeRunner(look: Look): Runner {
     return { hip: thigh.pivot, knee: shin.pivot };
   });
   const arms = ([-1, 1] as const).map((s) => {
-    const up = segment(0.06, UPPER_ARM, top);
+    const up = segment(0.06, UPPER_ARM, sleeve);
     up.pivot.position.set(s * 0.24, SHOULDER_Y - HIP_Y, 0);
     up.pivot.rotation.z = s * 0.1;
     const fore = segment(0.055, FOREARM, skin);
