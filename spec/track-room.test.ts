@@ -259,7 +259,8 @@ describe("track rooms: the event (task 27)", () => {
     it(`a finished ${event} race's stored row says "${event}", with each seat's time${event === "hurdles" ? " and hurdles" : ""}`, () => {
       const s = eventRace(event);
       const fast = stepper(s, s.a, 125);
-      const slow = stepper(s, s.b, 170);
+      // under FULL_CADENCE, so it is slower whatever the hurdles do (170 ms until FULL_CADENCE went to 4)
+      const slow = stepper(s, s.b, 330);
       s.run(40_000, () => {
         fast();
         slow();

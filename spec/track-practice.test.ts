@@ -52,7 +52,8 @@ describe("track practice", () => {
 
   it("the pacer wins if you jog", () => {
     const sim = new PracticeSim(2, "sprint", "bot");
-    runRace(sim, 15);
+    // 2.4 steps a second, under the pacer's (15 ticks until FULL_CADENCE went to 4, now top speed)
+    runRace(sim, 25);
     expect(sim.state.winner).toBe(1);
   });
 

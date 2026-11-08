@@ -409,6 +409,11 @@ export function startTrack(root: HTMLElement, conn: GameLink, info: RoomInfo, on
   };
   raf = requestAnimationFrame(frame);
 
+  // Webcam by default (task 15): a seated player gets the camera setup first,
+  // with "Use keyboard instead" (run-camera.ts); practice holds the race
+  // meanwhile; a spectator never does.
+  if (info.seat !== null) cameraButton.click();
+
   return () => {
     cancelAnimationFrame(raf);
     clearTimeout(callTimer);

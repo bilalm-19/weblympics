@@ -50,27 +50,57 @@ head or body is split at the shoulder line, which is always in view. If the
 high and low guards don't separate on camera, the fallback is one guard that
 blocks head shots only, with a body shot getting through any guard.
 
-## Hurdles' moves
-Task 27, `client/input/camera/run-pose.ts` (`JumpTracker`, `DEFAULT_JUMP`);
-every number there is a first guess until these. Track's camera has no
-`?debug` recorder yet: adding one (like basketball's) is the first step.
-Calibrate standing still first, as in a race. Elbows mode at laptop
-distance, knees mode stood back with the hips and knees in view.
-1. **standing still**: arms relaxed, 5 s (what "nothing" looks like).
-2. **elbows: running pumps**, small and quick, as in a race. Must not read
-   as a jump.
-3. **elbows: big pumps**, as high as a tired runner flails. Must not read.
-4. **elbows: both arms up**, one throw a second or so, down between.
-5. **elbows: one arm up** (left, then right). Must not read.
-6. **knees: jogging on the spot**, knees high. Must not read.
-7. **knees: a hop on the spot**, one a second or so.
-8. **knees: rising on tiptoe** and settling. Must not read.
+## Track's and hurdles' moves
+Tasks 26-27, `client/input/camera/run-pose.ts` (`RunTracker`/`DEFAULT_RUN`,
+`JumpTracker`/`DEFAULT_JUMP`) and `client/games/track/run-camera.ts` with
+`?debug`. Every number there is a first guess until these. Since 2026-11-08
+each step and jump is measured from that hand's (knee's, torso's) own recent
+low, not from the stand-still rest, so record as you would really run: hands
+where they fall, not posed.
 
-Measures: elbows, each hand's lift above rest and the lower of the two
-(`armsOn` sits between move 3's high and move 4's low); knees, the
-shoulder/hip midpoint's rise above standing and its upward speed (`riseOn`
-and `riseSpeed` sit between move 6's high and move 7's low); jumps read:
-moves 4 and 7 one per throw or hop, all others none.
+Open a track practice with `?debug` before the `#` (sprint is fine: the
+recorder reads the jump in either event). Start the camera in **elbows**
+mode at laptop distance and do the stand-still. The recorder reads both
+modes at once, so moves 7-9 need you stood back with your knees and hips in
+view (the readout's `knees` rows show `–` when it can't see them). Keys 1-9
+and 0 (move 10); a 3 s countdown, 5 s recorded. Moves 2, 3 and 7 play a
+**beat at 4 a second** (top speed since 2026-11-08): one pump or knee per
+beat, alternating sides, so "steps read" can be checked against "marked".
+1. **standing still**, arms relaxed (what "nothing" looks like).
+2. **elbows: small quick pumps to the beat**, as in a race, hands low.
+3. **elbows: small pumps to the beat with the hands held at the chest**
+   (the case that never re-armed before: must still read every beat).
+4. **elbows: big pumps**, as high as a tired runner flails, any speed.
+   Must not read as a jump.
+5. **elbows: both arms up**, one throw a second or so, down between (as
+   high as feels natural for a jump, not stretched).
+6. **elbows: one arm up**, left, then right. Must not read as a jump.
+7. **knees: jogging on the spot to the beat**, knees up. Must not read as
+   a jump.
+8. **knees: a hop on the spot**, one a second or so.
+9. **knees: rising on tiptoe** and settling. Must not read as a jump.
+0. **elbows: running pumps with a both-arms jump every 2 s or so** (a
+   real hurdle race: the jump must read, the pumps around it mustn't).
+
+Then **C** copies the table (with the current numbers) to paste into the
+chat. Per move it gives, for each mode: each side's **lift peaks** (the
+top of each rise above its recent low, lo/typ/hi), the **jump reading**
+(elbows: the lower hand's lift above its low; knees: the torso's), the
+torso's **up-speed** (knees), the share of frames **seen**, and **steps
+read** (vs **marked** beats) and **jumps read** by the current detectors.
+
+What each number is set from:
+- `DEFAULT_RUN.elbows.liftOn` (now 0.15) sits under moves 2 and 3's low
+  lift peaks and over move 1's high; `reArm` (0.07) under the smallest
+  pump's height. Moves 2 and 3: steps read should match marked (20).
+- `DEFAULT_RUN.knees.liftOn` (0.25) the same from moves 7 and 1.
+- `FULL_CADENCE` (4) and the bot: if 4 a second felt hard to keep up in
+  moves 2/3/7, say so.
+- `DEFAULT_JUMP.armsOn` (0.6) sits between move 4's and 6's high jump
+  reading and move 5's low; moves 5 and 0 read one jump per throw, all
+  others none. `armsFall` (0.5) is checked by moves 4 and 0.
+- `DEFAULT_JUMP.riseOn` (0.2) and `riseSpeed` (1.2) sit between moves 7
+  and 9's high and move 8's low; move 8 reads one per hop.
 
 ## Basketball's moves
 Task 32, `client/games/basketball/shoot-camera.ts` with `?debug`. Record

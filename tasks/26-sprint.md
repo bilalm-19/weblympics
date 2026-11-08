@@ -54,7 +54,11 @@ is thrown away.
   cap 10 a second; bot 6.8 a second (about 15 s). After the user's first
   webcam try (2026-11-05, "I have to move my arms too much"): top speed at 6
   steps a second, bot 5.2; elbows needs a 0.2 lift (was 0.4) and either arm
-  counts.
+  counts. After the second (2026-11-08, "pumps don't register", "too many
+  pumps for speed"): each step measured from the side's own recent low
+  (0.15 for elbows), top speed at 4 steps a second, bot 3.2 (about 16.4 s);
+  camera setup first; a `?debug` recorder. Numbers wait on its recordings
+  (`docs/camera-playtest.md`).
 - Knees vs elbows default ("elbows" provisionally, since it works at laptop
   distance). Camera thresholds are guesses until the playtest.
 - A false step (no alternation) is ignored for now, not penalised (Claude,

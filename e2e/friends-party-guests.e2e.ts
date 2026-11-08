@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import type { BrowserContext, Page } from "@playwright/test";
+import { useKeyboard } from "./flow.ts";
 
 // Task 34, amended by the user (2026-11-08): guests may start, lead and share
 // a party by its link. At both viewports: a guest starts a party from the
@@ -68,6 +69,8 @@ test("a guest starts a party, copies its link; another guest opens it and joins;
   await lp.getByRole("button", { name: "Start the match" }).click();
   for (const p of [lead, other]) {
     await expect(p).toHaveURL(/#\/room\/[A-Z]{4}$/);
+    // track opens the camera setup first for a seated player (task 15)
+    await useKeyboard(p);
     await expect(p.getByRole("button", { name: "I'm ready" })).toBeVisible();
     await expect(p.locator(".party-strip")).toBeVisible();
     expect(await noHorizontalScroll(p)).toBe(true);
