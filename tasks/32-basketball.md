@@ -1,6 +1,6 @@
 # 32 Basketball
 
-Status: parts 1-3 built by agents (rules, scene and view, camera) and merged on `integrate-basketball` (2026-11-08); camera numbers are guesses until the recordings. Design accepted (ADR 003).
+Status: parts 1-3 built by agents (rules, scene and view, camera) and merged on `integrate-basketball` (2026-11-08); camera numbers are guesses until the recordings. Design accepted (ADR 003). City backdrop built on `basketball-city` (2026-11-08), not merged.
 Model: Opus 5.5 for every part
 Waits on: nothing. Task 28's podium can replace the end card later.
 
@@ -21,7 +21,7 @@ the review's changes").
   a draw, both choosing to continue goes to sudden death (asked again if
   level); 15 s to choose, no choice counts as draw; the bot continues.
 - Real rim and backboard physics on the server.
-- An outdoor park court (fence, trees, sky), bleachers with a crowd that
+- An outdoor court (fence, sky), bleachers with a crowd that
   cheers on a make, louder on a swish or money ball, groans on a miss;
   sound made in the browser.
 - A new home-screen tile (Bowling's placeholder stays).
@@ -33,6 +33,18 @@ the review's changes").
   power bar against the sweet zone after each shot; the floor arrow follows
   the hands in the setup step; the aim locks when the push starts; the
   sweet zone comes from the physics; the swish bonus stacks.
+
+## Changed (user, 2026-11-08)
+- The court moves from the park into the city: tall buildings behind it.
+  Built on `basketball-city` (agent): `client/games/basketball/city.ts`,
+  called from `court.ts`; buildings of varied heights and colours on all
+  four sides (one small window texture, a few lit), shops with awnings and
+  graffiti'd shutters, water towers and antennas, a skyline of flat
+  silhouettes, roads with crosswalks, street lamps, parked cars, benches,
+  graffiti walls behind the bleachers. The rows behind the hoop step up with
+  distance so the player's camera sees roofs and towers over the board. Four
+  merged meshes with baked light: 51 draw calls a frame (desktop, player)
+  against the park's 52; the practice e2e holds it to 60.
 
 ## Claude's choices in the ADR, open to the user
 - Messages `set`, `aim` and `shoot` (`set` starts the clock and shows the

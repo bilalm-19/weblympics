@@ -143,7 +143,7 @@ function courtTexture(): CanvasTexture {
   });
 }
 
-/** The sky, clouds and far hills, for a camera looking down -z (basketball's park and track reuse it). */
+/** The sky, clouds and far hills, for a camera looking down -z (track reuses it). */
 export function sky(scene: Scene, arena: Object3D, paint: Painter): void {
   scene.background = canvasTexture(2, 256, (g) => {
     const grad = g.createLinearGradient(0, 0, 0, 256);
@@ -553,7 +553,7 @@ function trees(scene: Object3D): void {
   plantTrees(scene, spots, rand);
 }
 
-/** Low-poly trees at `spots` (x, z): trunks, cones and crowns, instanced, three draw calls. Basketball's park reuses them. */
+/** Low-poly trees at `spots` (x, z): trunks, cones and crowns, instanced, three draw calls. */
 export function plantTrees(scene: Object3D, spots: [number, number][], rand: () => number): void {
 
   const flat = (color: number) => new MeshLambertMaterial({ color, flatShading: true });
