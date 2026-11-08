@@ -3,7 +3,9 @@
 // /api/me says. Passkey prompts are @simplewebauthn/browser's, loaded only
 // when one is needed.
 
+import type { CameraSettings } from "../../shared/camera-settings.ts";
 import type { Look } from "../../shared/look.ts";
+import { cameraSettingsFor, keepGuestSettings } from "./camera-settings.ts";
 
 export interface Me {
   name: string;
@@ -16,6 +18,14 @@ export interface Me {
   /** Task 7: rating per sport (accounts only). */
   ratings: Record<string, { rating: number; wins: number; losses: number }>;
   longestRally: number;
+  /** Task 25: an account's camera settings (null: the defaults); always null for a guest. */
+  cameraSettings: CameraSettings | null;
+}
+
+/** Every answer that says who this is also says which camera settings apply (task 25). */
+function seen(me: Me): Me {
+  cameraSettingsFor(me);
+  return me;
 }
 
 export class ApiError extends Error {
@@ -61,7 +71,7 @@ export async function fetchMe(): Promise<Me> {
   const legacy = takeLegacyToken();
   const res = await fetch("/api/me", { credentials: "same-origin", headers: legacy ? { "x-legacy-guest": legacy } : {} });
   if (!res.ok) throw new ApiError(res.status, {});
-  return (await res.json()) as Me;
+  return seen((await res.json()) as Me);
 }
 
 const webauthn = () => import("@simplewebauthn/browser");
@@ -75,18 +85,25 @@ export async function addPasskey(): Promise<Me> {
   const { startRegistration } = await webauthn();
   const options = await post<Parameters<typeof startRegistration>[0]["optionsJSON"]>("/api/passkey/register/options");
   const response = await startRegistration({ optionsJSON: options });
-  return post<Me>("/api/passkey/register/verify", { response });
+  const me = await post<Me>("/api/passkey/register/verify", { response });
+  // a guest claimed: the camera settings they had in this browser come along
+  await keepGuestSettings(me);
+  return me.cameraSettings ? seen(me) : me;
 }
 
 export async function signIn(): Promise<Me> {
   const { startAuthentication } = await webauthn();
   const options = await post<Parameters<typeof startAuthentication>[0]["optionsJSON"]>("/api/passkey/login/options");
   const response = await startAuthentication({ optionsJSON: options });
-  return post<Me>("/api/passkey/login/verify", { response });
+  return seen(await post<Me>("/api/passkey/login/verify", { response }));
 }
 
-export const signOut = (): Promise<unknown> => post("/api/logout");
-export const signInDemo = (n: 1 | 2): Promise<Me> => post<Me>("/api/demo", { n });
+export const signOut = async (): Promise<unknown> => {
+  const r = await post("/api/logout");
+  cameraSettingsFor(null);
+  return r;
+};
+export const signInDemo = async (n: 1 | 2): Promise<Me> => seen(await post<Me>("/api/demo", { n }));
 export const setName = (name: string): Promise<Me> => post<Me>("/api/name", { name });
 export const saveLook = (look: Look): Promise<Me> => post<Me>("/api/look", { look });
 export const removePasskey = (id: string, confirm = false): Promise<Me> => post<Me>("/api/passkey/remove", { id, confirm });
@@ -97,4 +114,5 @@ export async function deleteAccount(): Promise<void> {
   const options = await post<Parameters<typeof startAuthentication>[0]["optionsJSON"]>("/api/account/delete/options");
   const response = await startAuthentication({ optionsJSON: options });
   await post("/api/account/delete", { response });
+  cameraSettingsFor(null);
 }

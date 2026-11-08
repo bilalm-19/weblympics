@@ -9,6 +9,8 @@
 // cookie never opens an account, so claiming a guest ends that cookie's use.
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 import type { DatabaseSync } from "node:sqlite";
+import { parseCameraSettings } from "../shared/camera-settings.ts";
+import type { CameraSettings } from "../shared/camera-settings.ts";
 import { parseLook } from "../shared/look.ts";
 import type { Look } from "../shared/look.ts";
 import { checkChosenName, pseudonym } from "./names.ts";
@@ -210,7 +212,8 @@ export function rename(db: DatabaseSync, player: string, raw: unknown): Result<{
 }
 
 /**
- * Deletes an account: passkeys, sessions, the player row (name and look)
+ * Deletes an account: passkeys, sessions, the player row (name, look and
+ * camera settings)
  * and, from task 7, its ratings. Match rows stay so opponents' records don't
  * change, but the token in them becomes a random tombstone: it is "Deleted
  * player" and nothing in it links back to who it was.
@@ -259,6 +262,34 @@ export function setLook(db: DatabaseSync, player: string, raw: unknown): Result<
   if (!look) return refuse(400, "That look isn't one of the choices.");
   db.prepare("UPDATE players SET look = ? WHERE token = ?").run(JSON.stringify(look), player);
   return { ok: true, look };
+}
+
+/** An account's saved camera settings (task 25), or null (the defaults). Guests never have any here. */
+export function cameraSettingsOf(db: DatabaseSync, player: string): CameraSettings | null {
+  const r = db.prepare("SELECT camera_settings, account FROM players WHERE token = ?").get(player) as { camera_settings: string | null; account: number } | undefined;
+  if (!r?.camera_settings || r.account !== 1) return null;
+  try {
+    return parseCameraSettings(JSON.parse(r.camera_settings));
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Saves an account's camera settings (task 25): the closed shape with every
+ * value in range, or nothing is written. `null` is Reset to default.
+ */
+export function setCameraSettings(db: DatabaseSync, player: string, raw: unknown): Result<{ settings: CameraSettings | null }> {
+  const p = getPlayer(db, player);
+  if (!p?.account) return refuse(403, "Guests keep camera settings in this browser. Add a passkey to save them to an account.");
+  if (raw === null) {
+    db.prepare("UPDATE players SET camera_settings = NULL WHERE token = ?").run(player);
+    return { ok: true, settings: null };
+  }
+  const settings = parseCameraSettings(raw);
+  if (!settings) return refuse(400, "Those camera settings aren't valid.");
+  db.prepare("UPDATE players SET camera_settings = ? WHERE token = ?").run(JSON.stringify(settings), player);
+  return { ok: true, settings };
 }
 
 export function matchCountFor(db: DatabaseSync, token: string): number {

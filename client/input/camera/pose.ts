@@ -1,4 +1,5 @@
 import type { Hand, Level, SwingKind } from "../../../shared/games/tennis/sim.ts";
+import type { TennisSettings } from "../../../shared/camera-settings.ts";
 
 // Pose landmarks to game input. Pure: no DOM, no MediaPipe, so it is unit
 // tested on synthetic landmark sequences (spec/camera.test.ts).
@@ -490,6 +491,23 @@ export interface Calibration {
   backhandThresholds: [number, number];
 }
 
+/**
+ * Tennis's saved settings (task 25: kept with every camera setting, on the
+ * account when signed in) as the calibration the controller reads.
+ */
+export function calibrationFrom(t: TennisSettings): Calibration {
+  return {
+    hand: t.hand,
+    mode: t.mode,
+    aim: t.aim,
+    autoNeutral: t.autoNeutral,
+    neutralTilt: t.neutralTilt,
+    neutralAcross: t.neutralAcross,
+    thresholds: [...t.forehand],
+    backhandThresholds: [...t.backhand],
+  };
+}
+
 /** The thresholds a stroke is graded against. */
 export const strokeThresholds = (c: Pick<Calibration, "thresholds" | "backhandThresholds">, kind: SwingKind): [number, number] =>
   kind === "backhand" ? c.backhandThresholds : c.thresholds;
@@ -524,10 +542,19 @@ export function neutralFrom(samples: readonly { tilt: number; across: number }[]
  * back to the defaults when the three aren't clearly different.
  */
 export function thresholdsFrom(peaks: { light: number[]; medium: number[]; hard: number[] }): [number, number] {
-  if (!peaks.light.length || !peaks.medium.length || !peaks.hard.length) return DEFAULT_SWING.thresholds;
+  return calibrateSwings(peaks).thresholds;
+}
+
+/**
+ * `thresholdsFrom`, saying whether it fell back (task 25: when the levels
+ * aren't clearly different the player is told, not silently given defaults).
+ */
+export function calibrateSwings(peaks: { light: number[]; medium: number[]; hard: number[] }): { thresholds: [number, number]; fellBack: boolean } {
+  const fallback = { thresholds: [...DEFAULT_SWING.thresholds] as [number, number], fellBack: true };
+  if (!peaks.light.length || !peaks.medium.length || !peaks.hard.length) return fallback;
   const [l, m, h] = [median(peaks.light), median(peaks.medium), median(peaks.hard)];
-  if (!(m > l * 1.15 && h > m * 1.15)) return DEFAULT_SWING.thresholds;
-  return [(l + m) / 2, (m + h) / 2];
+  if (!(m > l * 1.15 && h > m * 1.15)) return fallback;
+  return { thresholds: [(l + m) / 2, (m + h) / 2], fellBack: false };
 }
 
 export interface ZoneConfig {

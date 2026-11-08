@@ -1,3 +1,4 @@
+import { cameraSettings, updateCameraSettings } from "../../net/camera-settings.ts";
 import type { Hand } from "../../../shared/games/tennis/sim.ts";
 import { CameraError, openCamera, startPose } from "../../input/camera/camera.ts";
 import type { CameraSession } from "../../input/camera/camera.ts";
@@ -28,23 +29,9 @@ export interface BowCamera {
   dispose(): void;
 }
 
-const HAND_KEY = "archery-bow-hand";
-
-function loadHand(): Hand {
-  try {
-    return localStorage.getItem(HAND_KEY) === "right" ? "right" : "left";
-  } catch {
-    return "left";
-  }
-}
-
-function saveHand(h: Hand): void {
-  try {
-    localStorage.setItem(HAND_KEY, h);
-  } catch {
-    // storage unavailable: left next time
-  }
-}
+// Task 25: kept with every other camera setting (on the account when signed in)
+const loadHand = (): Hand => cameraSettings().archery.bowHand;
+const saveHand = (h: Hand): void => updateCameraSettings((s) => (s.archery.bowHand = h));
 
 export function createBowCamera(view: HTMLElement, button: HTMLButtonElement, chip: HTMLElement, cb: BowCallbacks): BowCamera {
   const video = document.createElement("video");

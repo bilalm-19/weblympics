@@ -146,6 +146,10 @@ dialog.profile::backdrop {
   border-bottom: 1px solid #d5e4f1;
 }
 
+.profile-camera {
+  margin-top: 1rem;
+}
+
 .profile-danger {
   margin-top: 1rem;
   padding-top: 0.25rem;

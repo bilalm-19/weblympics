@@ -21,8 +21,11 @@ import type { DatabaseSync } from "node:sqlite";
  * of a match is its existing `game` column (the registry's id). Old rows
  * that were marked rated before accounts existed are marked unrated: they
  * were never between accounts, and ratings start from nothing.
+ * Version 7 (task 25): an account's camera settings, as JSON of the closed
+ * shape in shared/camera-settings.ts (validated before it is written); NULL
+ * means the defaults. Guests keep theirs in the browser.
  */
-export const SCHEMA_VERSION = 6;
+export const SCHEMA_VERSION = 7;
 
 const V1 = `
   CREATE TABLE IF NOT EXISTS players (
@@ -120,6 +123,10 @@ const V6 = `
   UPDATE matches SET rated = 0;
 `;
 
+const V7 = `
+  ALTER TABLE players ADD COLUMN camera_settings TEXT;
+`;
+
 export function schemaVersion(db: DatabaseSync): number {
   db.exec("CREATE TABLE IF NOT EXISTS schema_version (version INTEGER NOT NULL)");
   const row = db.prepare("SELECT version FROM schema_version").get() as { version: number } | undefined;
@@ -134,7 +141,7 @@ export function schemaVersion(db: DatabaseSync): number {
 
 /** Brings `db` up to SCHEMA_VERSION, one step at a time, each in a transaction. */
 export function migrate(db: DatabaseSync): void {
-  const steps: Record<number, string> = { 1: V1, 2: V2, 3: V3, 4: V4, 5: V5, 6: V6 };
+  const steps: Record<number, string> = { 1: V1, 2: V2, 3: V3, 4: V4, 5: V5, 6: V6, 7: V7 };
   let v = schemaVersion(db);
   if (v > SCHEMA_VERSION) throw new Error(`database schema ${v} is newer than this app (${SCHEMA_VERSION})`);
   while (v < SCHEMA_VERSION) {
