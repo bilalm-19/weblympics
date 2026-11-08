@@ -5,7 +5,7 @@ import { skipCheck, useKeyboard } from "./flow.ts";
 // Runs with Chrome's fake webcam (playwright.config.ts): a test pattern, no
 // person in it, so the camera starts and the model loads but nothing is tracked.
 
-const ALLOWED_MESSAGES = new Set(["hello", "create", "join", "ready", "format", "move", "mode", "swing", "pause", "leave", "pong"]);
+const ALLOWED_MESSAGES = new Set(["hello", "create", "join", "ready", "format", "move", "mode", "swing", "pause", "leave", "pong", "idle", "status"]); // task 34: presence only, never video
 
 async function practice(page: Page): Promise<void> {
   await page.goto("/");
