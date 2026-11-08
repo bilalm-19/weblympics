@@ -1922,3 +1922,7 @@ the format of the entries below (see CLAUDE.md, Docs).
 ## 2026-11-08 19:43 · decision · Friends/parties: the agent's choices settled; guests may join and lead parties by link
 - What: Claude first asked these as a list the user found unclear ("i dont get the questions"), then one at a time. User: keep the 200-friend cap; a friend link befriends at once; a party place is kept 30 s; and, changing the agent's choice, guests may join a party by link, invite by link and be its leader. Inviting by Name#1234 and parties listed to friends stay accounts-only (they need a lasting name). A small agent adds a party link (like the room invite) and lets guests in.
 - Who: user (decided), Claude (questions, brief).
+
+## 2026-11-08 19:58 · decision · "Just me" practice for basketball, bowling and track (task 38)
+- What: the user asked for an unlimited solo mode in basketball, bowling and sprint/hurdles practice, like archery's. Decided: practice opens on "Just me" with a "vs Bot" switch in the practice panel; bowling plays normal frames alone with a "Reset pins each ball" switch; basketball has no shot clock, pick a spot or cycle; track runs alone with best time. In-page, nothing sent, never in stats. Task 38 started (Opus 5.5).
+- Who: user (decided), Claude (options, brief).
