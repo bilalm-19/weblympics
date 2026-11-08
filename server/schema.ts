@@ -164,6 +164,13 @@ export interface MatchRecord {
   format: string;
   /** Games in each finished set. */
   sets: Array<[number, number]>;
+  /**
+   * Task 27: a game's own result detail (track: the event, finish times,
+   * hurdles cleared and hit). No column of its own: stored in the `sets`
+   * JSON column as `{ ...detail, sets }` (an object, where other games store
+   * the bare array), so no schema step was needed. `setsOf` reads both.
+   */
+  detail?: Record<string, unknown>;
   practice: boolean;
   /** Longest rally in shots this match. */
   bestRally?: number;
@@ -189,6 +196,17 @@ export function isRated(m: MatchRecord): boolean {
   return m.tokens[0] !== null && m.tokens[1] !== null && m.tokens[0] !== m.tokens[1];
 }
 
+/** The `sets` column as stored: the bare array, or (task 27, track) an object with the detail and `sets`. */
+export function parseSetsColumn(raw: string): { sets: Array<[number, number]>; detail: Record<string, unknown> | null } {
+  const v = JSON.parse(raw) as unknown;
+  if (Array.isArray(v)) return { sets: v as Array<[number, number]>, detail: null };
+  if (typeof v === "object" && v !== null) {
+    const { sets, ...detail } = v as Record<string, unknown>;
+    return { sets: Array.isArray(sets) ? (sets as Array<[number, number]>) : [], detail };
+  }
+  return { sets: [], detail: null };
+}
+
 /** Stores a match row; returns whether it was stored as rated. */
 export function insertMatch(db: DatabaseSync, m: MatchRecord, endedAt = Date.now()): boolean {
   const rated = isRated(m);
@@ -205,7 +223,7 @@ export function insertMatch(db: DatabaseSync, m: MatchRecord, endedAt = Date.now
     m.winner,
     endedAt,
     m.format,
-    JSON.stringify(m.sets),
+    JSON.stringify(m.detail ? { ...m.detail, sets: m.sets } : m.sets),
     m.practice ? 1 : 0,
     rated ? 1 : 0,
     m.bestRally ?? null,
