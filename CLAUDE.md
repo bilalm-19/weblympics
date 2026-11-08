@@ -663,7 +663,7 @@ lazily and only when a player enters a game. Video never leaves the browser.
   double-count"): a classic sweep ends where the hand turns back; only a
   sweep in the hitting direction of the grip held counts, a wind-up is
   dropped whole and starts no cooldown, and an opposite sweep within
-  `recoveryMs` (800 ms) of a counted swing is the recovery. Calibration
+  `recoveryMs` (400 ms, was 800: user, 2026-11-09, switching strokes) of a counted swing is the recovery. Calibration
   counts with the same rule (`CalibrationRecorder`). The camera cooldown
   (300 ms) and the server's 250 ms are unchanged (user's decision).
   A swing starts from rest (the backhand fix, 2026-11-08, same spec: "a

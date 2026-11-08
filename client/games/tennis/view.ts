@@ -27,6 +27,7 @@ import { createCallBanner } from "./call-banner.ts";
 import { pointCall, reactions } from "./point-call.ts";
 import { createReactionFx } from "./reaction-fx.ts";
 import { createTrajectoryAid } from "./aid.ts";
+import { stanceHint } from "./trajectory-aid.ts";
 import { createShotFx } from "./shot-fx.ts";
 import { buildStadium } from "./stadium.ts";
 import { CONTACT, STROKE_MS as SWING_MS, shotLabel } from "./stroke.ts";
@@ -372,6 +373,32 @@ export function startTennis(root: HTMLElement, conn: GameLink, info: RoomInfo, o
   // in world x; aiming by timing shows the on-time (straight) shot
   const currentAim = () => shownAim(cameraInput.aim(), cameraInput.aimMode(), input.aim() * worldSign) * worldSign;
 
+  // The grip the trajectories are drawn for (display only; the swing's stroke is
+  // the camera's own): it holds the last grip for 2 s when tracking blinks (a
+  // backhand hides the wrist, and the arcs flipped to the ball's side), and a
+  // new grip must hold 40 ms (one camera frame) before the arcs change; it was
+  // 100 ms, which only added delay to a switch (user, 2026-11-09).
+  let shownGrip: SwingKind | null = null;
+  let gripSeen = 0;
+  let gripCand: SwingKind | null = null;
+  let gripSince = 0;
+  const steadyGrip = (nowMs: number): SwingKind | null => {
+    const g = cameraInput.grip();
+    if (g === null) {
+      if (nowMs - gripSeen > 2000) shownGrip = null;
+      return shownGrip;
+    }
+    gripSeen = nowMs;
+    if (shownGrip === null) shownGrip = g;
+    else if (g !== shownGrip) {
+      if (gripCand !== g) {
+        gripCand = g;
+        gripSince = nowMs;
+      } else if (nowMs - gripSince >= 40) shownGrip = g;
+    } else gripCand = null;
+    return shownGrip;
+  };
+
   const label = (seat: 0 | 1) => (seat === info.seat ? "You" : (names[seat] ?? `Player ${seat + 1}`));
 
   // the room's state from the server (task 4): phase, ready flags, format,
@@ -543,6 +570,7 @@ export function startTennis(root: HTMLElement, conn: GameLink, info: RoomInfo, o
         players[seat].react(react[seat].pump, react[seat].slump);
         canvas.dataset[`react${seat}`] = reactFx.state(seat);
       }
+      const gripNow = steadyGrip(now);
       // camera aiming by timing: the aid's three arcs stand in for the reticle and arc
       const threeArcs = aid.update(
         info.seat === null || snap.phase === "over"
@@ -551,7 +579,7 @@ export function startTennis(root: HTMLElement, conn: GameLink, info: RoomInfo, o
               shown: shown!,
               seat: info.seat,
               hand: cameraInput.hand(),
-              grip: cameraInput.grip(),
+              grip: gripNow,
               // timing decides the shot: camera in timing mode, or keys and touch
               // with no arrow key held (an arrow aims by hand)
               timingAim: cameraInput.on() ? cameraInput.aimMode() === "timing" : !input.manualAim(),
@@ -564,7 +592,11 @@ export function startTennis(root: HTMLElement, conn: GameLink, info: RoomInfo, o
       const landing =
         info.seat === null || snap.phase === "over" || threeArcs || !aid.on()
           ? null
-          : predictLanding({ ...snap, rng: 0 }, info.seat, currentAim(), reticleLevel, cameraInput.hand(), cameraInput.grip() ?? undefined);
+          : predictLanding({ ...snap, rng: 0 }, info.seat, currentAim(), reticleLevel, cameraInput.hand(), gripNow ?? undefined);
+      // which stroke the ball needs where you'll meet it, drawn in the ring
+      const stanceNow = info.seat === null || snap.phase === "over" ? null : stanceHint({ ...snap, rng: 0 }, info.seat, cameraInput.hand(), gripNow);
+      const ringStance = stanceNow ? { kind: stanceNow.needs ?? stanceNow.kind, wrong: stanceNow.wrong } : null;
+      canvas.dataset.ringStance = ringStance ? `${ringStance.kind}${ringStance.wrong ? ",wrong" : ""}` : "";
       reticle.visible = landing !== null;
       if (landing && info.seat !== null) {
         // into the net or onto your own side: show it red just over the net, on their side
@@ -577,7 +609,7 @@ export function startTennis(root: HTMLElement, conn: GameLink, info: RoomInfo, o
         // the arc of your next shot, only while the ball is actually coming at
         // you; it lights up once you're close enough to where you'll meet it
         const reachable = Math.abs(landing.path[0].x - players[info.seat].group.position.x) <= PLAYER.reach;
-        canvas.dataset.arc = String(fx.arc(landing.predicted ? landing.path : null, landing.in, reachable));
+        canvas.dataset.arc = String(fx.arc(landing.predicted ? landing.path : null, landing.in, reachable, ringStance));
         canvas.dataset.reach = landing.predicted ? (reachable ? "yes" : "no") : "";
         canvas.dataset.reticle = `${landing.x.toFixed(2)},${z.toFixed(2)},${landing.in ? "in" : "out"},${landing.predicted ? "ball" : "aim"}`;
       } else {
@@ -592,7 +624,7 @@ export function startTennis(root: HTMLElement, conn: GameLink, info: RoomInfo, o
         const meet = info.seat === null || snap.phase === "over" ? null : predictContact({ ...snap, rng: 0 }, info.seat);
         if (meet) {
           const reachable = Math.abs(meet.ball.x - players[info.seat!].group.position.x) <= PLAYER.reach;
-          fx.contact({ x: meet.ball.x, z: meet.ball.z }, reachable);
+          fx.contact({ x: meet.ball.x, z: meet.ball.z }, reachable, ringStance);
           canvas.dataset.contact = reachable ? "ready" : "go";
           canvas.dataset.reach = reachable ? "yes" : "no";
         } else {

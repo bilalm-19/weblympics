@@ -227,7 +227,7 @@ export class GripTracker {
   private alpha: number;
   private threshold: number;
 
-  constructor(initial: SwingKind = "forehand", alpha = 0.4, threshold = GRIP_THRESHOLD) {
+  constructor(initial: SwingKind = "forehand", alpha = 0.5, threshold = GRIP_THRESHOLD) {
     this.grip = initial;
     this.alpha = alpha;
     this.threshold = threshold;
@@ -362,7 +362,7 @@ export const DEFAULT_SWING: SwingConfig = {
   maxMs: 600,
   // a GUESS (task 25): a recovery starts 0-300 ms after contact and the next
   // real stroke is at least a second away
-  recoveryMs: 800,
+  recoveryMs: 400,
   // GUESSES (the backhand fix, 2026-11-08) until a real-webcam recording: a
   // sway fast enough to look like a swing turns in under 150 ms; a stroke
   // follows its take-back within 300 ms and goes further than it
@@ -483,6 +483,8 @@ export class SwingDetector {
   private lastLevel: Level | null = null;
   private legs = new Legs();
   cfg: SwingConfig;
+  /** The wrist's latest speed (`?debug`). */
+  lastSpeed = 0;
 
   constructor(cfg: SwingConfig) {
     this.cfg = cfg;
@@ -509,6 +511,7 @@ export class SwingDetector {
     this.legs.update(t, w.across, this.cfg.restMs);
     if (!prev || t <= prev.t) return none;
     const speed = Math.hypot(w.pos.x - prev.pos.x, w.pos.y - prev.pos.y) / ((t - prev.t) / 1000);
+    this.lastSpeed = speed;
 
     if (!this.active) {
       if (speed < this.cfg.start || t - this.lastEnd < this.cfg.cooldownMs) return none;
@@ -805,11 +808,13 @@ export interface CameraOutput {
   swing: { level: Level; kind: SwingKind; aim: number; lift?: number; at: number; peak: number } | null;
   /** Peak wrist speed so far while a classic swing is in progress, for the strength guide; else null. */
   peak: number | null;
+  /** `?debug` only. */
+  debug?: { facing: number | null; reading: number; lastSweep: string; speed: number };
 }
 
 // A swing's wind-up moves the hand a little before it is fast enough to count
 // as a swing, so the frozen values come from this long before the start.
-const FREEZE_LOOKBACK_MS = 100;
+const FREEZE_LOOKBACK_MS = 60;
 
 /** Smallest sideways sweep (shoulder-widths) that counts as a swing in the hitting direction. */
 const MIN_SWEEP = 0.15;
@@ -869,6 +874,7 @@ export class CameraController {
   private frozen: { target: number | null; aim: number; grip: SwingKind } | null = null;
   private history: { t: number; target: number | null; aim: number; grip: SwingKind }[] = [];
   private calib: Calibration;
+  private lastSweep = "none yet";
 
   constructor(calib: Calibration, swing: SwingConfig = DEFAULT_SWING) {
     this.calib = calib;
@@ -903,7 +909,9 @@ export class CameraController {
     const side = this.calib.aim === "point" ? Math.max(OTHER_SIDE_START, AIM_RANGE - Math.abs(this.calib.neutralAcross)) : OTHER_SIDE_START;
     const filter: SwingFilter = (sweep) => {
       const g = this.frozen?.grip ?? this.grip;
-      return sweepCounts(sweep, g, this.calib.hand, side) ? strokeThresholds(this.calib, strokeOf(sweep.across, this.calib.hand)) : null;
+      const ok = sweepCounts(sweep, g, this.calib.hand, side);
+      this.lastSweep = `${ok ? "COUNTED" : "REJECTED"} grip=${g} across=${sweep.across.toFixed(2)} from=${sweep.from.toFixed(2)} chained=${sweep.chained}`;
+      return ok ? strokeThresholds(this.calib, strokeOf(sweep.across, this.calib.hand)) : null;
     };
     const classic = this.detector.update(f.t, w, filter);
     const started = classic.started;
@@ -918,7 +926,8 @@ export class CameraController {
     // until the neutral settles (about a second) there is no movement
     this.target = neutral === null ? 0 : tiltToTarget(tilt, neutral);
     const locked = this.detector.swinging || this.frozen !== null;
-    this.grip = this.gripTracker.update(palmFacing(f.landmarks as readonly Point[], frame, this.calib.hand, f.aspect), locked);
+    const facing = palmFacing(f.landmarks as readonly Point[], frame, this.calib.hand, f.aspect);
+    this.grip = this.gripTracker.update(facing, locked);
     this.aim = aimForGrip(this.aimFilter.filter(w.across, f.t), this.calib.neutralAcross, this.grip);
     this.history.push({ t: f.t, target: this.target, aim: this.aim, grip: this.grip });
     if (this.history.length > 12) this.history.shift();
@@ -940,7 +949,7 @@ export class CameraController {
     }
     if (swing || classic.swing) this.frozen = null;
     const peak = this.calib.mode === "classic" ? this.detector.peak : null;
-    return { tracking: true, swinging: !swing && f0 !== null, ...shown, tilt: neutral === null ? 0 : tilt - neutral, arm, swing, peak };
+    return { tracking: true, swinging: !swing && f0 !== null, ...shown, tilt: neutral === null ? 0 : tilt - neutral, arm, swing, peak, debug: { facing, reading: this.gripTracker.reading, lastSweep: this.lastSweep, speed: this.detector.lastSpeed } };
   }
 }
 

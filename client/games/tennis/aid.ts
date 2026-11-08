@@ -172,8 +172,13 @@ export function createTrajectoryAid(view: HTMLElement, scene: Scene, canvas: HTM
         // flight doesn't change until someone hits it, and an arc whose moment
         // has passed keeps showing where it would have gone.
         // (a shot's vx and vz don't change in flight, bounces included)
-        const key = `${s.shots}/${s.ball.vx}/${s.ball.vz}/${strength.level}/${f.hand}/${f.grip ?? Math.round(s.players[seat].x * 4)}`;
-        if (!cached || cached.key !== key) cached = { key, aid: timingArcs(s, seat, strength.level, f.hand, f.grip ?? undefined) };
+        // The arcs use the last swing's level, never the live peak: mid-swing
+        // that climbs light, medium, hard and redrew the arcs every few frames
+        // (user, 2026-11-09, "the trajectories keep changing"). The meter and
+        // ticks below still follow the live peak.
+        const arcLevel = shownStrength(last, null, f.thresholds).level;
+        const key = `${s.shots}/${s.ball.vx}/${s.ball.vz}/${arcLevel}/${f.hand}/${f.grip ?? Math.round(s.players[seat].x * 4)}`;
+        if (!cached || cached.key !== key) cached = { key, aid: timingArcs(s, seat, arcLevel, f.hand, f.grip ?? undefined) };
         const aid = cached.aid;
         canvas.dataset.aidArcs = String(fx.arcs(aid ? aid.arcs : null, lit));
         ticks = aid ? aid.ticks[TIMINGS.indexOf(lit ?? "ontime")] : null;

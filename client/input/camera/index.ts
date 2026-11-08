@@ -6,6 +6,7 @@ import {
   MoveThrottle,
   DEFAULT_TILT,
   CalibrationRecorder,
+  DEFAULT_SWING,
   calibrationFrom,
   bodyFrame,
   bodyVisibility,
@@ -224,6 +225,30 @@ export function createCameraInput(
     else setChip("Can't see you", "warn");
   };
 
+  const dbgLog: string[] = [];
+  let dbgLast = "";
+  let dbgGrip = "";
+  let dbgT0: number | null = null;
+  const stamp = (t: number) => `${(((t - (dbgT0 ?? t)) / 1000)).toFixed(2)}s`;
+  let motionMax = 0;
+  let motionT = 0;
+  const DEBUG = new URLSearchParams(location.search).has("debug");
+  const dbgEl = document.createElement("pre");
+  if (DEBUG) {
+    dbgEl.textContent = "debug on: waiting for camera frames";
+    dbgEl.style.cssText = "margin:0;padding:6px 8px;background:#000c;color:#7CFC9A;font:12px monospace;pointer-events:none;white-space:pre";
+    const box = document.createElement("div");
+    box.style.cssText = "position:fixed;left:8px;bottom:8px;z-index:99";
+    const copy = document.createElement("button");
+    copy.textContent = "Copy debug log";
+    copy.style.cssText = "display:block;margin-bottom:4px;padding:4px 8px;font:12px monospace;cursor:pointer";
+    copy.onclick = () => {
+      const text = `${stats ? `fps ${Math.round(stats.fps)} model ${stats.detectMs.toFixed(0)} ms\n` : ""}${dbgLog.join("\n")}\n--- now ---\n${dbgEl.textContent}`;
+      void navigator.clipboard.writeText(text).then(() => { copy.textContent = "Copied!"; setTimeout(() => (copy.textContent = "Copy debug log"), 1500); });
+    };
+    box.append(copy, dbgEl);
+    document.body.appendChild(box);
+  }
   const onFrame = (f: CameraFrame) => {
     const out = controller.update(f);
     const nextGrip = out.tracking ? out.grip : null;
@@ -234,6 +259,37 @@ export function createCameraInput(
       refreshChip();
     }
     capture?.(f);
+    if (DEBUG && !out.debug) dbgEl.textContent = "debug on: camera can't see your shoulders and racket wrist (stand back, show your arm)";
+    if (DEBUG && out.debug) {
+      dbgT0 ??= f.t;
+      if (out.grip !== dbgGrip) {
+        if (dbgGrip) dbgLog.push(`${stamp(f.t)} GRIP ${dbgGrip} -> ${out.grip} (smooth ${out.debug.reading.toFixed(2)})`);
+        dbgGrip = out.grip;
+      }
+    }
+    if (DEBUG && out.debug) {
+      // a motion that never became a swing: too slow to start (or a swing is under way)
+      if (out.peak !== null) motionMax = 0;
+      else if (out.debug.speed > 1.5) {
+        motionMax = Math.max(motionMax, out.debug.speed);
+        motionT = f.t;
+      } else if (motionMax > 0 && f.t - motionT > 400) {
+        dbgLog.push(`${stamp(f.t)} MOTION never started: fastest ${motionMax.toFixed(1)} (a swing starts at ${DEFAULT_SWING.start})`);
+        motionMax = 0;
+      }
+    }
+    if (DEBUG && out.debug && out.debug.lastSweep !== dbgLast) {
+      dbgLast = out.debug.lastSweep;
+      dbgLog.push(`${stamp(f.t)} smooth=${out.debug.reading.toFixed(2)} grip=${out.grip} | ${dbgLast}`);
+      if (dbgLog.length > 40) dbgLog.shift();
+    }
+    if (DEBUG && out.swing) {
+      dbgLog.push(`${stamp(f.t)} >>> SENT ${out.swing.kind} level ${out.swing.level} peak ${out.swing.peak.toFixed(1)}`);
+      if (dbgLog.length > 60) dbgLog.shift();
+    }
+    if (DEBUG && out.debug) {
+      dbgEl.textContent = `${stats ? `fps ${Math.round(stats.fps)}  model ${stats.detectMs.toFixed(0)} ms  ` : ""}speed ${out.debug.speed.toFixed(1)}\nfacing ${out.debug.facing === null ? "none" : out.debug.facing.toFixed(2)}  smooth ${out.debug.reading.toFixed(2)}  grip ${out.grip}\npeak ${out.peak?.toFixed(1) ?? "-"}  swinging ${out.swinging}\nlast sweep: ${out.debug.lastSweep}${out.swing ? `\nSWING ${out.swing.kind} L${out.swing.level} peak ${out.swing.peak.toFixed(1)}` : ""}`;
+    }
     onVisibility?.(bodyVisibility(f.landmarks, calib.hand));
     gripBadge.dataset.grip = nextGrip ?? "none";
     gripBadge.textContent = nextGrip ? nextGrip.toUpperCase() : "NO GRIP";

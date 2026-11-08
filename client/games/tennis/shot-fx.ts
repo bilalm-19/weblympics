@@ -1,4 +1,4 @@
-import { Color, InstancedMesh, Matrix4, Mesh, MeshBasicMaterial, Quaternion, RingGeometry, Scene, SphereGeometry, Vector3 } from "three";
+import { CircleGeometry, Color, InstancedMesh, Matrix4, Mesh, MeshBasicMaterial, Quaternion, RingGeometry, Scene, SphereGeometry, Vector3 } from "three";
 
 // Shot feedback drawn on the court: a fading trail behind the ball, a mark
 // where it lands, and the predicted arc of your next shot. All cheap: two
@@ -22,6 +22,12 @@ export interface Point3 {
   z: number;
 }
 
+/** Which stroke the ball needs at the meeting point, and whether the grip held is wrong for it. */
+export interface RingStance {
+  kind: "forehand" | "backhand";
+  wrong: boolean;
+}
+
 export interface ShotFx {
   /** Call every frame with the drawn ball position; `active` while the ball is in play. */
   trail(now: number, ball: Point3, active: boolean): number;
@@ -32,13 +38,13 @@ export interface ShotFx {
    * the ball; until you're within reach of that spot it is greyed out, and a
    * ring on your baseline shows where to go.
    */
-  arc(path: readonly Point3[] | null, good: boolean, reachable: boolean): number;
+  arc(path: readonly Point3[] | null, good: boolean, reachable: boolean, stance?: RingStance | null): number;
   /**
    * Only the "stand here" ring, for when the three timing arcs are showing
    * instead of the single arc: it marks where you'll meet the ball, and is
    * "ready" coloured once you are within reach of it. Null hides it.
    */
-  contact(at: { x: number; z: number } | null, reachable: boolean): void;
+  contact(at: { x: number; z: number } | null, reachable: boolean, stance?: RingStance | null): void;
   /** Fade the bounce marks; call every frame. */
   update(now: number): void;
 }
@@ -63,10 +69,24 @@ export function createShotFx(scene: Scene): ShotFx {
   arcMesh.count = 0;
   arcMesh.frustumCulled = false;
   const contactMat = new MeshBasicMaterial({ color: GO_HERE_COLOR, transparent: true, opacity: 0.9, depthWrite: false });
-  const contact = new Mesh(new RingGeometry(0.28, 0.42, 24), contactMat);
+  // the meeting ring: a clear ring with the stroke marked inside it, a solid
+  // dot for a forehand and a second ring for a backhand (red when your grip is
+  // wrong for the ball's side). The marks are children, so they follow it.
+  const contact = new Mesh(new RingGeometry(0.42, 0.62, 28), contactMat);
   contact.rotation.x = -Math.PI / 2;
   contact.visible = false;
+  const markMat = new MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.95, depthWrite: false });
+  const forehandMark = new Mesh(new CircleGeometry(0.2, 20), markMat);
+  const backhandMark = new Mesh(new RingGeometry(0.15, 0.27, 24), markMat);
+  forehandMark.visible = false;
+  backhandMark.visible = false;
+  contact.add(forehandMark, backhandMark);
   scene.add(contact);
+  const showStance = (stance: RingStance | null | undefined) => {
+    forehandMark.visible = stance?.kind === "forehand";
+    backhandMark.visible = stance?.kind === "backhand";
+    markMat.color.copy(stance?.wrong ? OUT_COLOR : IN_COLOR);
+  };
 
   const marks = Array.from({ length: 3 }, () => {
     const mesh = new Mesh(new RingGeometry(0.12, 0.3, 20), new MeshBasicMaterial({ color: 0xffffff, transparent: true, depthWrite: false }));
@@ -110,17 +130,18 @@ export function createShotFx(scene: Scene): ShotFx {
       mark.mesh.visible = true;
     },
 
-    contact(at, reachable) {
+    contact(at, reachable, stance) {
       if (!at) {
         contact.visible = false;
         return;
       }
+      showStance(stance);
       contact.visible = true;
       contact.position.set(at.x, 0.03, at.z);
       contactMat.color.copy(reachable ? READY_COLOR : GO_HERE_COLOR);
     },
 
-    arc(path, good, reachable) {
+    arc(path, good, reachable, stance) {
       if (!path || path.length < 2) {
         arcMesh.count = 0;
         contact.visible = false;
@@ -128,6 +149,7 @@ export function createShotFx(scene: Scene): ShotFx {
       }
       arcMat.color.copy(!reachable ? UNREACHABLE_COLOR : good ? IN_COLOR : OUT_COLOR);
       arcMat.opacity = reachable ? 0.85 : 0.45;
+      showStance(stance);
       contact.visible = true;
       contact.position.set(path[0].x, 0.03, path[0].z);
       contactMat.color.copy(reachable ? READY_COLOR : GO_HERE_COLOR);

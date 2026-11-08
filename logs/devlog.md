@@ -2096,3 +2096,10 @@ Merged `track-feel` (adaptive arm steps, easier jump, slower bot, ?debug recorde
 ## 2026-11-08 23:39 - milestone - task 36 merged on integrate-home
 
 Merged home-36 (home screen redesign) onto main's tennis-fixes. Checked: no conflict markers; CLAUDE.md keeps main's text (RiseMeter, swing from rest, aid off) and the new home-art/home-3d/home-3d-gate layout; every main devlog line is still present; tsc clean. On :8299: pnpm check 78 files, 1224 tests, exit 0. GPU e2e (home, home-layout, layout, friends, home-sound, webcam-default, accounts, look, leaderboard, 2 workers): 103 passed, 9 skipped, 2 failed (home.e2e.ts:19 desktop, tennis preview not found; home.e2e.ts:224 desktop, basketball clock slow), both passed alone headless on both viewports, so load flakes. Nothing needed fixing. Who: agent (Sonnet) merged.
+
+## 2026-11-09 01:37 - decision/bugfix - tennis camera feel (user: playtest, Claude built)
+- Camera swings: kept the committed task-25 detector and numbers (start 2.5, cooldown 300 ms, thresholds 5/9, server cooldown 250 ms). Tried a zone rule, minimum sweep sizes, lower start speeds and a two-slow-frames rule; the user judged them too lenient or worse, and reverted to the committed numbers (decided by user). Kept: recovery window 400 ms (was 800), grip lookback 60 ms (was 100), grip smoothing 0.5 (was 0.4) for switching strokes, "far more playable" (user).
+- Bug: the three trajectory arcs kept changing. Cause: they were drawn for the live peak strength, which climbs light/medium/hard mid-swing; now drawn for the last swing level (`aid.ts`), and the drawn grip holds through tracking dropouts (`view.ts`). No automated test for either (DOM and canvas code); checked by hand only.
+- Landing ring: bigger, with a dot (forehand) or ring (backhand) inside it from `stanceHint`, red when the grip is wrong. Checked by hand only.
+- Tennis `?debug` (camera panel): grip reading, wrist speed, each sweep, fps, a Copy button.
+- Not done: e2e (`pnpm e2e`) for the ring; `pnpm check` is green (78 files, 1224 tests).
