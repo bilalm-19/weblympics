@@ -1,47 +1,45 @@
 # Weblympics
 
-Weblympics - A webcam-controlled sports game, played against a bot or another person over the web!
-
-Currently: six events - TENNIS, BOWLING, ARCHERY, the TRACK sprint, BOXING and the BASKETBALL shootout
-
-The shape is built to hold more: a shared game registry, a server that owns the simulation, and a client that just renders whatever the server says. Every event after tennis came through it.
+An immersive webcam-controlled sports game, played against a bot or a friend over the web. Six events: tennis, bowling, archery, a track sprint, boxing and a basketball shootout.
 
 ## Inspiration
 
-As a kid, I grew up on Wii Sports and Kinect games, where your movement in the real world controlled your character in the game, giving a sense of 'life' and 'immersion' I have not seen much in games today.
+Weblympics is a homage to the Wii and Kinect sports games I grew up on in the 2010s. Those games needed extra hardware. Weblympics brings the same immersive play to a browser tab, on a device you already own with a camera, such as a tablet or laptop. The sports and their mechanics come from playing those games and watching others play them, adapted to a webcam.
 
-As a sort of pay homage to these forms of games, Weblympics uses webcams and pose tracking to allow this level of immersion in a browser tab!
+## What "good" means here
 
-## How it actually works
+What made the Wii and Kinect games fun was that they were casual and easy enough for any age to play, with little skill gap because the mechanics were simple, and no 'reward' was given for beign 'good'. Weblympics follows that, and is playable in tight spaces to make play more accomodating. Good here means a stranger can load the page and be playing with a friend within a minute, with no tutorial or account.
 
-Stand in front of your webcam. The game reads your body movement and turns them into events - sending these events (not the video) to the server as the action. The server holds the only copy of the match state. Each tick it steps one shared simulation with both players' inputs and broadcasts the result. The client borrows the same pure functions locally to preview a shot's arc, explain a miss, or draw the ball smoothly between updates, but it never decides a hit or a point: the next server snapshot always wins.
+- **One simple move per sport.** The move is the real one: swing, throw, run on the spot, jab, push. It is never a combination or a button chart.
+- **Easy to play, hard to dominate.** Webcam tracking is noisy and lag is real, so I cut precise controls and kept forgiving ones. Furthermore, games feel more enjoyable when both players feel on par (for example, longer tennis rallies)
+- **Features with a purpose.** Each exists to get friends playing together: invites, parties, spectating and easy rotation of players.
+- **Optional depth.** Training and practice modes are there for anyone who wants to improve, and nobody has to use them.
 
-The ball is a shared state - exactly one of it, living on the server, not sync copies that can drift apart.
+### What I left out, on purpose
 
-## When lag makes two screens disagree
+- **Ratings and a leaderboard.** This goes against the casual playstyle the game is made for, and was thus removed. Instead a basic stats count is available on the player's profile/
+- **Precise racket control.** A racket that copies your arm was unplayable with webcam noise and lag, so tennis has a plain forehand or backhand.
+- **Chat.** Others do it better. Friends can call each other on something established, and this site is where they play.
 
-Every player sees the ball slightly in the past, so an on-time swing can reach the server late. The rule: if the ball was hittable on your screen when you swung, it counts, checked against the server's own record, never your word. It looks back at most your measured lag (capped at 150 ms); a scored point stays scored. Your opponent pays: your return may leave late on their screen. At 150 ms, 100% of on-time swings hit, against 76% without. See [ADR 001](docs/adr/001-who-wins-under-lag.md).
+## Playing with friends
 
-## Playing together
-
-Invite link or room code only; no public room list. Two seats; up to 10 others watch, and a watch link never takes a seat. The host picks one set, best of three or unlimited (no winner); both press Ready, camera optional, then a 3 s countdown. A mid-match drop pauses for 30 s: rejoin to resume, or the room closes. Every finished match between two people is stored; there are no ratings or leaderboard ([details](docs/accounts.md)).
+Invite a friend by their short **Name#1234** tag, or share a **room code** that they type in, so nobody has to paste long links. Parties hold up to 10: the leader picks the game and who plays next, two sit and the rest watch. A room/game has two seats and up to 10 watchers. Friends show as online, away or offline, and you can hide.
 
 ## Controls
-Webcam is the default; "Use keyboard instead" plays on keys. Sound starts at your first tap; the speaker button mutes it. In tennis: by default the game walks you to the ball, slower than you can run, so a hard wide shot can still beat you. "Move: lean" under the camera preview lets you shift your shoulders instead. Pick one racket hand when you set up the camera; how you turn it decides the stroke: palm to the screen is a forehand, the back of your hand a backhand. "Train" teaches all this against a ball machine, entirely in your browser; its endless "Hit the spot" keeps a streak. Camera settings (calibration, hands, modes) follow a passkey account to any device; a guest's stay in the browser, and Reset puts them all back.
 
-In archery: hold an imaginary bow. Your front hand aims, pulling the other back sets strength, snapping it forward shoots. A dot shows the landing without wind; reading the wind is up to you.
+The webcam is the default, and "Use keyboard instead" is always available.
 
-In track: run on the spot (arms or knees), or alternate A and D. Only footsteps are sent; the server turns their rhythm into speed and ignores the same foot twice or faster-than-human steps. In hurdles, throw both arms up (or hop) or press Space to jump; the server decides if you cleared it.
+- **Tennis:** palm to the screen is a forehand, the back of your hand a backhand. The game walks you to the ball.
+- **Archery:** hold an imaginary bow. Your front hand aims, pulling the other back sets strength, and letting go shoots.
+- **Track:** run on the spot (arms or knees), or alternate A and D. Hurdles: throw both arms up, or press Space.
+- **Bowling:** pick the start spot and curve, then hold and let go. Keys are the arrows and Space.
+- **Boxing:** jab to the head or body, and defend with a high guard, a low guard or a lean.
+- **Basketball:** push up towards the hoop, and a bar shows your power against the green.
 
-In bowling: Left/Right pick the start spot, Up/Down the curve; hold Space (or Bowl) and let go. The server rolls ball and pins.
+## How it works, and what is enforced
 
-In boxing you jab to the head or body and defend with a high guard, a low guard or a slip. The server judges each jab when it lands, so defending in time still saves you.
+The server owns the ball/shared state and the score. Clients send only moves (a swing, step, punch or throw), never video, and render what the server says.
 
-In basketball, push up towards the hoop (or hold Space and let go); the server flies the ball, and a bar shows your power against the green.
+If the ball was hittable on your screen when you swung, it counts, checked against the server's own record. This is lag compensation, as in Counter-Strike ([Bernier, GDC 2001](https://www.semanticscholar.org/paper/Latency-Compensating-Methods-in-Client-Server-and-Bernier/330071040ca858ca710a24a03915366fcd46f021)), but capped at 150 ms. At a 150 ms round trip, 100% of on-time swings hit, against 76% without it ([ADR 001](docs/adr/001-who-wins-under-lag.md)). The opponent may see your return slightly late.
 
-Tennis movement uses your shoulders rather than stepping sideways, so you stay in frame and need little space.
-
-## Why is it 'good'
-
-Currently still working on making the user experience feel more clean. 'Good' here, is aiming to bring back the real-life immersive experience that Wii or Kinetic games used to have, in a simple, easy to run (in the browser) manner, so anyone can just join and play with their friends without hassle. 
-
+**Enforced by checks in `spec/`:** server-owned hits, the lag numbers, no video leaving the browser (the page's Content Security Policy, which only lets it connect to this server and the pose model's download hosts, checked by `privacy.test.ts`), logs without names or tokens, and room and friend rules. **Judged by people:** whether a move feels natural. I playtested each sport with peers and changed it until newcomers managed (see `PROCESS.md`).
