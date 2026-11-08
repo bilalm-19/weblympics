@@ -52,6 +52,8 @@ test("passkey: create an account, rename, sign out, sign in again, then delete",
   await dialog.getByLabel("Display name").fill(name);
   await dialog.getByRole("button", { name: "Save name" }).click();
   await expect(dialog.getByRole("status")).toHaveText(/name saved/i);
+  // task 34: the profile shows Name#1234
+  await expect(dialog.locator(".profile-tag")).toHaveText(new RegExp(`^${name}#\\d{4}$`));
   // a name the server refuses says why
   await dialog.getByLabel("Display name").fill("Bot");
   await dialog.getByRole("button", { name: "Save name" }).click();

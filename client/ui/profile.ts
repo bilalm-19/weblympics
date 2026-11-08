@@ -164,6 +164,7 @@ export function openProfile(hooks: ProfileHooks): void {
             <button type="submit" class="profile-btn" id="pf-save">Save name</button>
           </div>
           <p class="profile-hint" id="pf-name-hint">${NAME_MIN} to ${NAME_MAX} letters, digits, spaces or _ . ' -</p>
+          <p class="profile-hint">Friends add you as <strong class="profile-tag"></strong>. Others may share your name; the number tells you apart, and is kept when you rename if it's free.</p>
         </form>
         ${customise(draftLook ?? me.look ?? DEFAULT_LOOKS[0])}
         <h3>Passkeys</h3>
@@ -187,6 +188,8 @@ export function openProfile(hooks: ProfileHooks): void {
       `;
       const input = body.querySelector<HTMLInputElement>("#pf-name")!;
       input.value = me.name;
+      // task 34: Name#1234, shown only here, in the friends list and in requests
+      body.querySelector<HTMLElement>(".profile-tag")!.textContent = `${me.name}#${me.tag ?? "????"}`;
       const hint = body.querySelector<HTMLElement>("#pf-name-hint")!;
       input.addEventListener("input", () => {
         // a pre-check only; the server decides

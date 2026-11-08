@@ -85,9 +85,22 @@ lazily and only when a player enters a game. Video never leaves the browser.
   ceremonies), `guard.ts` (cookies, Origin check, challenges, rate limits),
   `names.ts` (pseudonyms and the chosen-name rules; shape shared in
   `shared/names.ts`).
+  Task 34: `friends.ts` (pure over a db handle: Name#1234 lookup, requests,
+  accept, decline, remove, friend links), `party.ts` (pure party rules:
+  members, leader, modes, who plays next), `social.ts` (live status from
+  open sockets, pushing friends lists and parties, party rooms; over
+  injected deps for `spec/party-social.test.ts`); the tag helpers
+  (`freeTag`, `findByTag`, `showTag`) are in `accounts.ts`.
   Rooms get their sim from the registry, so networking is game-agnostic.
 - `client/` `ui/spectate.ts` + `.css` (task 24: "Copy watch link" and the
-  watcher's badge, added to every game's HUD); Vite app: `games/<name>/view.ts` (scene, HUD, input wiring),
+  watcher's badge, added to every game's HUD); task 34: `ui/social-state.ts`
+  (the page's copy of the pushed friends list and party), `ui/friends.ts` +
+  `.css` (the Friends button beside the profile button and its panel, after
+  `client/mock-home.html`; the sheet style both panels share),
+  `ui/party.ts` + `.css` (the party panel, the compact strip in a game's
+  HUD, a friend's invite pop-up), `ui/dom.ts` (a text-safe element builder
+  and the shared sheet dialog); `main.ts` mounts them, `ui/menu.ts` is
+  untouched; Vite app: `games/<name>/view.ts` (scene, HUD, input wiring),
   `games/tennis/score-bar.ts` (top score bar), task 16's point call:
   `point-call.ts` (pure: the call in tennis words, who won, how big, who
   reacts; task 19's crowd and sound should reuse it), `call-banner.ts` + `.css`
@@ -226,9 +239,15 @@ lazily and only when a player enters a game. Video never leaves the browser.
   account. A guest keeps a server-made pseudonym, can't rename and is never
   rated or on a leaderboard. A passkey (`@simplewebauthn`, never hand-rolled)
   claims the guest, keeping its history; an account may choose a name: 3 to
-  16 ASCII letters, digits, spaces or `_ . ' -`, unique ignoring case, not
-  reserved (Bot, Admin, the server's pseudonym shape) and passing `obscenity`,
-  all checked on the server. Every POST and the WebSocket check Origin;
+  16 ASCII letters, digits, spaces or `_ . ' -`, not reserved (Bot, Admin,
+  the server's pseudonym shape) and passing `obscenity`, all checked on the
+  server. Task 34: every account also has a random 4-digit tag (`Sam#4821`);
+  several accounts may share a name, but name (ignoring case) and tag
+  together are unique (a unique index); all 10,000 tags taken says "pick
+  another name"; a rename keeps the tag if it is free under the new name;
+  the demo accounts are `Demo One#0001` and `Demo Two#0002`. The tag shows
+  only in the friends list, the profile and requests; games, the score bar
+  and the leaderboard show just the name. Every POST and the WebSocket check Origin;
   challenges are single use and expire in 2 minutes; ceremonies are rate
   limited; no cookie, challenge or credential is logged. Deleting needs a
   fresh passkey check and removes passkeys, sessions, name, look and ratings;
@@ -236,6 +255,33 @@ lazily and only when a player enters a game. Video never leaves the browser.
   demo accounts are locked (no rename, delete or passkey), hidden from the
   board, and reached only from the closed "Dev tools" in the home screen's
   profile panel.
+- Friends, status and parties (task 34, `tasks/34-friends-parties.md`;
+  `spec/friends-*.test.ts`, `spec/party-*.test.ts`, `e2e/friends-*.e2e.ts`):
+  accounts only (a guest is told why: no lasting identity). Add by the exact
+  Name#1234 (no search, no partial matches) or a friend link (random code,
+  single use, a day, only its hash stored); the other accepts or declines;
+  decline and remove are silent. `/api/friends/*` POSTs check Origin and are
+  rate limited. Everything is stored by the hidden player id; no id ever
+  reaches a page. Status is worked out live from open sockets, never
+  stored past the session: no tab is offline, every tab idle (hidden or no
+  input for 5 minutes) is away, else online; a player may appear away or
+  appear offline (remembered in that browser, sent with `hello`). Only
+  friends see it, with what they're doing (a room's code to watch, a public
+  party to join, practice, the home screen; nothing when offline). Requests,
+  status, invites and party changes are pushed on the page's one socket
+  (`friends`, `party`, `invited`, `notice`), sent whole on every
+  (re)connect; no polling. Clients send only `status`, `idle`, `invite`
+  {to: Name#1234, friends only} and `party` {act ...}; any extra field drops
+  the message whole. Parties (memory only): up to 10 (`MAX_PARTY`, the
+  watcher limit), a leader (passes to the longest-standing member), invite
+  only by default or public (listed only to the leader's friends), the
+  leader's game and who plays next: "pick", "winner" (stays on, loser to the
+  back), "swap" (both to the back), "random" (not the pair who just played,
+  with four or more). The leader starts a match: a fresh room for the game,
+  the next two sit (the room's own ready rules), the rest join as spectators;
+  a finished match rotates the order. A member whose last tab closes keeps
+  their place for 30 s. No chat of any kind (user, 2026-11-08). Logs carry
+  only `who` hashes, never a name, tag, code or token.
 - Looks (task 18; `spec/look.test.ts`, `e2e/look.e2e.ts`): an account's look
   is five enum values from `shared/look.ts`, checked on the server (anything
   outside the lists, or any extra field, is refused and nothing is stored).
