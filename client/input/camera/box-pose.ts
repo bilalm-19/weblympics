@@ -344,6 +344,14 @@ export interface TrialConfig {
   minGapMs: number;
   /** How fast a hand's resting size follows (per frame), when it isn't punching. */
   restFollow: number;
+  /**
+   * A hand that stays steady between `jabRearm` and `jabGrow` times its rest
+   * this long (ms) after a punch has settled somewhere else (guard to
+   * relaxed): that is its rest now. Without it the hand never gets back
+   * inside `jabRearm`, and no later jab is read (playtest 5). A hold time, not
+   * a camera threshold; a jab is out far above `jabGrow`, so it never counts.
+   */
+  restSettleMs: number;
 }
 
 export const TRIAL_BOX: TrialConfig = {
@@ -360,6 +368,7 @@ export const TRIAL_BOX: TrialConfig = {
   guardFrames: 3,
   minGapMs: 250,
   restFollow: 0.05,
+  restSettleMs: 600,
 };
 
 export interface TrialPunch {
@@ -385,6 +394,8 @@ export class TrialDetector {
   private rest: Record<BoxHand, number | null> = { left: null, right: null };
   private armed: Record<BoxHand, boolean> = { left: true, right: true };
   private last: Record<BoxHand, number> = { left: -Infinity, right: -Infinity };
+  /** Since when each unarmed hand has sat between jabRearm and jabGrow of its rest. */
+  private band: Record<BoxHand, number | null> = { left: null, right: null };
   private pending: { guard: BoxGuard; frames: number } = { guard: null, frames: 0 };
   guard: BoxGuard = null;
   private cfg: TrialConfig;
@@ -409,6 +420,15 @@ export class TrialDetector {
         const inJab = ratio === null || ratio <= c.jabRearm;
         const inHook = arm === null || arm.reach <= c.hookRearm;
         if (inJab && inHook && t - this.last[hand] >= c.minGapMs) this.armed[hand] = true;
+        else if (h && rest && ratio !== null && ratio > c.jabRearm && ratio < c.jabGrow && inHook) {
+          // steady a little above the rest: the rest moved (playtest 5), so take it
+          this.band[hand] ??= t;
+          if (t - (this.band[hand] as number) >= c.restSettleMs && t - this.last[hand] >= c.minGapMs) {
+            this.rest[hand] = h.size;
+            this.armed[hand] = true;
+          }
+        } else this.band[hand] = null;
+        if (this.armed[hand]) this.band[hand] = null;
       } else if (punch === null) {
         if (h && ratio !== null && ratio >= c.jabGrow) punch = { kind: "jab", hand, target: h.height >= c.headAt ? "head" : "body", t };
         else if (c.hooks && out && arm) punch = { kind: "hook", hand, target: -arm.down >= c.hookHeadAt ? "head" : "body", t };
@@ -445,6 +465,7 @@ export class TrialDetector {
     this.rest = { left: null, right: null };
     this.armed = { left: true, right: true };
     this.last = { left: -Infinity, right: -Infinity };
+    this.band = { left: null, right: null };
     this.pending = { guard: null, frames: 0 };
     this.guard = null;
   }
