@@ -64,14 +64,27 @@ describe("track: cadence to speed", () => {
     const fast = createState(1);
     toGun(slow);
     toGun(fast);
-    runAt(slow, { 0: 4 }, 300);
-    runAt(fast, { 0: 7 }, 300);
+    // both below FULL_CADENCE, so the faster one is faster (4 and 7 until FULL_CADENCE went to 4)
+    runAt(slow, { 0: 2.5 }, 300);
+    runAt(fast, { 0: 3.5 }, 300);
     expect(fast.lanes[0].speed).toBeGreaterThan(slow.lanes[0].speed);
     expect(fast.lanes[0].distance).toBeGreaterThan(slow.lanes[0].distance);
-    expect(slow.lanes[0].cadence).toBeGreaterThan(3);
-    expect(slow.lanes[0].cadence).toBeLessThan(5);
-    expect(fast.lanes[0].cadence).toBeGreaterThan(6);
-    expect(fast.lanes[0].cadence).toBeLessThan(8);
+    // the smoothed cadence swings between steps, more at a low cadence
+    expect(slow.lanes[0].cadence).toBeGreaterThan(1.5);
+    expect(slow.lanes[0].cadence).toBeLessThan(3.5);
+    expect(fast.lanes[0].cadence).toBeGreaterThan(2.5);
+    expect(fast.lanes[0].cadence).toBeLessThan(4.5);
+  });
+
+  // Playtest 2026-11-08: "too many pumps for speed" (6 a second for top speed, 8 before that)
+  it("top speed takes about 4 steps a second; the 10-a-second cap is unchanged", () => {
+    expect(FULL_CADENCE).toBeGreaterThanOrEqual(3.5);
+    expect(FULL_CADENCE).toBeLessThanOrEqual(4.5);
+    expect(MAX_CADENCE).toBe(10);
+    const s = createState(1);
+    toGun(s);
+    runAt(s, { 0: 4.5 }, 300);
+    expect(s.lanes[0].speed).toBeGreaterThan(MAX_SPEED * 0.95);
   });
 
   it("stopping decays cadence and speed to nothing", () => {
@@ -241,6 +254,28 @@ describe("track: determinism and the bot", () => {
     const expected = LANE_LENGTH / speedFor(BOT_CADENCE);
     expect(t).toBeGreaterThan(expected * 0.9);
     expect(t).toBeLessThan(expected * 1.4);
+  });
+
+  // User, 2026-11-08: the bot was "way too fast". A person pumping a steady 4
+  // a second (top speed) beats it every race, with room; 3.5 a second still
+  // beats it; and it isn't absurdly slow (a pacer, not a walker).
+  it("a person stepping steadily at FULL_CADENCE beats the bot clearly; the bot still runs a race", () => {
+    const personTime = (cadence: number, seed: number) => {
+      const s = createState(seed);
+      toGun(s);
+      runAt(s, { 0: cadence }, 60 * 30, { until: () => s.lanes[0].finish !== null });
+      return s.lanes[0].finish!;
+    };
+    for (let seed = 1; seed <= 20; seed++) {
+      const s = createState(seed);
+      toGun(s);
+      for (let i = 0; i < 60 * 30 && s.lanes[1].finish === null; i++) step(s, botInputs(s, 1));
+      const bot = s.lanes[1].finish!;
+      const full = personTime(FULL_CADENCE, seed);
+      expect(bot, `seed ${seed}`).toBeGreaterThan(full * 1.15);
+      expect(bot, `seed ${seed}`).toBeGreaterThan(personTime(3.5, seed));
+      expect(bot, `seed ${seed}`).toBeLessThan(20);
+    }
   });
 
   it("is registered with its formats, race by default; practice vs the bot is never rated", () => {

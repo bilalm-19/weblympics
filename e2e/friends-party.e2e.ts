@@ -2,6 +2,7 @@ import { expect, test } from "@playwright/test";
 import type { Page } from "@playwright/test";
 import { befriend, person } from "./friends-flow.ts";
 import type { Person } from "./friends-flow.ts";
+import { useKeyboard } from "./flow.ts";
 
 // Task 34 at both viewports: a party plays and rotates. Three friends in a
 // party; the leader picks track and "winner stays on" and starts: the first
@@ -84,7 +85,8 @@ test("a party of three plays track: two race, one watches; the winner stays on a
   }
   await expect(ana.page.locator(".party-strip")).toBeVisible();
 
-  // both ready, then Ben runs and Ana doesn't: Ben wins
+  // both ready (past the camera setup a seated player gets first, task 15), then Ben runs and Ana doesn't: Ben wins
+  for (const p of [ana, ben]) await useKeyboard(p.page);
   for (const p of [ana, ben]) await p.page.getByRole("button", { name: "I'm ready" }).click();
   await expect(ben.page.locator(".track canvas")).toHaveAttribute("data-phase", "running", { timeout: 15_000 });
   await ben.page.locator(".track canvas").click({ position: { x: 5, y: 5 } }).catch(() => {});
@@ -96,8 +98,10 @@ test("a party of three plays track: two race, one watches; the winner stays on a
   // the leader starts the next match: Ben and Cyd sit, Ana watches
   await partyPanel(ana.page).getByRole("button", { name: "Start the next match" }).click();
   await expect(ana.page.locator(".watch-badge")).toBeVisible({ timeout: 10_000 });
-  await expect(cyd.page.getByRole("button", { name: "I'm ready" })).toBeVisible();
-  await expect(ben.page.getByRole("button", { name: "I'm ready" })).toBeVisible();
+  for (const p of [cyd, ben]) {
+    await useKeyboard(p.page);
+    await expect(p.page.getByRole("button", { name: "I'm ready" })).toBeVisible();
+  }
   for (const p of [ana, ben, cyd]) await p.page.context().close();
 });
 
@@ -111,6 +115,7 @@ test("from a room, Invite friends sends that room; Join seats the friend", async
   await ana.page.getByRole("button", { name: /Track/ }).click();
   await ana.page.getByRole("button", { name: /create a room/i }).click();
   await expect(ana.page).toHaveURL(/#\/room\/[A-Z]{4}$/);
+  await useKeyboard(ana.page);
   const code = ana.page.url().slice(-4);
   await inView(ana.page, ".party-strip");
   await ana.page.locator(".party-strip").getByRole("button", { name: "Invite friends" }).click();
@@ -119,6 +124,7 @@ test("from a room, Invite friends sends that room; Join seats the friend", async
   await expect(toast).toContainText(`${ana.name} invites you to Track. Join?`);
   await toast.getByRole("button", { name: "Join" }).click();
   await expect(ben.page).toHaveURL(new RegExp(`#/room/${code}$`));
+  await useKeyboard(ben.page);
   await expect(ben.page.getByRole("button", { name: "I'm ready" })).toBeVisible();
   for (const p of [ana, ben]) await p.page.context().close();
 });

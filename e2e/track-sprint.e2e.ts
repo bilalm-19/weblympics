@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import type { Locator, Page } from "@playwright/test";
+import { useKeyboard } from "./flow.ts";
 
 // Task 26: the track sprint at both viewports. Keys and the two tap buttons
 // stand in for running on the spot, as every camera action has one; the
@@ -66,6 +67,7 @@ test("practice: alternate A and D to run, in the page, nothing sent to the serve
   page.on("websocket", (ws) => ws.on("framesent", (f) => frames.push(String(f.payload))));
   await openTrack(page);
   await page.getByRole("button", { name: "Practice", exact: true }).click();
+  await useKeyboard(page);
   // task 38: practice opens on Just me (one lane); vs Bot brings the pacer back
   await expect(page.locator(".tr-board")).toContainText("Just me · Sprint · 100 m");
   await expect(page.locator(".tr-row")).toHaveCount(1);
@@ -79,16 +81,20 @@ test("practice: alternate A and D to run, in the page, nothing sent to the serve
   await runKeys(page, 1500);
   await expect.poll(() => distance(page, 0)).toBeGreaterThan(2);
 
-  // the same key over and over doesn't run
+  // the same key over and over doesn't run: coast to a stop first (since
+  // FULL_CADENCE 4 these keys reach top speed, so the coast is longer), then mash
+  await expect.poll(async () => {
+    const d = await distance(page, 0);
+    await page.waitForTimeout(300);
+    return (await distance(page, 0)) - d;
+  }, { timeout: 10_000 }).toBe(0);
   const before = await distance(page, 0);
-  await page.waitForTimeout(1500);
   for (let i = 0; i < 10; i++) {
     await page.keyboard.press("KeyA");
     await page.waitForTimeout(100);
   }
-  const mashed = (await distance(page, 0)) - before;
-  // coasting to a stop from a jog covers a little; mashing one key adds nothing to that
-  expect(mashed).toBeLessThan(8);
+  // one step from a standstill moves the runner a little; the other nine add nothing
+  expect((await distance(page, 0)) - before).toBeLessThan(1);
   expect(Number(await canvas(page).getAttribute("data-steps0"))).toBeLessThanOrEqual(13);
 
   expect(frames.slice(sent).map((f) => JSON.parse(f).t).filter((t) => t !== "pong"), "practice sends nothing").toEqual([]);
@@ -99,6 +105,7 @@ test("practice: alternate A and D to run, in the page, nothing sent to the serve
 test("the two tap buttons run too", async ({ page }) => {
   await openTrack(page);
   await page.getByRole("button", { name: "Practice", exact: true }).click();
+  await useKeyboard(page);
   await waitForGun(page);
   const left = page.getByRole("button", { name: /Left foot/ });
   const right = page.getByRole("button", { name: /Right foot/ });
@@ -120,6 +127,7 @@ test("vs the bot: the server runs both lanes from the steps it is sent", async (
   page.on("websocket", (ws) => ws.on("framesent", (f) => sent.push(String(f.payload))));
   await openTrack(page);
   await page.getByRole("button", { name: "Play vs bot" }).click();
+  await useKeyboard(page);
   await expect(page.locator(".tr-board")).toContainText("Sprint · 100 m");
   await waitForGun(page);
   await laidOut(page, [".hud .tr-board", ".hud button:visible", ".controls"]);
@@ -135,6 +143,7 @@ test("vs the bot: the server runs both lanes from the steps it is sent", async (
 test("a room offers track's own formats", async ({ page }) => {
   await openTrack(page);
   await page.getByRole("button", { name: "Create a room" }).click();
+  await useKeyboard(page);
   const panel = page.locator(".ready-panel");
   await expect(panel).toBeVisible();
   await expect(panel.locator("[data-format]")).toHaveText(["Race", "Unlimited"]);
@@ -147,7 +156,7 @@ test("camera: both run modes can be picked, the fake webcam starts, and keys sti
   test.setTimeout(120_000);
   await openTrack(page);
   await page.getByRole("button", { name: "Practice", exact: true }).click();
-  await page.getByRole("button", { name: "Camera", exact: true }).click();
+  // the setup opens by itself (task 15)
   const panel = page.getByRole("dialog", { name: /camera setup/i });
   await expect(panel.getByRole("heading", { name: /run with your camera/i })).toBeVisible();
   await insideViewport(page, panel);
@@ -173,4 +182,45 @@ test("camera: both run modes can be picked, the fake webcam starts, and keys sti
   await waitForGun(page, 30_000);
   await runKeys(page, 2000);
   await expect.poll(() => distance(page, 0), { timeout: 20_000 }).toBeGreaterThan(0.5);
+});
+
+// Task 15 for track (user, 2026-11-08): a seated player's track game opens the
+// camera setup first, as every other game does; practice holds the race (the
+// pacer doesn't run off) until the setup is finished or skipped.
+test("practice opens the camera setup first, holds the race, and Use keyboard instead gives a playable race", async ({ page }) => {
+  await openTrack(page);
+  await page.getByRole("button", { name: "Practice", exact: true }).click();
+  const panel = page.getByRole("dialog", { name: /camera setup/i });
+  await expect(panel.getByRole("heading", { name: /run with your camera/i })).toBeVisible();
+  const keyboard = panel.getByRole("button", { name: /use keyboard instead/i });
+  await insideViewport(page, panel);
+  await insideViewport(page, keyboard);
+  expect(await noHorizontalScroll(page)).toBe(true);
+  // held at "set": the gun never goes and the pacer stays on the line
+  await expect.poll(async () => Number(await canvas(page).getAttribute("data-frames"))).toBeGreaterThan(5);
+  await page.waitForTimeout(3000);
+  await expect(canvas(page)).toHaveAttribute("data-phase", "set");
+  expect(await distance(page, 1)).toBe(0);
+
+  await keyboard.click();
+  await expect(panel).toBeHidden();
+  await waitForGun(page);
+  await runKeys(page, 1500);
+  await expect.poll(() => distance(page, 0)).toBeGreaterThan(2);
+  // the camera is still one button away; Escape is the keyboard way out too
+  await page.getByRole("button", { name: "Camera", exact: true }).click();
+  await expect(panel.getByRole("heading", { name: /run with your camera/i })).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(panel).toBeHidden();
+});
+
+test("a room opens the camera setup first for a player, over the ready panel", async ({ page }) => {
+  await openTrack(page);
+  await page.getByRole("button", { name: "Create a room" }).click();
+  const panel = page.getByRole("dialog", { name: /camera setup/i });
+  await expect(panel.getByRole("heading", { name: /run with your camera/i })).toBeVisible();
+  await insideViewport(page, panel.getByRole("button", { name: /use keyboard instead/i }));
+  await expect(page.getByRole("button", { name: "I'm ready" })).toBeHidden();
+  await useKeyboard(page);
+  await expect(page.getByRole("button", { name: "I'm ready" })).toBeVisible();
 });

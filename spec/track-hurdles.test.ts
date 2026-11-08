@@ -16,6 +16,7 @@ import {
   createState,
   obstaclesFor,
   snapshot,
+  speedFor,
   step,
   takeJump,
 } from "../shared/games/track/sim.ts";
@@ -264,7 +265,7 @@ describe("hurdles: determinism, the bot, the message", () => {
     expect(cleared / (cleared + hit)).toBeGreaterThan(0.6);
     expect(hit).toBeGreaterThan(5);
     // its sprint is about 100 m at BOT_CADENCE; hurdles cost it a few seconds
-    const sprintPace = 100 / ((10 * BOT_CADENCE) / 6);
+    const sprintPace = 100 / speedFor(BOT_CADENCE);
     for (const t of times) expect(t).toBeGreaterThan(sprintPace);
   });
 

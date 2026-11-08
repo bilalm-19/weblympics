@@ -165,3 +165,14 @@
   right: 0;
   background: #4ade80;
 }
+
+/* the camera setup opens first (task 15): it sits above the ready panel and
+   the buttons, which step aside while it is open, as basketball's do */
+.track .camera-panel {
+  z-index: 5;
+}
+
+.track:has(.camera-panel:not([hidden])) .ready-panel,
+.track:has(.camera-panel:not([hidden])) .controls {
+  visibility: hidden;
+}

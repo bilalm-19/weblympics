@@ -21,8 +21,12 @@ export const TICK_MS = 1000 / 60;
 export const LANE_LENGTH = 100;
 /** Top speed, m/s, reached at FULL_CADENCE. */
 export const MAX_SPEED = 10;
-/** Steps a second that give top speed; faster doesn't help. */
-export const FULL_CADENCE = 6;
+/**
+ * Steps a second that give top speed; faster doesn't help. 8 then 6 were too
+ * many pumps for the arms (playtests 2026-11-05 and 2026-11-08); 4 is a
+ * GUESS until the recordings (docs/camera-playtest.md, "Track's and hurdles' moves").
+ */
+export const FULL_CADENCE = 4;
 /** The human cap: steps a second the server will count, at most. */
 export const MAX_CADENCE = 10;
 /** A step's own timestamp must be at least this long after the last counted one. */
