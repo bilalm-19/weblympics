@@ -1,10 +1,37 @@
 # 25 Swing feel: live swing level, calibration profile, settings panel
 
-Status: discussed with the user (2026-10-21), not built. The user asked for no
-implementation yet; this file records the decisions and the original defaults.
+Status: round 3 decided (2026-11-08): fix the double-counted swing, settings on the account, quick calibration for basketball and bowling; building. Earlier: discussed with the user (2026-10-21).
 Model: Opus (design and profile storage), Sonnet for the panel
 Session: later; needs accounts (17) for profile storage and waits on the camera
 panel changes in task 15 (session B)
+
+## Decided, round 3 (user, 2026-11-08): basketball and bowling calibrate too
+- Both read power from how fast you move (basketball's push, bowling's
+  swing), against fixed guessed numbers, so a small or slow mover, a long
+  arm or a seat close to the camera can make every shot too soft or too
+  hard. Each gets one quick, optional step in its camera setup and in its
+  settings: "push soft, then push hard" / "roll soft, then roll hard",
+  which maps the player's own range onto the power bar (`power0`/`power1`
+  in `shoot-pose.ts`, `speed0`/`speed1` in `bowl-pose.ts`), with a sanity
+  check like `thresholdsFrom` (too close together falls back to the
+  defaults and says so). Never blocks a room; saved with the other settings.
+- Track (stand-still), boxing (learns its centre and resting hand size) and
+  archery (nothing speed-based) keep what they have.
+- Bowling's part waits until bowling is on main (`integrate-rest`).
+
+## Decided, round 2 (user, 2026-11-08): calibration fix and settings on the account
+- **Fix first: calibration reads one swing as two.** It "very easily" counts
+  a single swing twice. Find the cause (likely the wind-up and the forward
+  swing, or the return, each crossing the speed threshold, as the parked
+  "swing double-count" note describes), fix it with a test that fails
+  without it (a recorded or synthetic single swing must count once), in
+  calibration and in play.
+- **Save every camera setting to the account** (the swing calibration, the
+  racket hand, the movement mode, archery's bow hand, track's camera mode,
+  and any later game's), loaded on sign-in and on any device; guests keep
+  them in the browser as today. Validated and clamped on the server, a new
+  schema step with its old-database test. Reset to default.
+- Nothing waits until after the deadline (user, 2026-11-08).
 
 ## Decided (user, 2026-10-21)
 - **First: show the swing level live.** A bar of peak swing speed with the two

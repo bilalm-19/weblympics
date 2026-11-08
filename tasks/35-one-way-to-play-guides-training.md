@@ -9,9 +9,7 @@ Waits on: basketball and bowling merged; 31 (track and archery looks) and 33 (cu
    the classic swing) and "Aim by pointing" (keep aim by timing). Movement
    keeps "auto" as the default and leaning as the one optional mode.
    (This picks up part of the parked "fewer options" idea now.)
-2. **Both players use the same input.** In a room, both players are on the
-   camera or both on the keyboard; the ready-up waits until they match.
-   Practice vs the bot, training and spectators are unaffected.
+2. **Same input** (replaced by round 2's room option below).
 3. **A guide for every sport,** easy to pull up at the side: the controls
    in a minimal UI, with an outline figure doing each action (tennis: the
    forehand and backhand swings) and the body parts the camera looks for
@@ -21,7 +19,33 @@ Waits on: basketball and bowling merged; 31 (track and archery looks) and 33 (cu
    Archery, track, boxing, basketball and bowling each get one; their
    existing practice vs the bot stays.
 
-## Design (Claude's proposal)
+## Decided, round 2 (user, 2026-11-08)
+- **Input rule is a room option, not a fixed rule:** "Camera vs camera",
+  "Keyboard vs keyboard" or "Any". The host (in a party, the party leader)
+  picks it before play, like the format; a change clears both ready flags.
+  If a seat's input doesn't match the option, its Ready is blocked, with the
+  reason on the ready panel ("This room is camera only: turn your camera
+  on"). "Any" lets keys meet camera. Practice vs bot, training and
+  spectators are unaffected. (The server can't prove which input someone
+  uses; the rule is for honest players, stated as such.)
+- **Guide:** as proposed (a "?" button, side panel on desktop, bottom sheet
+  on a phone, outline figure looping each move with the tracked points lit,
+  the key equivalent, pauses practice and training, not a live match), and
+  **the same figure and motions appear in each training step**.
+- **Training steps per sport:** as proposed (archery: aim, draw, release,
+  read the wind; track: run, speed up, finish; boxing: head jab, body jab,
+  high guard, low guard, lean; basketball: ready, aim, soft / right / hard;
+  bowling: aim, swing, curve), plus **track's jump** once hurdles (task 27)
+  is in.
+- **Where training starts:** as tennis does now: the Train button on the
+  home screen for every sport, and practice offering "Train first / Skip"
+  once per device after the camera setup.
+- **Track's jump** (for task 27, hurdles): elbows mode: both arms up at
+  the same time is a jump; knees mode: jumping on the spot is a jump. Keys
+  and a button too.
+- **Calibration and saved settings** go to task 25 (below there).
+
+## Design (Claude's proposal, superseded where round 2 says)
 - **Same input (2):** each seat's input ("camera" or "keys") is part of the
   lobby state, set by the client when the camera turns on or off, shown on
   the ready panel ("Both on camera" / "Sam is on keys, you're on camera").
