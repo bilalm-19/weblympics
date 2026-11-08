@@ -1989,3 +1989,10 @@ the format of the entries below (see CLAUDE.md, Docs).
 - Outcome: `pnpm check` 1029/1029 (66 files; new `spec/audio.test.ts` and `spec/crowd-reactions.test.ts`, 46 tests). New e2e `e2e/*-sound.e2e.ts` (six games plus the home screen) 14/14 at both viewports; tennis's HUD and banner e2e (call-banner, layout, camera with the trail, score-bar, stroke) 54/54 headless.
 - Open: every sound and the music are synthesised first guesses, to judge by ear. The trail e2e checks the trail draws, not a measured frame rate.
 - Who: user (decisions, 2026-11-08), agent (build, numbers).
+
+## 2026-11-08 21:00 · milestone · Crowd and sound (task 19) on main
+- What: the sound agent finished (a gesture-gated `client/audio/` module, each game's sounds as a pure function of two snapshots, one crowd panned by side with aww and groans, a ring crowd for boxing and onlookers for archery and bowling, the home jazz loop, a sound button in every HUD and by the profile; 1029 specs and its e2e green; nothing heard by anyone yet). Claude merged it on integrate-sound: main.ts mounts Friends (task 34) then the sound button; entering a room clears the party strip then stops the music; README and CLAUDE.md combined.
+- Bug (merge): on a phone the home header then had three buttons and the sound button sat over the logo (`e2e/friends-panel.e2e.ts` expectClearOfLogo failed at mobile, twice). Fix: on a phone the home sound button floats in the bottom-right corner, its panel opening above; desktop unchanged. The failing test is the test; it passes now.
+- Flake: `e2e/home.e2e.ts` "arrow keys move between sports" failed twice on desktop inside a GPU batch while other agents' headed windows were open; it passes alone 3/3 headless, 1/1 GPU and 8/8 by hand. Likely a headed window losing focus (the test uses .focus()); to watch in the final full run.
+- Checks: `pnpm check` 1133/1133; e2e home, friends, camera, webcam-default and every game's new sound file 83 + re-runs green. Main moved. Not pushed. The user should listen: does the crowd sound like people, is your side on the left, is the jazz quiet enough.
+- Who: agent (sound), Claude (merge, fix).
