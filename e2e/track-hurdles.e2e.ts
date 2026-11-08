@@ -149,7 +149,7 @@ test("a room: the host picks the event in the ready panel", async ({ page }) => 
   expect(await noHorizontalScroll(page)).toBe(true);
 });
 
-test("camera: the setup explains the jump for each mode, the fake webcam starts, and Space still jumps", async ({ page }) => {
+test("camera: the setup explains the jump, the fake webcam starts, and Space still jumps", async ({ page }) => {
   test.setTimeout(120_000);
   await hurdlesPractice(page);
   await page.getByRole("button", { name: "Camera", exact: true }).click();
@@ -157,9 +157,8 @@ test("camera: the setup explains the jump for each mode, the fake webcam starts,
   await expect(panel.getByRole("heading", { name: /run with your camera/i })).toBeVisible();
   await insideViewport(page, panel);
   await expect(panel.locator(".tr-jump-how")).toHaveText(/both hands together/i);
-  await panel.getByRole("button", { name: /lift your knees/i }).click();
-  await expect(panel.locator(".tr-jump-how")).toHaveText(/jump on the spot/i);
-  await panel.getByRole("button", { name: /pump your arms/i }).click();
+  // the knees mode is not offered (user, 2026-11-09): only the arms
+  await expect(panel.getByRole("button", { name: /lift your knees/i })).toHaveCount(0);
   await panel.getByRole("button", { name: /start camera/i }).click();
 
   const video = page.locator("video.selfview");

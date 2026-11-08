@@ -83,7 +83,7 @@ export function startTennis(root: HTMLElement, conn: GameLink, info: RoomInfo, o
     <canvas aria-label="Tennis court"></canvas>
     <div class="hud">
       <div class="score"></div>
-      <div>
+      <div class="hud-tools">
         <span class="muted code"></span>
         <span class="tracking" role="status" hidden></span>
         <button data-action="camera" hidden>Camera</button>

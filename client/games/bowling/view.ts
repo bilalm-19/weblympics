@@ -62,7 +62,7 @@ export function startBowling(root: HTMLElement, conn: GameLink, info: RoomInfo, 
           <tr data-seat="1"></tr>
         </tbody></table>
       </div>
-      <div>
+      <div class="hud-tools">
         <span class="muted code"></span>
         <span class="tracking" role="status" hidden></span>
         <button data-action="camera" hidden>Camera</button>

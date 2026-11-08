@@ -152,7 +152,7 @@ test("a room offers track's own formats", async ({ page }) => {
   expect(await noHorizontalScroll(page)).toBe(true);
 });
 
-test("camera: both run modes can be picked, the fake webcam starts, and keys still run", async ({ page }) => {
+test("camera: the setup offers arm pumps only, the fake webcam starts, and keys still run", async ({ page }) => {
   test.setTimeout(120_000);
   await openTrack(page);
   await page.getByRole("button", { name: "Practice", exact: true }).click();
@@ -160,11 +160,9 @@ test("camera: both run modes can be picked, the fake webcam starts, and keys sti
   const panel = page.getByRole("dialog", { name: /camera setup/i });
   await expect(panel.getByRole("heading", { name: /run with your camera/i })).toBeVisible();
   await insideViewport(page, panel);
-  await expect(panel.getByRole("button", { name: /pump your arms/i })).toHaveAttribute("aria-pressed", "true");
-  await panel.getByRole("button", { name: /lift your knees/i }).click();
-  await expect(panel.getByRole("button", { name: /lift your knees/i })).toHaveAttribute("aria-pressed", "true");
-  await expect(panel).toContainText(/knees are in view/i);
-  await panel.getByRole("button", { name: /pump your arms/i }).click();
+  // the knees mode is not offered (user, 2026-11-09): only the arms
+  await expect(panel.getByRole("button", { name: /lift your knees/i })).toHaveCount(0);
+  await expect(panel.locator(".tr-how")).toContainText(/swing your arms/i);
   await panel.getByRole("button", { name: /start camera/i }).click();
 
   const video = page.locator("video.selfview");

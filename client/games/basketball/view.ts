@@ -80,7 +80,7 @@ export function startBasketball(root: HTMLElement, conn: GameLink, info: RoomInf
         <div class="bb-row" data-seat="0"><span class="bb-name"></span><span class="bb-shots"></span><strong class="bb-total"></strong></div>
         <div class="bb-row" data-seat="1"><span class="bb-name"></span><span class="bb-shots"></span><strong class="bb-total"></strong></div>
       </div>
-      <div>
+      <div class="hud-tools">
         <span class="muted code"></span>
         <span class="tracking" role="status" hidden></span>
         <button data-action="camera" hidden>Camera</button>

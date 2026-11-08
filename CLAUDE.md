@@ -642,6 +642,28 @@ lazily and only when a player enters a game. Video never leaves the browser.
   race, sprint or hurdles, your last and best time this session per event.
   All in each game's `practice-sim.ts`; the shared sims are unchanged. In
   the page, nothing sent to the server, never in stats.
+- Practice coach for boxing and track (user, 2026-11-09: "a coach like
+  tennis, keep it simple"; `spec/coach.test.ts`, `e2e/coach.e2e.ts`): a short
+  card in the practice HUD (`client/games/coach.ts` + `.css`, class
+  `practice-coach`; `.coach` is tennis training's, never reuse it). Boxing:
+  head jab, body jab, guard, lean; track: run on the spot, then jump (the
+  jump step only in the hurdles). Each step has a stick-figure picture and is
+  ticked off by enough of its own move, in order. It only listens to what the
+  practice's link already receives (keys, buttons or camera alike): no
+  message, nothing sent to the server. "Skip coach" hides it and is
+  remembered per game in `localStorage`.
+- The in-game button row is the same in every game (user, 2026-11-09):
+  `.hud-tools` at the top right, Leave rightmost, then sound, the watch link,
+  the invite, the camera chip. Checked at 1920x1080 and 390x844: Leave is at
+  the same spot on desktop; on a phone it is right-aligned but its height
+  follows each game's score panel.
+- Track's camera offers arm pumps only (user, 2026-11-09: the knees mode
+  never detected the legs). A saved "knees" is read as "elbows"; the knees
+  code and its settings shape stay for now.
+- The home screen's sports run Tennis, Bowling, Basketball, Track, Archery,
+  Boxing (user, 2026-11-09). Hovering or focusing a card only moves the
+  pointer arrow; the preview, the title and the buttons stay the selected
+  sport's.
 - Camera is used for gameplay only. Every camera action has a keyboard/mouse
   equivalent, and the lobby and room work with no camera at all. The one
   exception is calibration (task 25): swing or push speed has no key

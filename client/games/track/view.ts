@@ -46,7 +46,7 @@ export function startTrack(root: HTMLElement, conn: GameLink, info: RoomInfo, on
     <canvas aria-label="Running track"></canvas>
     <div class="hud">
       <div class="tr-board" aria-label="Race"></div>
-      <div>
+      <div class="hud-tools">
         <span class="muted code"></span>
         <span class="tracking" role="status" hidden></span>
         <span class="tr-events" role="radiogroup" aria-label="Event" hidden>

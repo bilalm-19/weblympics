@@ -1,0 +1,67 @@
+/* The practice coach (client/games/coach.ts): a compact card in the HUD's
+   flow, under the buttons, so it never covers the court, the lane or the
+   scores. It sits left of the button group's column on a phone too. */
+.hud .practice-coach {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  /* its own full-width row at the bottom of the HUD (order after the buttons
+     and the status line), so on a phone it never shares a band with Leave */
+  order: 10;
+  flex: 1 1 100%;
+  max-width: min(26rem, 100%);
+  padding: 0.35rem 0.5rem;
+  border-radius: 10px;
+  background: #0f1720d9;
+  color: #fff;
+  font-size: 0.85rem;
+  pointer-events: auto;
+  box-sizing: border-box;
+}
+
+.hud .practice-coach[hidden] {
+  display: none;
+}
+
+.practice-coach .pcoach-fig {
+  flex: none;
+  color: #ffd23f;
+}
+
+.practice-coach .pcoach-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  min-width: 0;
+}
+
+.practice-coach .pcoach-text small {
+  color: #c8d4df;
+}
+
+.practice-coach[data-done="true"] .pcoach-done {
+  margin: 0;
+}
+
+.hud .practice-coach button {
+  flex: none;
+  min-height: 36px;
+  pointer-events: auto;
+}
+
+/* the camera setup is a dialog: the coach steps aside meanwhile */
+.game:has(.camera-panel:not([hidden])) .practice-coach {
+  visibility: hidden;
+}
+
+@media (max-width: 600px) {
+  .hud .practice-coach {
+    font-size: 0.78rem;
+    padding: 0.25rem 0.35rem;
+  }
+
+  .practice-coach .pcoach-fig svg {
+    width: 36px;
+    height: 42px;
+  }
+}

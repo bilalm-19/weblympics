@@ -72,7 +72,7 @@ test("title over the sports, the preview and the selected sport's options, all o
   await expect(page.locator("canvas")).toHaveCount(0);
 });
 
-test("arrow keys move between sports and the preview follows", async ({ page }) => {
+test("arrow keys move between sports and the pointer follows; the preview stays the selected sport's", async ({ page }) => {
   await page.goto("/");
   await expect(page.locator(".pm-button")).toBeVisible();
   const sports = page.getByRole("group", { name: "Sports" });
@@ -86,11 +86,11 @@ test("arrow keys move between sports and the preview follows", async ({ page }) 
 
   await page.keyboard.press("ArrowDown");
   const second = await buttons.nth(1).getAttribute("data-sport");
-  // the preview follows the focus; the panel keeps the selected sport's name (its buttons act on it)
+  // the pointer follows the focus; the preview and the panel stay the selected sport's (its buttons act on it)
   await expect(page.locator("#options-title")).toHaveText("Tennis");
   await expect(page.locator(".sport:focus")).toHaveAttribute("data-sport", second!);
-  const name = (await buttons.nth(1).locator(".sport-name").textContent())!;
-  await expect(page.getByRole("img", { name: new RegExp(`${name} preview`, "i") })).toBeVisible();
+  await expect(page.locator(".sport:focus .pointer")).toBeVisible();
+  await expect(page.getByRole("img", { name: /tennis preview/i })).toBeVisible();
 
   await page.keyboard.press("ArrowUp");
   await expect(page.locator(".sport:focus")).toHaveAttribute("data-sport", "tennis");
@@ -146,10 +146,10 @@ test("coming-soon sports can't be activated and never reach the server", async (
   await expect(page.locator('.sport[aria-pressed="true"]')).toHaveAttribute("data-sport", "tennis");
 });
 
-test("the sports are Tennis, Bowling, Archery, Track, Boxing and Basketball, in that order", async ({ page }) => {
+test("the sports are Tennis, Bowling, Basketball, Track, Archery and Boxing, in that order", async ({ page }) => {
   await page.goto("/");
   await expect(page.locator(".pm-button")).toBeVisible();
-  await expect(page.locator(".sport .sport-name")).toHaveText(["Tennis", "Bowling", "Archery", "Track", "Boxing", "Basketball"]);
+  await expect(page.locator(".sport .sport-name")).toHaveText(["Tennis", "Bowling", "Basketball", "Track", "Archery", "Boxing"]);
 });
 
 test("the logo (task 14): five rings and the word in the five colours, letters bounce in once, rings float; nothing clipped", async ({ page }) => {
@@ -296,6 +296,11 @@ test("the mouse cursor on the home screen is the arrow (task 23); the game keeps
   // the marker on the pointed sport stays
   await page.locator(".sport").first().hover();
   await expect(page.locator(".sport.is-pointed .pointer")).toBeVisible();
+  // hovering another card moves the pointer, never the preview or the panel (user, 2026-11-09)
+  await page.locator(".sport").nth(2).hover();
+  await expect(page.locator(".sport.is-pointed")).toHaveAttribute("data-sport", "basketball");
+  await expect(page.locator("#options-title")).toHaveText("Tennis");
+  await expect(page.getByRole("img", { name: /tennis preview/i })).toBeVisible();
   // in a game the cursor is the browser's own
   await page.getByRole("button", { name: /practice vs bot/i }).click();
   await expect(page.locator("canvas")).toBeVisible();

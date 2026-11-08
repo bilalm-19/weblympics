@@ -2103,3 +2103,11 @@ Merged home-36 (home screen redesign) onto main's tennis-fixes. Checked: no conf
 - Landing ring: bigger, with a dot (forehand) or ring (backhand) inside it from `stanceHint`, red when the grip is wrong. Checked by hand only.
 - Tennis `?debug` (camera panel): grip reading, wrist speed, each sweep, fps, a Copy button.
 - Not done: e2e (`pnpm e2e`) for the ring; `pnpm check` is green (78 files, 1224 tests).
+
+## 2026-11-09 - decision/milestone - home order, hover, button row, track legs, coach (user asked, Claude built)
+- Home: sport order is now Tennis, Bowling, Basketball, Track, Archery, Boxing. Bug (user): clicking one tile then hovering another showed the hovered thumbnail with the clicked sport's buttons and title; hover and focus now only move the pointer, the preview is the selected sport's (`e2e/home.e2e.ts` hovers a card and checks).
+- Buttons in games: one `.hud-tools` row, top right, same order in all six games; Leave at the same x,y on desktop (checked by measuring all six), right-aligned in the same order on a phone but at a height that follows each score panel. Decided by user (Leave, sound, watch link and invite; top right).
+- Track legs (hurdles jump, running on the spot): the user reported steps from the knees did not count, and asked to drop the option instead of tuning it. Removed the "Lift your knees" button; a saved knees reads as elbows; the knees code stays. Not tuned, never measured.
+- Coach for boxing and track: `client/games/coach.ts`, pure rules in `spec/coach.test.ts`, panel checked in `e2e/coach.e2e.ts` at both viewports. First build used the class `.coach`, which is tennis training's and made the card absolutely positioned and overlapping Leave on a phone; renamed `practice-coach`. Decided by the user ("keep it simple").
+- A flaky test, not mine: `e2e/layout.e2e.ts` "the player who joins by invite link" failed 3 of 6 runs on a clean HEAD build and 0 of 6 on this tree; it also fails on the dev server under load. Not fixed.
+- `pnpm check` 79 files, 1233 tests green. Who: Claude.

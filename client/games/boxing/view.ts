@@ -32,6 +32,7 @@ const SLIP_KEYS: Record<string, Side> = { KeyA: "left", KeyD: "right" };
 export interface BoxingViewOptions {
   local?: boolean;
   leaveLabel?: string;
+  onView?(view: HTMLElement): void;
 }
 
 const clock = (ticks: number) => {
@@ -50,7 +51,7 @@ export function startBoxing(root: HTMLElement, conn: GameLink, info: RoomInfo, o
         <div class="bx-row" data-seat="0"><span class="bx-name"></span><span class="bx-bar"><i></i></span><strong class="bx-hp"></strong></div>
         <div class="bx-row" data-seat="1"><span class="bx-name"></span><span class="bx-bar"><i></i></span><strong class="bx-hp"></strong></div>
       </div>
-      <div>
+      <div class="hud-tools">
         <span class="muted code"></span>
         <span class="tracking" role="status" hidden></span>
         <button data-action="camera" hidden>Camera</button>
@@ -70,6 +71,7 @@ export function startBoxing(root: HTMLElement, conn: GameLink, info: RoomInfo, o
     </div>
   `;
   root.replaceChildren(view);
+  opts.onView?.(view);
   if (opts.local) {
     view.classList.add("local");
     for (const el of view.querySelectorAll<HTMLElement>(".code, [data-action=copy]")) el.hidden = true;

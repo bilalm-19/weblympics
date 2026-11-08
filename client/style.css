@@ -1582,6 +1582,32 @@ a:focus-visible {
   min-height: 44px;
 }
 
+/* The buttons are in the same place in every game (user, 2026-11-09): one
+   right-aligned group at the top right, in one order, Leave always the
+   rightmost and the sound button just before it. On a phone it wraps under
+   the score, still right-aligned. */
+.hud .hud-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-left: auto;
+  max-width: 100%;
+  /* the top of the HUD, not centred against the score panel (those differ in
+     height from game to game, which moved Leave up to 32 px) */
+  align-self: flex-start;
+}
+
+.hud-tools .tr-events { order: 0; }
+.hud-tools .code { order: 1; }
+.hud-tools .tracking { order: 2; }
+.hud-tools [data-action="camera"] { order: 3; }
+.hud-tools [data-action="copy"] { order: 4; }
+.hud-tools [data-action="copy-watch"] { order: 5; }
+.hud-tools .snd { order: 6; }
+.hud-tools [data-action="leave"] { order: 7; }
+
 /* score bar: two rows (sets, games, points), the format and the umpire's call;
    compact so the HUD stays above the camera dock on a phone */
 .hud .score {

@@ -1,6 +1,8 @@
 import type { ClientMsg, ServerMsg } from "../../../shared/protocol.ts";
 import type { GameLink } from "../../net/link.ts";
 import { createPracticePanel } from "../practice-panel.ts";
+import { mountCoach, TRACK_STEPS } from "../coach.ts";
+import type { Coach } from "../coach.ts";
 import { PracticeSim } from "./practice-sim.ts";
 import { startTrack } from "./view.ts";
 
@@ -19,6 +21,8 @@ class PracticeLink implements GameLink {
   private ticks = 0;
   readonly sim: PracticeSim;
   onState: () => void = () => {};
+  /** The coach hears what the player does (keys, buttons or camera alike). */
+  coach: Coach | null = null;
 
   constructor(sim: PracticeSim) {
     this.sim = sim;
@@ -30,10 +34,16 @@ class PracticeLink implements GameLink {
   }
 
   send(msg: ClientMsg): void {
-    if (msg.t === "step") this.sim.step(msg.side, msg.at);
-    else if (msg.t === "jump") this.sim.jump(msg.at);
+    if (msg.t === "step") {
+      this.sim.step(msg.side, msg.at);
+      this.coach?.see({ kind: "step" });
+    } else if (msg.t === "jump") {
+      this.sim.jump(msg.at);
+      this.coach?.see({ kind: "jump" });
+    }
     else if (msg.t === "event") {
       this.sim.setEvent(msg.event);
+      this.coach?.retarget((id) => id === "jump" && msg.event !== "hurdles");
       this.emitState();
     } else if (msg.t === "pause") this.sim.paused = msg.paused;
     else if (msg.t === "leave") this.stop();
@@ -82,7 +92,11 @@ export function startTrackPractice(root: HTMLElement, onExit: () => void): () =>
   const stopView = startTrack(root, link, { room: "PRACTICE", game: "track", seat: 0, practice: true }, onExit, {
     local: true,
     leaveLabel: "Done",
-    onView: (v) => (view = v),
+    onView: (v) => {
+      view = v;
+      // the jump step only applies to the hurdles; the sprint skips it
+      link.coach = mountCoach(v, "track", TRACK_STEPS, (id) => id === "jump" && sim.state.event !== "hurdles");
+    },
     solo: () => sim.mode === "solo",
   });
   const stat = document.createElement("span");
@@ -103,6 +117,7 @@ export function startTrackPractice(root: HTMLElement, onExit: () => void): () =>
   link.start();
   return () => {
     link.stop();
+    link.coach?.dispose();
     panel.dispose();
     stopView();
   };

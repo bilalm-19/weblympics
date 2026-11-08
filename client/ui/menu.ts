@@ -73,10 +73,10 @@ export interface Sport {
 export const SPORTS: Sport[] = [
   { id: "tennis", name: "Tennis", playable: true, tag: "Rally and smash", blurb: "Rally against the bot or a friend. Swing to hit.", input: "Camera or keyboard" },
   { id: "bowling", name: "Bowling", playable: true, tag: "Five frames", blurb: "Pick your spot, add some curve, knock the pins down.", input: "Camera, keys or buttons" },
-  { id: "archery", name: "Archery", playable: true, tag: "Read the wind", blurb: "Draw, aim, read the wind and hit the gold.", input: "Camera or mouse" },
-  { id: "track", name: "Track", playable: true, tag: "Sprint 100 m", blurb: "Run on the spot and race to the line.", input: "Camera or A and D" },
-  { id: "boxing", name: "Boxing", playable: true, tag: "Jab and guard", blurb: "Three quick rounds. Jab, guard and slip.", input: "Camera, keys or buttons" },
   { id: "basketball", name: "Basketball", playable: true, tag: "Shootout", blurb: "Five spots, one shot each. Swish for a bonus.", input: "Camera, keys or mouse" },
+  { id: "track", name: "Track", playable: true, tag: "Sprint 100 m", blurb: "Run on the spot and race to the line.", input: "Camera or A and D" },
+  { id: "archery", name: "Archery", playable: true, tag: "Read the wind", blurb: "Draw, aim, read the wind and hit the gold.", input: "Camera or mouse" },
+  { id: "boxing", name: "Boxing", playable: true, tag: "Jab and guard", blurb: "Three quick rounds. Jab, guard and slip.", input: "Camera, keys or buttons" },
 ];
 
 const artOf = (s: Sport): SportArt => ART[s.id] ?? PLAIN_ART;
@@ -246,9 +246,15 @@ export function renderMenu(
     else svg.unpauseAnimations();
     menu.classList.toggle("is-hidden-tab", document.hidden);
   };
+  // hovering or focusing a card only moves the pointer arrow; the preview, the
+  // title and the buttons are all the selected sport's, so they never disagree
+  // (user, 2026-11-09: "I see the thumbnail of what I hover but the buttons and
+  // titles of what I clicked")
+  const point = (sport: Sport) => {
+    for (const b of buttons) b.classList.toggle("is-pointed", b.dataset.sport === sport.id);
+  };
   let shown: Sport | null = null;
   const show = (sport: Sport) => {
-    for (const b of buttons) b.classList.toggle("is-pointed", b.dataset.sport === sport.id);
     if (shown === sport) return;
     shown = sport;
     const art = artOf(sport);
@@ -272,9 +278,10 @@ export function renderMenu(
   const sportOf = (b: HTMLElement) => SPORTS.find((s) => s.id === b.dataset.sport)!;
   const settle = () => {
     const active = buttons.find((b) => b === document.activeElement || b.matches(":hover"));
-    show(active ? sportOf(active) : selected);
+    point(active ? sportOf(active) : selected);
   };
   show(selected);
+  point(selected);
   pick(selected);
   const onVisibility = () => (menu.isConnected ? holdLoops() : document.removeEventListener("visibilitychange", onVisibility));
   document.addEventListener("visibilitychange", onVisibility);
@@ -299,8 +306,8 @@ export function renderMenu(
 
   buttons.forEach((b, i) => {
     const sport = sportOf(b);
-    b.addEventListener("focus", () => show(sport));
-    b.addEventListener("mouseenter", () => show(sport));
+    b.addEventListener("focus", () => point(sport));
+    b.addEventListener("mouseenter", () => point(sport));
     b.addEventListener("mouseleave", () => queueMicrotask(settle));
     b.addEventListener("blur", () => queueMicrotask(settle));
     b.addEventListener("click", () => {
@@ -308,6 +315,8 @@ export function renderMenu(
       if (!sport.playable) return;
       for (const other of buttons) if (other.hasAttribute("aria-pressed")) other.setAttribute("aria-pressed", String(other === b));
       selected = sport;
+      show(sport);
+      point(sport);
       pick(sport);
       actions.onSelect?.(sport.id);
       setLabels(sport.id);

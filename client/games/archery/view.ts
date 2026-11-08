@@ -84,7 +84,7 @@ export function startArchery(root: HTMLElement, conn: GameLink, info: RoomInfo, 
     <canvas aria-label="Archery range"></canvas>
     <div class="hud">
       <div class="ar-score" aria-label="Score"></div>
-      <div>
+      <div class="hud-tools">
         <span class="muted code"></span>
         <span class="tracking" role="status" hidden></span>
         <button data-action="camera" hidden>Camera</button>

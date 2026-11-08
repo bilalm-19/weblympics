@@ -44,7 +44,9 @@ const METER_FULL = 2;
 // every other camera setting (on the account when signed in). The stand-still
 // still runs each time the camera starts; a saved one is the fallback if it's
 // skipped.
-const loadMode = (): RunMode => cameraSettings().track.mode;
+// The knees mode is not offered (user, 2026-11-09: it never detected the legs,
+// so the picker is gone); a saved "knees" is read as "elbows". Its code stays.
+const loadMode = (): RunMode => (cameraSettings().track.mode === "knees" ? "elbows" : cameraSettings().track.mode);
 const saveMode = (m: RunMode): void => updateCameraSettings((s) => (s.track.mode = m));
 const savedRest = (m: RunMode): RunRest | null => cameraSettings().track.rest[m];
 const saveRest = (m: RunMode, rest: RunRest): void => updateCameraSettings((s) => (s.track.rest[m] = { left: rest.left, right: rest.right }));
@@ -229,10 +231,6 @@ export function createRunCamera(view: HTMLElement, button: HTMLButtonElement, ch
   const intro = () => {
     panel.innerHTML = `
       <h2>Run with your camera</h2>
-      <fieldset class="row" aria-label="Run mode">
-        <legend>How to run</legend>
-        ${(["elbows", "knees"] as const).map((m) => `<button type="button" data-mode="${m}">${MODE_TEXT[m].label}</button>`).join("")}
-      </fieldset>
       <p class="tr-how"></p>
       <p class="tr-jump-how" hidden></p>
       <details class="rp-safety"><summary>Before you start</summary>
@@ -245,23 +243,11 @@ export function createRunCamera(view: HTMLElement, button: HTMLButtonElement, ch
       </div>`;
     const how = panel.querySelector(".tr-how") as HTMLElement;
     const jumpHow = panel.querySelector(".tr-jump-how") as HTMLElement;
-    const modeButtons = panel.querySelectorAll<HTMLButtonElement>("[data-mode]");
     const mark = () => {
-      modeButtons.forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.mode === mode)));
       how.textContent = MODE_TEXT[mode].how;
       jumpHow.textContent = MODE_TEXT[mode].jump;
       jumpHow.hidden = !cb.hurdles();
     };
-    modeButtons.forEach((b) =>
-      b.addEventListener("click", () => {
-        mode = b.dataset.mode as RunMode;
-        tracker = new RunTracker(mode);
-        tracker.rest = savedRest(mode);
-        jumper = new JumpTracker(mode);
-        saveMode(mode);
-        mark();
-      }),
-    );
     mark();
     panel.querySelector("[data-step=start]")?.addEventListener("click", () => void start());
     wire();

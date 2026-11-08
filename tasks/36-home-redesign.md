@@ -8,7 +8,7 @@ Waits on: `integrate-rest` merged (the menu lists bowling; the party figures use
 Was `client/mock-home.html` + `client/mock-home-3d.ts` (deleted once built; in git history before `home-36`). The devlog's "Home mock" entries (2026-11-08) record each round and why.
 
 ## Differs from the mock (and why)
-- Sport order is the real `SPORTS` order (Tennis, Bowling, Archery, Track, Boxing, Basketball), not the mock's.
+- Sport order is the real `SPORTS` order (Tennis, Bowling, Basketball, Track, Archery, Boxing; user, 2026-11-09), not the mock's.
 - Card colours are the mock's hues darkened so the white names pass WCAG AA (`spec/home-screen.test.ts`); the mock's green, orange and blue failed.
 - No "How to play" button: no sport has a guide yet. The row is vs bot, Train/Practice and Party (three, not four).
 - The party figures are the real looks (`look-preview.ts`), not the mock's hand-drawn people; no waving arm (the look figure has fixed arms), so the idle moves are hop, sway and bob.

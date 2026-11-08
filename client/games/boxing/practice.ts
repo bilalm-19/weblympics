@@ -1,5 +1,7 @@
 import type { ClientMsg, ServerMsg } from "../../../shared/protocol.ts";
 import type { GameLink } from "../../net/link.ts";
+import { mountCoach, BOXING_STEPS } from "../coach.ts";
+import type { Coach } from "../coach.ts";
 import { PracticeSim } from "./practice-sim.ts";
 import { startBoxing } from "./view.ts";
 
@@ -13,6 +15,8 @@ class PracticeLink implements GameLink {
   private timer: ReturnType<typeof setInterval> | null = null;
   private ticks = 0;
   readonly sim: PracticeSim;
+  /** The coach hears what the player does (keys, buttons or camera alike). */
+  coach: Coach | null = null;
 
   constructor(sim: PracticeSim) {
     this.sim = sim;
@@ -24,9 +28,16 @@ class PracticeLink implements GameLink {
   }
 
   send(msg: ClientMsg): void {
-    if (msg.t === "punch") this.sim.punch(msg.hand, msg.target, msg.at);
-    else if (msg.t === "guard") this.sim.guard(msg.guard);
-    else if (msg.t === "slip") this.sim.slip(msg.side);
+    if (msg.t === "punch") {
+      this.sim.punch(msg.hand, msg.target, msg.at);
+      this.coach?.see({ kind: "punch", target: msg.target });
+    } else if (msg.t === "guard") {
+      this.sim.guard(msg.guard);
+      if (msg.guard) this.coach?.see({ kind: "guard", height: msg.guard });
+    } else if (msg.t === "slip") {
+      this.sim.slip(msg.side);
+      if (msg.side) this.coach?.see({ kind: "slip" });
+    }
     else if (msg.t === "pause") this.sim.paused = msg.paused;
     else if (msg.t === "leave") this.stop();
   }
@@ -60,10 +71,15 @@ class PracticeLink implements GameLink {
 
 export function startBoxingPractice(root: HTMLElement, onExit: () => void): () => void {
   const link = new PracticeLink(new PracticeSim((Math.random() * 2 ** 32) >>> 0));
-  const stopView = startBoxing(root, link, { room: "PRACTICE", game: "boxing", seat: 0, practice: true }, onExit, { local: true, leaveLabel: "Done" });
+  const stopView = startBoxing(root, link, { room: "PRACTICE", game: "boxing", seat: 0, practice: true }, onExit, {
+    local: true,
+    leaveLabel: "Done",
+    onView: (v) => (link.coach = mountCoach(v, "boxing", BOXING_STEPS)),
+  });
   link.start();
   return () => {
     link.stop();
+    link.coach?.dispose();
     stopView();
   };
 }
