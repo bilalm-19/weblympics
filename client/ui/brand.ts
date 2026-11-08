@@ -30,20 +30,19 @@ export function contrast(a: string, b: string): number {
  * both listed.
  */
 export const TEXT_PAIRS: readonly { where: string; fg: string; bg: string; large?: boolean }[] = [
-  // home screen
-  { where: "menu ink on the sky (top)", fg: "#12385e", bg: "#cfe8fa" },
-  { where: "menu ink on a plain pill (bottom)", fg: "#12385e", bg: "#dcebf7" },
-  { where: "logo letters' ink outline on the sky", fg: "#12385e", bg: "#cfe8fa", large: true },
-  { where: "primary pill text on Olympic yellow", fg: "#4d2c00", bg: "#fcb131" },
-  { where: "blue pill text on its light blue end", fg: "#06263f", bg: "#8cceff" },
-  { where: "green pill text on its green end", fg: "#003a1c", bg: "#7fd8a6" },
-  { where: "red pill text on its pink end", fg: "#5a0016", bg: "#ffb3c0" },
-  { where: "pressed sport's ring-blue edge on white (non-text, 3:1)", fg: "#0081c8", bg: "#ffffff", large: true },
-  { where: "menu tab: white on Olympic blue (lighter end)", fg: "#ffffff", bg: "#0070ad" },
-  { where: "primary pill text on its pale end", fg: "#4d2c00", bg: "#ffeec8" },
-  { where: "red pill text on its pale end", fg: "#5a0016", bg: "#fff0f2" },
-  { where: "green pill text on its pale end", fg: "#003a1c", bg: "#e6f8ee" },
-  { where: "readme link on white", fg: "#0b5aa8", bg: "#ffffff" },
+  // home screen (task 36)
+  { where: "menu ink on the sky (top)", fg: "#12385e", bg: "#bfe4ff" },
+  { where: "menu soft ink on the panels", fg: "#3d5873", bg: "#ffffff" },
+  { where: "input chip text", fg: "#12385e", bg: "#d9efff" },
+  { where: "logo letters' ink outline on the sky", fg: "#12385e", bg: "#bfe4ff", large: true },
+  { where: "primary button text on Olympic yellow", fg: "#4d2c00", bg: "#fcb131" },
+  { where: "primary button text on its pale end", fg: "#4d2c00", bg: "#ffeec8" },
+  { where: "vs-bot button text", fg: "#5a0016", bg: "#fff0f2" },
+  { where: "train button text", fg: "#003a1c", bg: "#e6f8ee" },
+  { where: "party button text", fg: "#3b1a6e", bg: "#f1e6ff" },
+  { where: "join button text", fg: "#06263f", bg: "#e3f3ff" },
+  { where: "readme link and Change my look on white", fg: "#0b5aa8", bg: "#ffffff" },
+  { where: "focus ring on white (non-text, 3:1)", fg: "#0b63c4", bg: "#ffffff", large: true },
   // game UI (dark)
   { where: "accent (Olympic yellow) on the game background", fg: "#fcb131", bg: "#0f1720" },
   { where: "dark text on the accent (primary buttons)", fg: "#1a1400", bg: "#fcb131" },

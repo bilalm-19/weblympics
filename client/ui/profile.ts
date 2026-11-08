@@ -13,6 +13,8 @@ import { resetCameraSettings } from "../net/camera-settings.ts";
 export interface ProfileHooks {
   /** Who you are changed (signed in or out, claimed, renamed, deleted): reconnect and redraw. */
   onIdentityChange(): void;
+  /** Open at a section: "look" scrolls to the customise section and focuses its tabs (task 36's "Change my look"). */
+  section?: "look";
 }
 
 const hex = (n: number) => `#${n.toString(16).padStart(6, "0")}`;
@@ -412,6 +414,12 @@ export function openProfile(hooks: ProfileHooks): void {
     .then((m) => {
       me = m;
       render();
+      // "Change my look": straight to the customise section (a guest sees why they can't yet)
+      if (hooks.section === "look") {
+        const look = dialog.querySelector<HTMLElement>(".profile-look") ?? dialog.querySelector<HTMLElement>(".profile-note:nth-of-type(2)");
+        look?.scrollIntoView({ block: "start" });
+        dialog.querySelector<HTMLElement>(".look-tab[aria-selected=true]")?.focus();
+      }
     })
     .catch(() => {
       status = "Couldn't load your profile.";

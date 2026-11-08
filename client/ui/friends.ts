@@ -1,5 +1,5 @@
 // Task 34: the Friends button (beside the profile button) and its panel,
-// styled after the approved mock (client/mock-home.html): "Show me as"
+// styled after task 36's approved home mock (now the home screen): "Show me as"
 // Online / Away / Offline, your own Name#1234 and friend link, "Add a
 // friend: Name#1234", requests (Accept / ✕), then friends grouped Online,
 // Away and Offline with what they're doing and one action each (Watch a

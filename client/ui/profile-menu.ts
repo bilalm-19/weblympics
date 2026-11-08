@@ -9,6 +9,7 @@
 // a bottom sheet on a phone (style.css).
 import { DEFAULT_LOOKS } from "../../shared/look.ts";
 import type { Look } from "../../shared/look.ts";
+import type { ShownStatus } from "../../shared/protocol.ts";
 import { lookSvg } from "./look-preview.ts";
 import { problem } from "./profile.ts";
 
@@ -18,6 +19,8 @@ export interface ProfileMenuWho {
   account: boolean;
   demo: boolean;
   look: Look | null;
+  /** Your "show me as" (task 34), drawn as a dot on the picture; none for a guest. */
+  status?: ShownStatus;
 }
 
 export interface ProfileMenuActions {
@@ -51,7 +54,8 @@ export function profileButton(who: ProfileMenuWho, actions: ProfileMenuActions):
   button.setAttribute("aria-controls", "pm-panel");
   button.setAttribute("aria-label", `Profile: ${who.name}${who.account ? "" : " (guest)"}`);
   button.dataset.account = who.demo ? "demo" : who.account ? "account" : "guest";
-  button.innerHTML = `<span class="pm-avatar">${lookSvg(look, null, "head")}</span><span class="pm-name"></span>`;
+  const dot = who.status ? `<span class="sdot sdot--${who.status}" aria-hidden="true"></span>` : "";
+  button.innerHTML = `<span class="pm-avatar">${lookSvg(look, null, "head")}${dot}</span><span class="pm-name"></span>`;
   button.querySelector(".pm-name")!.textContent = who.name;
   button.addEventListener("click", () => openPanel(button, who, look, actions));
   if (refocus) {

@@ -1,11 +1,7 @@
 /* Task 34: the Friends button beside the profile button, and the friends
    panel (client/ui/friends.ts), after the approved mock
-   (client/mock-home.html): a popover under the top bar on desktop, a bottom
+   (task 36, now the home screen): a popover under the top bar on desktop, a bottom
    sheet on a phone. The party panel (party.css) shares the sheet. */
-.menu-corner {
-  gap: 0.5rem;
-}
-
 .fr-button,
 .pt-button {
   display: flex;
@@ -13,14 +9,12 @@
   gap: 0.45rem;
   min-height: 52px;
   padding: 0 1rem 0 0.8rem;
-  border: 2px solid #8fb3d1;
+  border: 0;
   border-radius: 999px;
-  background: linear-gradient(180deg, #ffffff, #dcebf7);
+  background: rgba(255, 255, 255, 0.82);
   color: #12385e;
   font: 600 1rem "Fredoka", ui-rounded, system-ui, sans-serif;
-  box-shadow:
-    inset 0 0 0 2px #fff,
-    0 3px 0 #9fbcd4;
+  box-shadow: 0 4px 14px rgba(18, 48, 74, 0.18);
   cursor: pointer;
   position: relative;
 }
@@ -31,7 +25,9 @@
 
 .fr-button[aria-expanded="true"],
 .pt-button[aria-expanded="true"] {
-  border-color: #0081c8;
+  box-shadow:
+    0 0 0 2px #0081c8,
+    0 4px 14px rgba(18, 48, 74, 0.18);
 }
 
 .fr-button:focus-visible,
@@ -411,7 +407,7 @@ dialog.sheet::backdrop {
 }
 
 /* ---- phone: the button is the icon and the count; the panel a bottom sheet ---- */
-@media (max-width: 560px) {
+@media (max-width: 760px) {
   .fr-button,
   .pt-button {
     min-height: 44px;
@@ -449,20 +445,8 @@ dialog.sheet::backdrop {
     font-size: 0.85rem;
   }
 
-  /* no room beside the logo: the party is one tap away in the friends
-     panel, and Friends takes the top-left corner (as the mock's phone bar) */
-  .pt-button {
-    display: none;
-  }
-
-  .menu-corner .fr-button {
-    position: absolute;
-    top: 0.25rem;
-    /* the corner hugs the right edge (0.5rem in) and is as wide as the
-       profile button: this puts Friends 0.75rem from the left edge */
-    left: calc(-100vw + 100% + 1.25rem);
-    z-index: 2;
-  }
+  /* Friends takes the top-left cell of the phone's top bar (task 36,
+     style.css), as the mock's phone bar */
 
   dialog.sheet {
     inset: auto 0 0 0;

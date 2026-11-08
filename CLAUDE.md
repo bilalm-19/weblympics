@@ -144,12 +144,12 @@ lazily and only when a player enters a game. Video never leaves the browser.
   (`crowdPose` pure).   `ui/spectate.ts` + `.css` (task 24: "Copy watch link" and the
   watcher's badge, added to every game's HUD); task 34: `ui/social-state.ts`
   (the page's copy of the pushed friends list and party), `ui/friends.ts` +
-  `.css` (the Friends button beside the profile button and its panel, after
-  `client/mock-home.html`; the sheet style both panels share),
-  `ui/party.ts` + `.css` (the party panel, the compact strip in a game's
-  HUD, a friend's invite pop-up), `ui/dom.ts` (a text-safe element builder
-  and the shared sheet dialog); `main.ts` mounts them, `ui/menu.ts` is
-  untouched; Vite app: `games/<name>/view.ts` (scene, HUD, input wiring),
+  `.css` (the Friends button beside the profile button and its panel; the
+  sheet style both panels share),
+  `ui/party.ts` + `.css` (the party panel, opened from the home screen's
+  Party button, the compact strip in a game's HUD, a friend's invite
+  pop-up), `ui/dom.ts` (a text-safe element builder and the shared sheet
+  dialog); `main.ts` mounts them; Vite app: `games/<name>/view.ts` (scene, HUD, input wiring),
   `games/tennis/score-bar.ts` (top score bar), task 16's point call:
   `point-call.ts` (pure: the call in tennis words, who won, how big, who
   reacts; task 19's crowd and sound use it), `call-banner.ts` + `.css`
@@ -179,16 +179,31 @@ lazily and only when a player enters a game. Video never leaves the browser.
   the reticle and the shot messages too), `input/`
   (`keyboard.ts` for keys, pointer and buttons; `camera/` with `pose.ts` pure
   landmark maths, `camera.ts` webcam + lazy MediaPipe, `index.ts` setup
-  panel), `net/socket.ts` (`Connection`), `net/link.ts` (`GameLink`), `ui/menu.ts` (home screen: animated logo, then sport buttons from
-  the `SPORTS` list in a left column and the framed preview (a looping SVG
-  snippet per sport) with the selected sport's options in a right column,
-  stacked on phones; the arrow as the mouse cursor; inline SVG/CSS only, no
-  Three.js: `spec/home-screen.test.ts`; its options put "Create a room" as
-  the big primary button over the smaller vs-bot and Train/Practice pair;
-  the footer keeps only the README link), `ui/profile-menu.ts` (the round
+  panel), `net/socket.ts` (`Connection`), `net/link.ts` (`GameLink`), `ui/menu.ts` (home screen, task 36, from the mock the user approved
+  on 2026-11-08: a full-screen SVG scene; a three-column top bar with the
+  logo (overlapping rings) centred on the page, Friends, sound and the
+  profile button on the right; three columns of equal height that follow
+  the window's height (checked at 1920x1080, a 1366x657 laptop window and
+  390x844, `e2e/home-layout.e2e.ts`): the six cards from the `SPORTS` list
+  (2x3, icon in its own cell, arrow keys and one Tab stop), the selected
+  sport's panel (a big looping SVG preview, name, line and input chip,
+  "Create a room" big, then vs bot, Train/Practice and Party in one row,
+  then the code box) and your party from `SocialState` (you alone, "Ready
+  to play!", or up to ten in two rows of five with names, status dots, the
+  leader's crown, an invite slot, "Change my look" opening the profile at
+  its customise section); a phone stacks them, sports 3x2, the party a
+  strip, Friends its icon and count, sound bottom right; the arrow as the
+  mouse cursor; the footer keeps only the README link), `ui/home-art.ts`
+  (each sport's card colour, flat icon, SMIL preview and scene field),
+  `ui/home-3d.ts` (the cards' small spinning 3D icons: one shared
+  renderer, loaded by `import()` only after the flat page and only where
+  `ui/home-3d-gate.ts` allows, a window at least 761 wide, no reduced
+  motion, WebGL; back to flat under 30 fps; a test browser stays flat
+  unless `?icons3d`). The menu's static imports never reach Three.js:
+  `spec/home-screen.test.ts`. `ui/profile-menu.ts` (the round
   profile button top right, its picture the head and shoulders of your own
-  look from `look-preview.ts`, drawn once from the welcome's `look`; name
-  beside it on desktop; its panel, a popover on desktop and a bottom sheet
+  look from `look-preview.ts`, drawn once from the welcome's `look`, with
+  your status dot; name beside it on desktop; its panel, a popover on desktop and a bottom sheet
   on a phone, holds the passkey sign in or create, sign out, the closed
   "Dev tools" with the demo accounts, and the ways to the profile dialog and
   the leaderboard: `e2e/home.e2e.ts`), `ui/brand.ts` (the five ring

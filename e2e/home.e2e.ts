@@ -2,8 +2,10 @@ import { expect, test } from "@playwright/test";
 import type { Page } from "@playwright/test";
 import { DEFAULT_KEY, DEFAULT_LOOK, openProfileDialog, openProfileMenu, profileButton, shownName, signInDemo } from "./flow.ts";
 
-// Task 13: the Wii-style home screen. Runs at both viewports (desktop and
-// mobile projects in playwright.config.ts).
+// Task 13: the Wii-style home screen, redrawn by task 36 (three columns on
+// a desktop, stacked on a phone). Runs at both viewports (desktop and mobile
+// projects in playwright.config.ts); e2e/home-layout.e2e.ts adds a short
+// laptop window.
 
 const noHorizontalScroll = (page: Page) =>
   page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth);
@@ -22,23 +24,30 @@ test("title over the sports, the preview and the selected sport's options, all o
   const sports = page.getByRole("group", { name: "Sports" });
   const tennis = sports.getByRole("button", { name: /tennis/i });
   const options = page.locator(".options");
-  for (const el of [title, thumb, tennis, options]) await expect(el).toBeVisible();
+  const party = page.getByRole("complementary", { name: "Your party" });
+  for (const el of [title, thumb, tennis, options, party]) await expect(el).toBeVisible();
 
-  const [tb, pb, sb, ob] = await Promise.all([title, thumb, sports, options].map(async (el) => (await el.boundingBox())!));
+  const [tb, pb, sb, ob, yb] = await Promise.all([title, thumb, sports, options, party].map(async (el) => (await el.boundingBox())!));
   expect(tb.y + tb.height).toBeLessThanOrEqual(pb.y);
   expect(tb.y + tb.height).toBeLessThanOrEqual(sb.y);
   // the options sit under the preview, in the same column
   expect(pb.y + pb.height).toBeLessThanOrEqual(ob.y);
-  if (page.viewportSize()!.width >= 900) {
-    // desktop: sports on the left, preview on the right, columns of equal width
+  if (page.viewportSize()!.width > 1100) {
+    // desktop (task 36): sports left, the sport's panel in the middle, the
+    // party right; the three columns are the same height
     expect(sb.x + sb.width).toBeLessThanOrEqual(pb.x);
-    expect(sb.y).toBeLessThan(pb.y + pb.height);
-    const picker = (await page.locator(".menu-picker").boundingBox())!;
-    const detail = (await page.locator(".menu-detail").boundingBox())!;
-    expect(Math.abs(picker.width - detail.width)).toBeLessThanOrEqual(2);
+    expect(pb.x + pb.width).toBeLessThanOrEqual(yb.x);
+    const cols = await Promise.all([".menu-picker", ".menu-detail", ".menu-party"].map(async (s) => (await page.locator(s).boundingBox())!));
+    for (const c of cols) {
+      expect(Math.abs(c.height - cols[0].height)).toBeLessThanOrEqual(2);
+      expect(Math.abs(c.y - cols[0].y)).toBeLessThanOrEqual(2);
+    }
+    // the two outer columns are the same width, so the middle one is the page's middle
+    expect(Math.abs(cols[0].width - cols[2].width)).toBeLessThanOrEqual(2);
   } else {
-    // phone: the sports stack on top of the preview
+    // phone: the sports stack on top of the preview, the party under the options
     expect(sb.y + sb.height).toBeLessThanOrEqual(pb.y);
+    expect(ob.y + ob.height).toBeLessThanOrEqual(yb.y);
   }
 
   // every sport button and every action sits inside the viewport width, and
@@ -49,6 +58,7 @@ test("title over the sports, the preview and the selected sport's options, all o
     page.getByRole("button", { name: /practice vs bot/i }),
     page.getByRole("button", { name: /create a room/i }),
     page.getByRole("button", { name: "Join" }),
+    page.getByRole("textbox", { name: /room code/i }),
   ];
   for (const el of reachable) {
     const b = (await el.boundingBox())!;
@@ -76,6 +86,8 @@ test("arrow keys move between sports and the preview follows", async ({ page }) 
 
   await page.keyboard.press("ArrowDown");
   const second = await buttons.nth(1).getAttribute("data-sport");
+  // the preview follows the focus; the panel keeps the selected sport's name (its buttons act on it)
+  await expect(page.locator("#options-title")).toHaveText("Tennis");
   await expect(page.locator(".sport:focus")).toHaveAttribute("data-sport", second!);
   const name = (await buttons.nth(1).locator(".sport-name").textContent())!;
   await expect(page.getByRole("img", { name: new RegExp(`${name} preview`, "i") })).toBeVisible();
@@ -194,38 +206,49 @@ test.describe("reduced motion", () => {
     await expect(page.locator(".pm-button")).toBeVisible();
     const moving = () => page.evaluate(() => [...document.querySelectorAll(".logo, .logo *, .thumb-frame *")].flatMap((el) => el.getAnimations()).length);
     expect(await moving()).toBe(0);
-    // the placeholders' previews too
+    // every preview is held on one frame (SMIL, so its own clock is paused)
+    const smilPaused = () => page.locator(".thumb-frame svg").evaluate((s) => (s as SVGSVGElement).animationsPaused());
     for (const b of await page.locator(".sport").all()) {
       await b.focus();
       expect(await moving()).toBe(0);
+      expect(await smilPaused()).toBe(true);
     }
     // still drawn: the tennis ball is on screen mid-rally
     await page.locator(".sport").first().focus();
     await expect(page.locator(".thumb-frame .loop-ball")).toBeVisible();
+    // the party and the scene stand still too
+    expect(await page.evaluate(() => document.querySelector(".menu")!.getAnimations({ subtree: true }).length)).toBe(0);
   });
 });
 
 test("each sport's thumbnail is a short loop (task 23), paused while the tab is hidden", async ({ page }) => {
   await page.goto("/");
   await expect(page.locator(".pm-button")).toBeVisible();
+  // task 36's previews loop with SVG's own animation elements (SMIL): every
+  // one repeats forever on a cycle of at most 4 s, and the picture moves
   const loops = () =>
-    page.evaluate(() =>
-      document
-        .querySelector(".thumb-frame")!
-        .getAnimations({ subtree: true })
-        .map((a) => ({ iterations: (a.effect as KeyframeEffect).getComputedTiming().iterations, duration: Number((a.effect as KeyframeEffect).getComputedTiming().duration), state: a.playState })),
-    );
+    page.evaluate(() => {
+      const svg = document.querySelector(".thumb-frame svg") as SVGSVGElement;
+      const anims = [...svg.querySelectorAll("animate, animateTransform, animateMotion")];
+      return { paused: svg.animationsPaused(), anims: anims.map((a) => ({ repeat: a.getAttribute("repeatCount"), dur: parseFloat(a.getAttribute("dur") ?? "0") })) };
+    });
   for (const b of await page.locator(".sport").all()) {
     await b.focus();
     const name = await b.getAttribute("data-sport");
     const list = await loops();
-    expect(list.length, `${name} has a loop`).toBeGreaterThan(0);
-    for (const a of list) {
-      expect(a.iterations, name!).toBe(Infinity);
+    expect(list.anims.length, `${name} has a loop`).toBeGreaterThan(0);
+    expect(list.paused, name!).toBe(false);
+    for (const a of list.anims) {
+      expect(a.repeat, name!).toBe("indefinite");
       // short: a few seconds a cycle
-      expect(a.duration, name!).toBeLessThanOrEqual(4000);
-      expect(a.state, name!).toBe("running");
+      expect(a.dur, name!).toBeLessThanOrEqual(4);
     }
+    // it runs: the drawing's own clock moves on (sampling the shapes themselves
+    // is unreliable in a headed GPU window, which may not re-sample between reads)
+    const clock = () => page.locator(".thumb-frame svg").evaluate((svg) => (svg as SVGSVGElement).getCurrentTime());
+    const before = await clock();
+    await page.waitForTimeout(300);
+    expect((await clock()) - before, `${name}'s clock runs`).toBeGreaterThan(0.1);
   }
   // the preview keeps its size while the loops run: no layout shift
   const frame = page.locator(".thumb-frame");
@@ -239,10 +262,15 @@ test("each sport's thumbnail is a short loop (task 23), paused while the tab is 
       Object.defineProperty(document, "hidden", { configurable: true, get: () => h });
       document.dispatchEvent(new Event("visibilitychange"));
     }, hidden);
+  const cssRunning = () => page.evaluate(() => document.querySelector(".menu")!.getAnimations({ subtree: true }).filter((a) => a.playState === "running").length);
+  expect(await cssRunning()).toBeGreaterThan(0);
   await setHidden(true);
-  expect((await loops()).every((a) => a.state === "paused")).toBe(true);
+  expect((await loops()).paused).toBe(true);
+  // the scene, the logo's rings and the party stop too
+  expect(await cssRunning()).toBe(0);
   await setHidden(false);
-  expect((await loops()).every((a) => a.state === "running")).toBe(true);
+  expect((await loops()).paused).toBe(false);
+  expect(await cssRunning()).toBeGreaterThan(0);
   // and the home screen never makes a WebGL context (no Three.js scene)
   await expect(page.locator("canvas")).toHaveCount(0);
 });
@@ -258,7 +286,7 @@ test("the mouse cursor on the home screen is the arrow (task 23); the game keeps
   }
   // a coming-soon tile, if any is left (task 29 made bowling, the last one, playable)
   const soon = (await page.locator('.sport[aria-disabled="true"]').count()) > 0 ? ['.sport[aria-disabled="true"]'] : [];
-  for (const sel of [".menu", ".menu .pill", ".sport", ".menu a", ...soon]) {
+  for (const sel of [".menu", ".menu .pill", ".sport", ".menu a", ".party-look", ...soon]) {
     const c = await cursorOf(sel);
     expect(c, sel).toContain("data:image/svg+xml");
     // the hotspot is the arrow's tip
@@ -277,7 +305,7 @@ test("the mouse cursor on the home screen is the arrow (task 23); the game keeps
 test("every current action is still on the home screen", async ({ page }) => {
   await page.goto("/");
   await expect(page.locator(".pm-button")).toBeVisible();
-  for (const name of [/practice vs bot/i, /^train$/i, /create a room/i, /^join$/i, /^Profile: /]) {
+  for (const name of [/practice vs bot/i, /^train$/i, /create a room/i, /^join$/i, /^Profile: /, /^party$/i, /^change my look$/i]) {
     await expect(page.getByRole("button", { name })).toBeVisible();
   }
   await expect(page.getByRole("textbox", { name: /room code/i })).toBeVisible();
@@ -287,7 +315,7 @@ test("every current action is still on the home screen", async ({ page }) => {
   expect(await noHorizontalScroll(page)).toBe(true);
 });
 
-test("Create a room is the big primary button; vs the bot is the smaller one beside Train (user, 2026-11-05)", async ({ page }) => {
+test("Create a room is the big primary button; vs the bot is the smaller one beside Train and Party (user, 2026-11-05; task 36)", async ({ page }) => {
   await page.goto("/");
   await expect(page.locator(".pm-button")).toBeVisible();
   const row = page.locator(".options-row");
@@ -303,7 +331,15 @@ test("Create a room is the big primary button; vs the bot is the smaller one bes
     const [c, b] = [(await create.boundingBox())!, (await bot.boundingBox())!];
     expect(c.y + c.height).toBeLessThanOrEqual(b.y + 1);
     expect(c.width).toBeGreaterThan(b.width * 1.5);
-    expect(c.height).toBeGreaterThan(b.height);
+    // the bigger button: taller on a desktop, bigger words everywhere
+    if (page.viewportSize()!.width > 760) expect(c.height).toBeGreaterThan(b.height);
+    const size = (l: typeof create) => l.evaluate((e) => parseFloat(getComputedStyle(e).fontSize));
+    expect(await size(create)).toBeGreaterThan(await size(bot));
+    // the smaller buttons share one row
+    for (const other of [sport === "tennis" ? /^train$/i : /^practice$/i, /^party$/i]) {
+      const o = (await row.getByRole("button", { name: other }).boundingBox())!;
+      expect(Math.abs(o.y - b.y)).toBeLessThanOrEqual(1);
+    }
     // everything inside the viewport
     for (const box of [c, b]) {
       expect(box.x).toBeGreaterThanOrEqual(0);
@@ -324,14 +360,17 @@ test("the profile button sits top right with your character's face; the name is 
   // top right corner, inside the viewport, a comfortable tap target
   expect(b.x + b.width).toBeLessThanOrEqual(v.width);
   expect(b.x + b.width).toBeGreaterThan(v.width - 40);
-  expect(b.y).toBeLessThan(30);
+  // in the top bar (task 36: level with the logo's middle)
+  expect(b.y + b.height).toBeLessThan(120);
   expect(b.height).toBeGreaterThanOrEqual(44);
   expect(b.width).toBeGreaterThanOrEqual(44);
   // the picture is the player's own look (a guest wears seat 1's default), head and shoulders
   const avatar = button.locator(".pm-avatar .look-svg");
   await expect(avatar).toHaveAttribute("data-look", DEFAULT_KEY);
   await expect(avatar).toHaveAttribute("viewBox", "15 0 70 70");
-  if (v.width >= 900) await expect(shownName(page)).toBeVisible();
+  // your status dot on the picture (task 34's "show me as")
+  await expect(button.locator(".pm-avatar .sdot")).toHaveClass(/sdot--online/);
+  if (v.width > 1100) await expect(shownName(page)).toBeVisible();
   else await expect(shownName(page)).toBeHidden();
   // it doesn't sit over the title or the options
   // (the h1 box spans the row; what is drawn is the rings and the word)
