@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 import type { Page } from "@playwright/test";
-import { openProfileDialog, openProfileMenu, profileButton, shownName, signInDemo } from "./flow.ts";
+import { DEFAULT_KEY, DEFAULT_LOOK, openProfileDialog, openProfileMenu, profileButton, shownName, signInDemo } from "./flow.ts";
 
 // Task 13: the Wii-style home screen. Runs at both viewports (desktop and
 // mobile projects in playwright.config.ts).
@@ -256,7 +256,9 @@ test("the mouse cursor on the home screen is the arrow (task 23); the game keeps
     for (const sel of [".menu", ".menu .pill", ".sport"]) expect(await cursorOf(sel)).not.toContain("data:image/svg+xml");
     return;
   }
-  for (const sel of [".menu", ".menu .pill", ".sport", ".menu a", '.sport[aria-disabled="true"]']) {
+  // a coming-soon tile, if any is left (task 29 made bowling, the last one, playable)
+  const soon = (await page.locator('.sport[aria-disabled="true"]').count()) > 0 ? ['.sport[aria-disabled="true"]'] : [];
+  for (const sel of [".menu", ".menu .pill", ".sport", ".menu a", ...soon]) {
     const c = await cursorOf(sel);
     expect(c, sel).toContain("data:image/svg+xml");
     // the hotspot is the arrow's tip
@@ -327,7 +329,7 @@ test("the profile button sits top right with your character's face; the name is 
   expect(b.width).toBeGreaterThanOrEqual(44);
   // the picture is the player's own look (a guest wears seat 1's default), head and shoulders
   const avatar = button.locator(".pm-avatar .look-svg");
-  await expect(avatar).toHaveAttribute("data-look", "blue/navy/s2/brown/short");
+  await expect(avatar).toHaveAttribute("data-look", DEFAULT_KEY);
   await expect(avatar).toHaveAttribute("viewBox", "15 0 70 70");
   if (v.width >= 900) await expect(shownName(page)).toBeVisible();
   else await expect(shownName(page)).toBeHidden();
@@ -355,7 +357,7 @@ test("the profile panel opens and closes by keyboard: focus in, Escape out and b
   await expect(page.getByRole("dialog", { name })).toBeVisible();
   await expect(panel.getByRole("button", { name: /create account with a passkey/i })).toBeFocused();
   // a bigger picture of the player, the name, matches played and every account action
-  await expect(panel.getByRole("img", { name: "Your player" })).toHaveAttribute("data-look", "blue/navy/s2/brown/short");
+  await expect(panel.getByRole("img", { name: "Your player" })).toHaveAttribute("data-look", DEFAULT_KEY);
   await expect(panel.getByText(/\d+ match(es)? played/)).toBeVisible();
   for (const label of [/create account with a passkey/i, /sign in with a passkey/i, /profile details/i, /^leaderboard$/i]) {
     await expect(panel.getByRole("button", { name: label })).toBeVisible();
@@ -412,7 +414,7 @@ test("the panel is a popover under the button on desktop and a bottom sheet on a
 test("demo accounts sit behind a closed Dev tools in the panel; signing in changes the name and the picture (task 17)", async ({ page }) => {
   await page.goto("/");
   const avatar = profileButton(page).locator(".look-svg");
-  await expect(avatar).toHaveAttribute("data-look", "blue/navy/s2/brown/short");
+  await expect(avatar).toHaveAttribute("data-look", DEFAULT_KEY);
   const panel = await openProfileMenu(page);
   const demoOne = panel.getByRole("button", { name: /sign in as demo one/i });
   await expect(demoOne).toBeHidden();
@@ -427,11 +429,11 @@ test("demo accounts sit behind a closed Dev tools in the panel; signing in chang
   expect(await noHorizontalScroll(page)).toBe(true);
 
   // give Demo One a look of its own (from the page, as the profile's Save does), then sign in from the panel
-  await setDemoOneLook(page, { shirt: "green", shorts: "white", skin: "s5", hair: "blonde", style: "cap" });
+  await setDemoOneLook(page, { ...DEFAULT_LOOK, topColour: "green", bottomColour: "white", skin: "s5", hairColour: "blonde", headwear: "cap" });
   await demoOne.click();
   await expect(shownName(page)).toHaveText("Demo One");
   await expect(profileButton(page)).toHaveAccessibleName("Profile: Demo One");
-  await expect(avatar).toHaveAttribute("data-look", "green/white/s5/blonde/cap");
+  await expect(avatar).toHaveAttribute("data-look", "tee/green/shorts/white/s5/blonde/short/cap/round/straight/small/smile/none/none");
   // focus comes back to the (redrawn) profile button
   await expect(profileButton(page)).toBeFocused();
 
@@ -440,10 +442,10 @@ test("demo accounts sit behind a closed Dev tools in the panel; signing in chang
   await expect(again.getByText("Demo account")).toBeVisible();
   await again.getByRole("button", { name: "Play as guest" }).click();
   await expect(profileButton(page)).toHaveAccessibleName(/\(guest\)$/);
-  await expect(avatar).toHaveAttribute("data-look", "blue/navy/s2/brown/short");
+  await expect(avatar).toHaveAttribute("data-look", DEFAULT_KEY);
 
   // put Demo One back to the default for other runs
-  await setDemoOneLook(page, { shirt: "blue", shorts: "navy", skin: "s2", hair: "brown", style: "short" });
+  await setDemoOneLook(page, DEFAULT_LOOK);
 });
 
 /** Signs this browser in as Demo One, saves a look, and signs out again; the page itself is not redrawn. */

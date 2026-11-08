@@ -314,14 +314,15 @@ wss.on("connection", (ws: WebSocket, req: IncomingMessage) => {
         break;
       case "aim":
       case "release":
-        // basketball's aim carries only `aim`; archery's the sight and draw
+        // basketball's and bowling's aim carries only `aim`; archery's the sight and draw
         if ("yaw" in msg) client.room?.aim(client, msg);
-        else client.room?.hoop(client, msg);
+        else client.room?.turn(client, msg);
         break;
       case "set":
       case "shoot":
+      case "throw":
       case "tie":
-        client.room?.hoop(client, msg);
+        client.room?.turn(client, msg);
         break;
       case "step":
         client.room?.step(client, msg);

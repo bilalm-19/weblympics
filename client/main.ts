@@ -6,6 +6,8 @@ import { startBasketballPractice } from "./games/basketball/practice.ts";
 import { startBasketball } from "./games/basketball/view.ts";
 import { startTraining } from "./games/tennis/training.ts";
 import { startTennis } from "./games/tennis/view.ts";
+import { startBowlingPractice } from "./games/bowling/practice.ts";
+import { startBowling } from "./games/bowling/view.ts";
 import { startBoxingPractice } from "./games/boxing/practice.ts";
 import { startBoxing } from "./games/boxing/view.ts";
 import { startTrackPractice } from "./games/track/practice.ts";
@@ -38,7 +40,17 @@ function showMenu(): void {
     error,
     {
       onTrain: (s) =>
-        s === "archery" ? practiseArchery() : s === "track" ? practiseTrack() : s === "boxing" ? practiseBoxing() : s === "basketball" ? practiseBasketball() : train(),
+        s === "archery"
+          ? practiseArchery()
+          : s === "track"
+            ? practiseTrack()
+            : s === "boxing"
+              ? practiseBoxing()
+              : s === "basketball"
+                ? practiseBasketball()
+                : s === "bowling"
+                  ? practiseBowling()
+                  : train(),
       onPractice: (s) => conn.send({ t: "create", game: s, practice: true }),
       onCreate: (s) => conn.send({ t: "create", game: s, practice: false }),
       onJoin: (code) => conn.send({ t: "join", room: code }),
@@ -141,6 +153,19 @@ function practiseBasketball(): void {
   });
 }
 
+// Bowling practice (task 29): in the page too, nothing sent to the server.
+function practiseBowling(): void {
+  disposeGame?.();
+  training = true;
+  sport = "bowling";
+  error = null;
+  history.replaceState(null, "", "#/bowling/practice");
+  disposeGame = startBowlingPractice(root, () => {
+    history.replaceState(null, "", location.pathname);
+    showMenu();
+  });
+}
+
 function enterRoom(info: RoomInfo): void {
   disposeGame?.();
   currentRoom = info.room;
@@ -157,6 +182,8 @@ function enterRoom(info: RoomInfo): void {
     disposeGame = startBoxing(root, conn, info, leave);
   } else if (info.game === "basketball") {
     disposeGame = startBasketball(root, conn, info, leave);
+  } else if (info.game === "bowling") {
+    disposeGame = startBowling(root, conn, info, leave);
   } else {
     // practice offers training once the camera is set up (a room may have
     // someone waiting, so it doesn't): leave the bot and train with the camera on
@@ -200,4 +227,5 @@ else if (location.hash === "#/archery/practice") practiseArchery();
 else if (location.hash === "#/track/practice") practiseTrack();
 else if (location.hash === "#/boxing/practice") practiseBoxing();
 else if (location.hash === "#/basketball/practice") practiseBasketball();
+else if (location.hash === "#/bowling/practice") practiseBowling();
 else showMenu();

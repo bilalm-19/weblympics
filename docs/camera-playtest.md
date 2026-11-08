@@ -78,6 +78,36 @@ Measures, per hand, in shoulder widths against the shoulder line:
 - **shots read**: the shots the current detector read, with power: moves
   2-6 should read one per push, 7 none, 8 soft.
 
+## Bowling's moves
+Task 29, `client/games/bowling/bowl-camera.ts` with `?debug`. Stand about
+2 m back, hips in view (the panel's silhouette is green), underarm swings
+one every second or two, right hand unless the move says. Keys 1-9, and 0
+for move 10.
+1. **slow swing.**
+2. **medium swing.**
+3. **fast swing.**
+4. **medium with a step and crouch**, as a real bowler does.
+5. **straight with a natural follow-through**: must read no curve.
+6. **curve left**: sweep the hand to your left as you let go.
+7. **curve right.**
+8. **left-handed medium.**
+9. **moving, no throw**: pick something up, stretch, walk sideways. None of
+   this may read as a throw.
+0. **medium at 1 m** (hips out of view: the chest fallback).
+
+Measures, in shoulder widths against the shoulders:
+- **release speed**: the wrist's speed as it comes up past the hip line,
+  lo/typ/hi over the crossings in front, and separately those the model's
+  depth put behind the hips (backswings). The threshold (`minSpeed`) sits
+  between move 9's high and move 1's low; 1-3 set `speed0` and `speed1`; 4
+  should read like 2.
+- **sweep**: the wrist's sideways move over the 150 ms around each throw.
+  Move 5 sets the dead zone (`sweepDead`), 6 and 7 the full sweep.
+- **hips seen, left, right**: the share of frames each was seen (does the
+  swing leave the frame? does move 10 lose the hips?).
+- **throws read**: the current detector's throws, speed/spin: one a swing in
+  1-8 and 10, none in 9.
+
 ## Measures (all in shoulder widths, so distance doesn't matter)
 - **size**: the hand's apparent size (wrist to index and pinky knuckles). It
   grows as the fist nears the camera: the main candidate for "arm out".

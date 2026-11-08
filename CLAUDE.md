@@ -71,8 +71,28 @@ lazily and only when a player enters a game. Video never leaves the browser.
   choices: `spec/basketball-tie-vote.test.ts`), `shoot-camera.ts` (its camera,
   task 32 part 3), `practice.ts` + `practice-sim.ts` (in-page practice vs
   the bot), `basketball.css`; it reuses tennis's ready panel.
+  Bowling (task 29) is `shared/games/bowling/`: `sim.ts` (frames
+  and ten-pin scoring `scoreCard`, turns, shot clock and grace, the tie
+  vote, the 2D lane: ball path and bend, ball-pin and pin-pin circles,
+  `simulateThrow`, `aimFor`, `speedZone` for the after-ball read),
+  `bot.ts` (`solveThrow`: the pocket, or the most of the leftovers, plus
+  noise), `index.ts` (adapter). Its client (part 2) is
+  `client/games/bowling/`: `view.ts` (frame scoreboard, turn, clock, tie
+  vote, end card, keys and buttons), `scene.ts` (cameras: behind the
+  bowler, following the ball, the pin deck; side-on for a spectator),
+  `alley.ts` (the hall from merged primitives, tennis's crowd via
+  `crowdMeshes`), `calls.ts` (pure: the call, speed and curve read, the
+  guide arrow, the meter: `spec/bowling-calls.test.ts`), `sound.ts`
+  (WebAudio), `practice.ts` + `practice-sim.ts`, `bowling.css`; it
+  reuses tennis's ready panel. Its camera (part 3):
+  `client/input/camera/bowl-pose.ts` (pure: aim across the picture, the
+  release past the hip, speed, the curve window, the chest fallback;
+  `spec/bowling-bowl-pose.test.ts`) and `client/games/bowling/bowl-camera.ts`
+  (its panel: stand-back silhouette, aim arrow, a try swing, the `?debug`
+  readout and the 1-9/0 recorder).
   `shared/look.ts`
-  is the fixed palette and hat/hair list for a player's look (task 18).
+  is the fixed lists for a player's look (tasks 18 and 33: clothes, colours,
+  hair, face, headwear, eyewear) and `fromTask18`, the old shape's mapping.
 - `server/` `index.ts` (http + ws + `/readme/`), `rooms.ts` (live rooms with
   the real clock and db), `room.ts` (one room: 60 Hz tick loop, seats,
   spectators, game), `lobby.ts` (pure room rules: phases, ready, format,
@@ -105,8 +125,11 @@ lazily and only when a player enters a game. Video never leaves the browser.
   two vertex-coloured meshes, instanced crowd/trees; returns the crowd handle),
   `games/tennis/crowd-layout.ts` (pure: stands and seats in four sections,
   left, right, frontLeft, frontRight, for task 19 to drive),
-  `games/tennis/character.ts` (Mii-style player and racket, coloured and
-  hatted from the seat's look, task 18),
+  `games/tennis/character.ts` (Mii-style player and racket, dressed from
+  the seat's look: clothes, hair, hats, glasses as primitives, the face
+  drawn on the head; tasks 18 and 33; every game's character: a sport
+  that draws its own limbs dresses them from `parts`' `sleeve`, `forearm`
+  and `bottom`, as `spec/track-runner-look.test.ts` checks for track),
   `games/tennis/stroke.ts` (forehand/backhand keyframes, shot label text),
   `games/tennis/shot-fx.ts` (ball trail, bounce marks, shot arc),
   `games/tennis/trajectory-aid.ts` (pure: timing arcs, meter, strength ticks)
@@ -128,8 +151,9 @@ lazily and only when a player enters a game. Video never leaves the browser.
   the leaderboard: `e2e/home.e2e.ts`), `ui/brand.ts` (the five ring
   colours and every text/background pair, held to WCAG AA by
   `spec/brand.test.ts`; task 14), `ui/profile.ts` + `.css` (task 17's profile
-  dialog, with task 18's customise section; `ui/look-preview.ts` draws the
-  look as SVG, since the menu never loads Three.js), `net/account.ts`
+  dialog, with task 33's look editor: live preview, Face/Hair/Clothes/Extras
+  tabs of picture swatches, Save and Cancel; `ui/look-preview.ts` draws the
+  look as SVG, whole or cropped, since the menu never loads Three.js), `net/account.ts`
   (`/api/*` calls; the passkey prompt is loaded only when needed),
   `ui/leaderboard.ts` + `.css` (task 7: a tab per sport, polled each second). Camera swings have two modes,
   "classic" (default) and "follow" (character copies the arm, hit at the
@@ -138,14 +162,25 @@ lazily and only when a player enters a game. Video never leaves the browser.
   "auto" (default: the server walks you to the ball, `autoTargetX` in
   `sim.ts`) and "tilt" (lean to move); keys and buttons move you in either
   (task 2). Archery (task 22) is `games/archery/`: `view.ts` (range, sight,
-  wind dial, target card, score; mouse, keys, hold button), `range.ts`,
+  wind dial, target card, score; mouse, keys, hold button), `range.ts`
+  (task 31: mown range, trees, hills, butts, shooting line, a small stand
+  of tennis's instanced crowd that cheers a 10 or bullseye, flags that
+  stream with the snapshot's wind; `cues.ts` is their pure maths),
+  `archer.ts` + `archer-pose.ts` (pure; the tennis character holding the
+  bow, posed from outside; another's turn and spectators see it over the
+  shoulder: `spec/archery-look.test.ts`),
   `bow.ts` (pure: bow-hold landmarks to aim, draw, release),
   `bow-camera.ts` (its camera panel; loads the hand model too),
   `bow-model.ts` (the first-person bow), `practice.ts` + `practice-sim.ts`
   (in-page practice), `archery.css`; it reuses tennis's ready panel. Track
   (task 26) is `games/track/`: `view.ts` (side-on chase camera, race board,
-  A/D, arrows and two tap buttons), `lane.ts` (track and runners from
-  primitives), `run-camera.ts` (its camera panel: mode, stand-still
+  A/D, arrows and two tap buttons), `lane.ts` (task 31's stadium from
+  tennis's `Painter`, `paintStand`, `fanMeshes` and `sky`; finish arch and
+  clock), `bake.ts` (bakes the light into the stadium's colours, so only
+  runners are lit), `crowd.ts` (each stand's fans merged into one mesh, the
+  cheer in the vertex shader), `runner.ts` (the tennis character with
+  jointed legs and arms), `scene-model.ts` (pure: run pose, crowd
+  excitement, clock: `spec/track-scene.test.ts`), `run-camera.ts` (its camera panel: mode, stand-still
   calibration), `practice.ts` + `practice-sim.ts` (in-page practice vs a
   pacer), `track.css`; the pure camera maths is `input/camera/run-pose.ts`;
   it reuses tennis's ready panel.
@@ -236,12 +271,19 @@ lazily and only when a player enters a game. Video never leaves the browser.
   demo accounts are locked (no rename, delete or passkey), hidden from the
   board, and reached only from the closed "Dev tools" in the home screen's
   profile panel.
-- Looks (task 18; `spec/look.test.ts`, `e2e/look.e2e.ts`): an account's look
-  is five enum values from `shared/look.ts`, checked on the server (anything
-  outside the lists, or any extra field, is refused and nothing is stored).
-  Guests always wear their seat's default. The server puts each seat's look
-  in the room state, so both players and spectators see it. The demo
-  accounts may change their look (it is how two seats get tested).
+- Looks (tasks 18 and 33; `spec/look.test.ts`, `e2e/look.e2e.ts`): an
+  account's look is fourteen enum values from `shared/look.ts` (top, top
+  colour, bottom, bottom colour, skin, hair colour, hair style, headwear,
+  eyes, brows, nose, mouth, facial hair, eyewear), checked on the server
+  (anything outside the lists, a missing field or any extra field is refused
+  and nothing is stored). A dress hides the bottom; tall hair is drawn short
+  under a cap or beanie; a hat takes the top's colour. Guests always wear
+  their seat's default (seat 1 differs from seat 0). The server puts each
+  seat's look in the room state, so both players and spectators see it. The
+  demo accounts may change their look (it is how two seats get tested).
+  Schema step 7 rewrote every stored task-18 look as `fromTask18` does.
+  `makePlayer`/`setLook` still take a task-18 look, and `setLook` never
+  shows or hides a part (boxing hides some in first person).
 - A schema change is a new step in `server/schema.ts` plus a test that opens
   a database made by the previous version; never edit an old step.
 - A ball in the air is live for everyone, even one going out: a person may
@@ -253,7 +295,9 @@ lazily and only when a player enters a game. Video never leaves the browser.
   events: the sprint is playable, hurdles is task 27) are the games; boxing
   (task 30, a "maybe") is playable on keys, buttons or the camera in a 3D ring;
   basketball (task 32, asked for on 2026-11-07) is playable on keys, the
-  mouse and buttons in a park court; its camera is part 3. Add another only when I ask. Each lives in `shared/games/<name>/` and registers in the registry, so
+  mouse and buttons in a park court; its camera is part 3;
+  bowling (task 29, asked for) is playable on keys, buttons or the camera in
+  a bowling hall. Add another only when I ask. Each lives in `shared/games/<name>/` and registers in the registry, so
   rooms, lobby and reconnect stay game-agnostic. A game's specs are named
   `spec/<name>-*.test.ts` and `e2e/<name>-*.e2e.ts`.
 - Video never leaves the browser. The game page's CSP `connect-src` allows
@@ -385,6 +429,42 @@ lazily and only when a player enters a game. Video never leaves the browser.
   pass) is scaled down by its rise. One shot a turn, nothing off-turn, a
   hand lost mid-push never fires. Every number in `DEFAULT_SHOOT` is a guess
   until task 32's eight recordings.
+- Bowling (task 29, `docs/adr/004-bowling.md`; `spec/bowling-*.test.ts`,
+  `e2e/bowling-*.e2e.ts`): five frames each, real ten-pin scoring
+  (the fifth frame's bonus balls, perfect 150), frames alternate, seat 0
+  first. Clients send exactly `aim` {aim}, `throw` {speed, aim, spin, at}
+  and `tie` {choice "draw"|"continue"}; anything else or any extra field is
+  dropped whole; off-turn messages, a second throw for one ball and a
+  second vote are ignored. The server rolls the ball and the pins, with no
+  random scatter. 20 s shot clock a ball (out of time is a gutter ball); a
+  throw after the buzzer counts within the seat's round trip, capped at
+  9 ticks (`setLag`, `lateShotTicks`). A level game (or tie frame) asks both
+  to vote (user, 2026-11-08): either "draw" draws (`winner: null`, rated as
+  a draw between two people, moving nobody, like boxing's), both "continue"
+  bowl a tie frame (no bonus balls, not added to the score); 15 s, a missing
+  vote counts as draw; the bot votes continue. Formats "game" (rated
+  between two people) and "unlimited" (games won, a level vote too, best
+  score, unrated). The physics numbers are first guesses
+  (`spec/bowling-physics.test.ts` holds what they must do: a pocket ball at
+  speed strikes, a curving one more often than a straight one, a slow ball
+  leaves pins, a head-on hit can split, spares are pickable). On screen:
+  "Your turn" / "Their turn, watch"; the guide arrow shows only the start
+  and the first third of the lane (never the bend or the end); the last
+  path stays faint; after each ball the speed against `speedZone(spin)`
+  (just the speed when null) and "Curve: ..." with the call. Keys: Left/
+  Right start spot, Up/Down curve, hold Space (or Bowl) to fill a meter
+  that rises and falls, let go to throw; D/C vote in a tie. Practice runs
+  in the page; nothing sent to the server. Camera (`BowlDetector` in `bowl-pose.ts`): it sends the same `aim` and `throw` a
+  key does. Aim is the bowling hand across the whole picture (walking
+  works), the player's right aiming right, locked at the swing's start. A
+  wrist coming up past the hip line fast, in shoulder widths a second
+  against the shoulders (a step or crouch changes nothing), is the release
+  and its speed; it counts only after the arm came down through the line
+  (or with the model's depth in front), never a backswing behind. Spin is
+  the sideways sweep over 150 ms around the release, then locked. No hips
+  seen: a chest line instead, and the panel says stand back. One throw a
+  turn, nothing off-turn, a wrist lost mid-swing never fires. Every number
+  in `DEFAULT_BOWL` is a guess until task 29's ten recordings.
 - Camera is used for gameplay only. Every camera action has a keyboard/mouse
   equivalent, and the lobby and room work with no camera at all.
 - Webcam is the default (task 15, `e2e/webcam-default.e2e.ts`): a seated

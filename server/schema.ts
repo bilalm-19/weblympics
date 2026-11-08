@@ -21,8 +21,14 @@ import type { DatabaseSync } from "node:sqlite";
  * of a match is its existing `game` column (the registry's id). Old rows
  * that were marked rated before accounts existed are marked unrated: they
  * were never between accounts, and ratings start from nothing.
+ * Version 7 (task 33): looks get clothes styles, hairstyles apart from hats,
+ * and a face. Every stored task-18 look ({shirt, shorts, skin, hair, style})
+ * is rewritten in the new shape, as `fromTask18` in shared/look.ts does: the
+ * shirt colour on a T-shirt, the shorts colour on shorts, a hat style becomes
+ * that hat over short hair, a hair style stays, and the face is the default.
+ * A stored value that isn't a task-18 look becomes NULL (the default).
  */
-export const SCHEMA_VERSION = 6;
+export const SCHEMA_VERSION = 7;
 
 const V1 = `
   CREATE TABLE IF NOT EXISTS players (
@@ -120,6 +126,29 @@ const V6 = `
   UPDATE matches SET rated = 0;
 `;
 
+const V7 = `
+  UPDATE players SET look = NULL
+    WHERE look IS NOT NULL AND (json_valid(look) = 0 OR json_type(look) != 'object' OR json_type(look, '$.shirt') IS NOT 'text'
+      OR json_type(look, '$.shorts') IS NOT 'text' OR json_type(look, '$.skin') IS NOT 'text'
+      OR json_type(look, '$.hair') IS NOT 'text' OR json_type(look, '$.style') IS NOT 'text');
+  UPDATE players SET look = json_object(
+      'top', 'tee',
+      'topColour', json_extract(look, '$.shirt'),
+      'bottom', 'shorts',
+      'bottomColour', json_extract(look, '$.shorts'),
+      'skin', json_extract(look, '$.skin'),
+      'hairColour', json_extract(look, '$.hair'),
+      'hairStyle', CASE WHEN json_extract(look, '$.style') IN ('long', 'bun', 'bald') THEN json_extract(look, '$.style') ELSE 'short' END,
+      'headwear', CASE WHEN json_extract(look, '$.style') IN ('cap', 'visor', 'headband') THEN json_extract(look, '$.style') ELSE 'none' END,
+      'eyes', 'round',
+      'brows', 'straight',
+      'nose', 'small',
+      'mouth', 'smile',
+      'facialHair', 'none',
+      'eyewear', 'none')
+    WHERE look IS NOT NULL;
+`;
+
 export function schemaVersion(db: DatabaseSync): number {
   db.exec("CREATE TABLE IF NOT EXISTS schema_version (version INTEGER NOT NULL)");
   const row = db.prepare("SELECT version FROM schema_version").get() as { version: number } | undefined;
@@ -134,7 +163,7 @@ export function schemaVersion(db: DatabaseSync): number {
 
 /** Brings `db` up to SCHEMA_VERSION, one step at a time, each in a transaction. */
 export function migrate(db: DatabaseSync): void {
-  const steps: Record<number, string> = { 1: V1, 2: V2, 3: V3, 4: V4, 5: V5, 6: V6 };
+  const steps: Record<number, string> = { 1: V1, 2: V2, 3: V3, 4: V4, 5: V5, 6: V6, 7: V7 };
   let v = schemaVersion(db);
   if (v > SCHEMA_VERSION) throw new Error(`database schema ${v} is newer than this app (${SCHEMA_VERSION})`);
   while (v < SCHEMA_VERSION) {
