@@ -1606,7 +1606,40 @@ a:focus-visible {
 .hud-tools [data-action="copy"] { order: 4; }
 .hud-tools [data-action="copy-watch"] { order: 5; }
 .hud-tools .snd { order: 6; }
-.hud-tools [data-action="leave"] { order: 7; }
+/* the "?" sits right before Leave (it had no order and jumped to the front, user 2026-11-09) */
+.hud-tools [data-action="guide"] { order: 7; }
+.hud-tools [data-action="leave"] { order: 8; }
+
+/* On a wide screen the row is pinned to the top right, so Leave is at the same
+   spot in every game (it only moved right when the HUD line happened to be
+   full, so boxing's sat mid-screen). A phone keeps the wrapping flow below. */
+@media (min-width: 601px) {
+  .hud .hud-tools {
+    position: absolute;
+    top: max(0.5rem, env(safe-area-inset-top));
+    right: 0.75rem;
+    margin-left: 0;
+    flex-wrap: nowrap;
+    justify-content: flex-end;
+    max-width: calc(100% - 1.5rem);
+  }
+
+  /* the row is out of the flow now, so the help line goes below it (it ran
+     under the buttons and its right end was hidden), clear of the score too */
+  .game .hud .status {
+    margin-top: 3.5rem;
+  }
+}
+
+@media (max-width: 600px) {
+  .hud .hud-tools {
+    gap: 0.35rem;
+  }
+
+  .hud-tools .code {
+    font-size: 0.85rem;
+  }
+}
 
 /* score bar: two rows (sets, games, points), the format and the umpire's call;
    compact so the HUD stays above the camera dock on a phone */

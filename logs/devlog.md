@@ -2139,3 +2139,10 @@ Merged home-36 (home screen redesign) onto main's tennis-fixes. Checked: no conf
 - Guard: the Layout section now says to keep the file short and to put game detail in `docs/`. Whether agents follow it is untested.
 - Not done: the README is 810 words against its own 400-600 target (it was 808 before today's work).
 - Who: user (asked), Claude (did it).
+
+## 2026-11-09 - bugfix - the "?" jumped to the front of the button row (user: "the ? replaces the camera....")
+- What happened: the guide's "?" had no `order`, so in the flex row it went to the front (order 0, ahead of the room code), and on a phone its extra width pushed Leave onto a third line, in the Camera button's old place on the first line. Camera was never removed, but the row read as if it had been. I had checked that the "?" was in the row, not where.
+- Fixes: the "?" is order 7, right before Leave; it is a round 44 px button like the sound one so the pair and Leave share a line on a phone (checked in all six games); on a wide screen the row is pinned top right (`.hud-tools`), so Leave is at (1820, 8) in all six games (measured), the status line goes below it, and the practice coach card below that.
+- Corrected claim: earlier today I wrote that Leave was "at the same spot on desktop"; that was measured while the HUD line happened to be full, and boxing's sat mid-screen once the row had room. Now true by pinning.
+- Two more bugs I made on the way, both caught by measuring or the e2e: pinning the row put the status line under the buttons (boxing's help text was cut off), and the coach card landed under Leave. A same-specificity rule defined later beat my media-query rule, so it needed `.game .hud .status`.
+- Known flaky, not mine: `e2e/layout.e2e.ts` invite-link join and `e2e/spectate.e2e.ts:63` fail on desktop about 2 of 5 runs on builds from before today's link change too. Cause not found.

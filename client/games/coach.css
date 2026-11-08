@@ -54,6 +54,17 @@
   visibility: hidden;
 }
 
+/* On a wide screen the button row is pinned top right and out of the flow
+   (client/style.css), so the card goes below it, clear of Leave and the
+   status line, on the right where the row is. */
+@media (min-width: 601px) {
+  .game .hud .practice-coach {
+    margin-top: 4.25rem;
+    margin-left: auto;
+    flex: 0 1 26rem;
+  }
+}
+
 @media (max-width: 600px) {
   .hud .practice-coach {
     font-size: 0.78rem;

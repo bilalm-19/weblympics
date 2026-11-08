@@ -1,7 +1,11 @@
 /* The how-to-play guide (client/ui/guide.ts): a "?" in the button row, and a
    panel of moves. A side panel on a desktop, a bottom sheet on a phone. */
+/* a round 44 px button like the sound one, so the two sit as a pair and Leave stays on the row above/below with them on a phone */
 .hud .gd-button {
+  width: 44px;
   min-width: 44px;
+  padding: 0;
+  border-radius: 999px;
   font-weight: 700;
   pointer-events: auto;
 }
