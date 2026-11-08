@@ -185,4 +185,41 @@ describe("the server's log lines (task 8)", () => {
     for (const s of secrets.filter((x) => x && x.length >= 8)) expect(out, "a secret value is in the log").not.toContain(s);
     for (const n of names) expect(out, `a name (${n}) is in the log`).not.toContain(n);
   }, 60_000);
+  it("task 34: friend requests, links, status and parties are logged by `who` only, never a name, tag, code or token", async () => {
+    const accountOn = async (name: string) => {
+      const meRes = await fetch(`${base}/api/me`);
+      let cookie = meRes.headers.getSetCookie()[0].split(";")[0];
+      const guestToken = cookie.split("=")[1];
+      const post = async (path: string, body: unknown) => {
+        const r = await fetch(`${base}${path}`, { method: "POST", headers: { origin: base, cookie, "content-type": "application/json" }, body: JSON.stringify(body) });
+        const set = r.headers.getSetCookie().find((c) => c.startsWith("wl_session="));
+        if (set) cookie = set.split(";")[0];
+        return (await r.json()) as Record<string, unknown>;
+      };
+      const auth = new SoftAuthenticator(base);
+      const opts = (await post("/api/passkey/register/options", {})) as { challenge: string; rp: { id: string }; user: { id: string } };
+      await post("/api/passkey/register/verify", { response: auth.register(opts) });
+      const me = await post("/api/name", { name });
+      return { post, cookie: () => cookie, tag: `${name}#${me.tag as string}`, secrets: [guestToken, cookie.split("=")[1]] };
+    };
+    const suffix = Math.floor(Math.random() * 1e5);
+    const ana = await accountOn(`Friendlog A${suffix}`);
+    const ben = await accountOn(`Friendlog B${suffix}`);
+    expect((await ana.post("/api/friends/add", { who: ben.tag })).outcome).toBe("requested");
+    expect((await ben.post("/api/friends/accept", { who: ana.tag })).outcome).toBe("friends");
+    const link = (await ana.post("/api/friends/link", {})) as { code: string };
+    const a = await socket(ana.cookie());
+    await until(a.seen, (m) => m.t === "friends");
+    a.ws.send(JSON.stringify({ t: "status", status: "away" }));
+    a.ws.send(JSON.stringify({ t: "party", act: "create" }));
+    const party = (await until(a.seen, (m) => m.t === "party" && m.party !== null)) as Extract<ServerMsg, { t: "party" }>;
+    a.ws.send(JSON.stringify({ t: "invite", to: ben.tag }));
+    await until(a.seen, (m) => m.t === "notice");
+    a.ws.close();
+    await new Promise((r) => setTimeout(r, 300));
+    const events = new Set(lines().map((l) => l.event));
+    for (const e of ["friends_add", "friends_accept", "friends_link", "status", "party_create", "invite"]) expect(events, e).toContain(e);
+    for (const secret of [...ana.secrets, ...ben.secrets, link.code, party.party!.code]) expect(out).not.toContain(secret);
+    for (const n of [ana.tag, ben.tag, `Friendlog A${suffix}`, `Friendlog B${suffix}`]) expect(out).not.toContain(n);
+  }, 60_000);
 });

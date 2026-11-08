@@ -50,7 +50,9 @@ export interface LobbyView {
 export type ClientMsg =
   // who you are comes from the page's cookies when the socket opens (a guest
   // id or an account's session, task 17); the client never says who it is
-  | { t: "hello" }
+  // task 34: `status`, the tab's remembered "show me as", so appearing
+  // offline holds across a reload
+  | { t: "hello"; status?: ShownStatus }
   // format: the room's starting format ("oneSet" default, "bestOfThree",
   // "unlimited"); an unknown one gets the default. The host can change it in
   // the ready panel before play.
@@ -107,7 +109,91 @@ export type ClientMsg =
   | { t: "pause"; paused: boolean }
   // reply to the server's ping, echoing its id, so it can time the round trip
   | { t: "pong"; id: number }
-  | { t: "leave" };
+  | { t: "leave" }
+  // ---- task 34: status and parties. Who sends it is the socket's own
+  // player (from the cookies); a message never names its sender, and one
+  // with any extra field is dropped whole ----
+  // what friends see you as: online, away, or appear offline
+  | { t: "status"; status: ShownStatus }
+  // the tab is hidden or has had no input for about 5 minutes (away)
+  | { t: "idle"; idle: boolean }
+  // ask a friend (by Name#1234) to join your party
+  | { t: "invite"; to: string }
+  | PartyMsg;
+
+/** Task 34: what a player chose to be seen as. "offline" is "appear offline". */
+export type ShownStatus = "online" | "away" | "offline";
+export const SHOWN_STATUSES: readonly ShownStatus[] = ["online", "away", "offline"];
+
+/**
+ * Task 34: who plays next in a party. "pick": the leader picks the two;
+ * "winner": winner stays on, the loser goes to the back of the queue;
+ * "swap": both players go to the back; "random": any two members.
+ */
+export type PartyMode = "pick" | "winner" | "swap" | "random";
+export const PARTY_MODES: readonly PartyMode[] = ["pick", "winner", "swap", "random"];
+/** Task 34: a party holds at most this many (the watcher limit). */
+export const MAX_PARTY = 10;
+
+/** Party actions. Leader-only ones from anyone else are ignored. `id`s are the party's own member ids, never an account's. */
+export type PartyMsg =
+  | { t: "party"; act: "create" }
+  | { t: "party"; act: "join"; code: string }
+  | { t: "party"; act: "leave" }
+  | { t: "party"; act: "public"; public: boolean }
+  | { t: "party"; act: "game"; game: string }
+  | { t: "party"; act: "mode"; mode: PartyMode }
+  | { t: "party"; act: "pick"; ids: [string, string] }
+  | { t: "party"; act: "lead"; id: string }
+  | { t: "party"; act: "start" };
+
+/** Task 34: a friend as the friends list shows them. Never an account id. */
+export interface FriendView {
+  name: string;
+  /** Four digits, "0317". */
+  tag: string;
+  look: Look | null;
+  status: ShownStatus;
+  /** What they're doing (hidden when they show as offline): in a room, leading a public party, or on the home screen. */
+  doing:
+    | { kind: "match"; game: string; room: string }
+    | { kind: "practice"; game: string }
+    | { kind: "party"; code: string; size: number; game: string }
+    | { kind: "home" }
+    | null;
+}
+
+/** Someone asking to be your friend. */
+export interface RequestView {
+  name: string;
+  tag: string;
+  look: Look | null;
+}
+
+export interface PartyMember {
+  /** The party's own id for this member (random, per party). */
+  id: string;
+  name: string;
+  look: Look | null;
+  status: ShownStatus;
+  leader: boolean;
+  you: boolean;
+}
+
+export interface PartyView {
+  /** The party link's code: whoever has it may join. */
+  code: string;
+  members: PartyMember[];
+  public: boolean;
+  game: string;
+  mode: PartyMode;
+  /** Member ids of the two who play next, or null with fewer than two members. */
+  next: [string, string] | null;
+  /** The party's current room, while there is one. */
+  room: string | null;
+  /** The last match's result in words ("Ana won"), else null. */
+  last: string | null;
+}
 
 /** Task 24 (user, 2026-11-05): at most this many watchers per room, for the shared CPU and 256 MB machine. */
 export const MAX_WATCHERS = 10;
@@ -125,7 +211,7 @@ export type ServerMsg =
   // account: signed in with a passkey (or a demo account); demo: one of the
   // two locked demo accounts; look: the account's saved look (task 18), null
   // for a guest or the default, drawn as the home screen's profile picture
-  | { t: "welcome"; name: string; account: boolean; demo: boolean; matches: number; look: Look | null }
+  | { t: "welcome"; name: string; account: boolean; demo: boolean; matches: number; look: Look | null; tag?: string | null }
   | ({ t: "room" } & RoomInfo)
   // spectators: how many are watching (task 24: at most MAX_WATCHERS)
   | { t: "presence"; names: [string | null, string | null]; spectators: number }
@@ -137,7 +223,17 @@ export type ServerMsg =
   // the server's ruling on your swing: hit, or why it missed
   // allowed: ticks back the server would judge it; rewind: ticks back it did
   | { t: "swing"; tick: number; outcome: string; rtt: number | null; allowed: number; rewind: number }
-  | { t: "error"; message: string };
+  | { t: "error"; message: string }
+  // task 34: your friends and requests, sent whole on connect and on every change
+  | { t: "friends"; friends: FriendView[]; requests: RequestView[]; status: ShownStatus }
+  // your party, sent on connect and on every change; null: not in one
+  | { t: "party"; party: PartyView | null }
+  // a friend asks you to join their party
+  // a friend asks you to join them: their room (a seat if one is free, else
+  // to watch) or their party
+  | { t: "invited"; from: { name: string; tag: string; look: Look | null }; kind: "room" | "party"; code: string; game: string }
+  // a refusal or note for the friends and party panels (never ends a game)
+  | { t: "notice"; message: string };
 
 /** Boxing's messages carry no extra claim: one with any other field is dropped whole (task 30's contract). */
 const onlyKeys = (m: Record<string, unknown>, keys: readonly string[]): boolean => Object.keys(m).every((k) => keys.includes(k));
@@ -153,7 +249,8 @@ export function parseClientMsg(raw: string): ClientMsg | null {
   const m = v as Record<string, unknown>;
   switch (m.t) {
     case "hello":
-      return { t: "hello" };
+      // anything else in a hello (a claimed token, a name) is ignored: who you are is the cookies'
+      return (SHOWN_STATUSES as readonly unknown[]).includes(m.status) ? { t: "hello", status: m.status as ShownStatus } : { t: "hello" };
     case "create":
       if (typeof m.game !== "string") return null;
       return { t: "create", game: m.game, practice: m.practice === true, format: typeof m.format === "string" ? m.format : undefined };
@@ -224,6 +321,52 @@ export function parseClientMsg(raw: string): ClientMsg | null {
       return Number.isInteger(m.id) ? { t: "pong", id: m.id as number } : null;
     case "leave":
       return { t: "leave" };
+    case "status":
+      if (!onlyKeys(m, ["t", "status"])) return null;
+      return (SHOWN_STATUSES as readonly unknown[]).includes(m.status) ? { t: "status", status: m.status as ShownStatus } : null;
+    case "idle":
+      if (!onlyKeys(m, ["t", "idle"])) return null;
+      return typeof m.idle === "boolean" ? { t: "idle", idle: m.idle } : null;
+    case "invite":
+      if (!onlyKeys(m, ["t", "to"])) return null;
+      return typeof m.to === "string" && m.to.length <= 40 ? { t: "invite", to: m.to } : null;
+    case "party":
+      return parsePartyMsg(m);
+    default:
+      return null;
+  }
+}
+
+const PARTY_CODE = /^[A-Za-z0-9_-]{8,32}$/;
+const MEMBER_ID = /^[A-Za-z0-9_-]{4,16}$/;
+
+function parsePartyMsg(m: Record<string, unknown>): PartyMsg | null {
+  switch (m.act) {
+    case "create":
+    case "leave":
+    case "start":
+      return onlyKeys(m, ["t", "act"]) ? { t: "party", act: m.act } : null;
+    case "join":
+      if (!onlyKeys(m, ["t", "act", "code"])) return null;
+      return typeof m.code === "string" && PARTY_CODE.test(m.code) ? { t: "party", act: "join", code: m.code } : null;
+    case "public":
+      if (!onlyKeys(m, ["t", "act", "public"])) return null;
+      return typeof m.public === "boolean" ? { t: "party", act: "public", public: m.public } : null;
+    case "game":
+      if (!onlyKeys(m, ["t", "act", "game"])) return null;
+      return typeof m.game === "string" && m.game.length <= 20 ? { t: "party", act: "game", game: m.game } : null;
+    case "mode":
+      if (!onlyKeys(m, ["t", "act", "mode"])) return null;
+      return (PARTY_MODES as readonly unknown[]).includes(m.mode) ? { t: "party", act: "mode", mode: m.mode as PartyMode } : null;
+    case "pick": {
+      if (!onlyKeys(m, ["t", "act", "ids"])) return null;
+      const ids = m.ids;
+      if (!Array.isArray(ids) || ids.length !== 2 || !ids.every((i) => typeof i === "string" && MEMBER_ID.test(i)) || ids[0] === ids[1]) return null;
+      return { t: "party", act: "pick", ids: [ids[0], ids[1]] };
+    }
+    case "lead":
+      if (!onlyKeys(m, ["t", "act", "id"])) return null;
+      return typeof m.id === "string" && MEMBER_ID.test(m.id) ? { t: "party", act: "lead", id: m.id } : null;
     default:
       return null;
   }

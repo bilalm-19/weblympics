@@ -21,8 +21,15 @@ import type { DatabaseSync } from "node:sqlite";
  * of a match is its existing `game` column (the registry's id). Old rows
  * that were marked rated before accounts existed are marked unrated: they
  * were never between accounts, and ratings start from nothing.
+ * Version 7 (task 34, friends): an account's name gets a 4-digit tag
+ * (`Sam#4821`); several accounts may share a name, but name (ignoring case)
+ * and tag together are unique. Every existing account gets a random tag
+ * (names were unique, so any tag is free); the demo accounts get 0001 and
+ * 0002. Friendships (one row per pair, the smaller id first), pending
+ * friend requests and friend links (only a hash of the code, single use,
+ * expiring) get their own tables, all keyed by the hidden player id.
  */
-export const SCHEMA_VERSION = 6;
+export const SCHEMA_VERSION = 7;
 
 const V1 = `
   CREATE TABLE IF NOT EXISTS players (
@@ -120,6 +127,35 @@ const V6 = `
   UPDATE matches SET rated = 0;
 `;
 
+const V7 = `
+  ALTER TABLE players ADD COLUMN tag INTEGER;
+  UPDATE players SET tag = abs(random() % 10000) WHERE account = 1;
+  UPDATE players SET tag = 1 WHERE token = 'demo-1';
+  UPDATE players SET tag = 2 WHERE token = 'demo-2';
+  DROP INDEX players_account_name;
+  CREATE UNIQUE INDEX players_name_tag ON players (lower(name), tag) WHERE account = 1;
+  CREATE TABLE friendships (
+    a TEXT NOT NULL,
+    b TEXT NOT NULL,
+    created_at INTEGER NOT NULL,
+    PRIMARY KEY (a, b)
+  );
+  CREATE INDEX friendships_b ON friendships (b);
+  CREATE TABLE friend_requests (
+    sender TEXT NOT NULL,
+    recipient TEXT NOT NULL,
+    created_at INTEGER NOT NULL,
+    PRIMARY KEY (sender, recipient)
+  );
+  CREATE INDEX friend_requests_recipient ON friend_requests (recipient);
+  CREATE TABLE friend_links (
+    hash TEXT PRIMARY KEY,
+    player TEXT NOT NULL,
+    expires_at INTEGER NOT NULL
+  );
+  CREATE INDEX friend_links_player ON friend_links (player);
+`;
+
 export function schemaVersion(db: DatabaseSync): number {
   db.exec("CREATE TABLE IF NOT EXISTS schema_version (version INTEGER NOT NULL)");
   const row = db.prepare("SELECT version FROM schema_version").get() as { version: number } | undefined;
@@ -134,7 +170,7 @@ export function schemaVersion(db: DatabaseSync): number {
 
 /** Brings `db` up to SCHEMA_VERSION, one step at a time, each in a transaction. */
 export function migrate(db: DatabaseSync): void {
-  const steps: Record<number, string> = { 1: V1, 2: V2, 3: V3, 4: V4, 5: V5, 6: V6 };
+  const steps: Record<number, string> = { 1: V1, 2: V2, 3: V3, 4: V4, 5: V5, 6: V6, 7: V7 };
   let v = schemaVersion(db);
   if (v > SCHEMA_VERSION) throw new Error(`database schema ${v} is newer than this app (${SCHEMA_VERSION})`);
   while (v < SCHEMA_VERSION) {

@@ -96,7 +96,7 @@ describe("schema v4 (task 17: accounts)", () => {
     migrate(db);
     seedDemoAccounts(db);
     expect(schemaVersion(db)).toBe(SCHEMA_VERSION);
-    expect(getDemo(db, 1)).toEqual({ token: "demo-1", name: "Demo One", account: true, demo: true });
+    expect(getDemo(db, 1)).toEqual({ token: "demo-1", name: "Demo One", account: true, demo: true, tag: 1 });
     // an old guest is still a guest, with its history
     const guest = guestFor(db, "11111111-2222-4333-8444-555555555555")!;
     expect(guest).toMatchObject({ name: "Lucky Otter 12", account: false });
@@ -151,14 +151,17 @@ describe("claiming with a passkey", () => {
     expect(passkeysOf(db, DEMO_TOKENS[1])).toEqual([]);
   });
 
-  it("a claimed pseudonym that another account already uses gets a fresh one", () => {
+  it("task 34: a claimed pseudonym another account already uses is kept, with a different tag", () => {
     const db = freshDb();
     const a = account(db);
     const b = newGuestToken();
     guestFor(db, b);
     db.prepare("UPDATE players SET name = (SELECT name FROM players WHERE token = ?) WHERE token = ?").run(a, b);
     addPasskey(db, b, key("kb"));
-    expect(getPlayer(db, b)!.name.toLowerCase()).not.toBe(getPlayer(db, a)!.name.toLowerCase());
+    const [pa, pb] = [getPlayer(db, a)!, getPlayer(db, b)!];
+    expect(pb.name).toBe(pa.name);
+    expect(pb.tag).not.toBeNull();
+    expect(pb.tag).not.toBe(pa.tag);
   });
 });
 
@@ -244,17 +247,22 @@ describe("display names (task 17)", () => {
     for (const bad of [undefined, null, 42, ["Ace"], { name: "Ace" }, "x".repeat(10_000)]) expect(checkChosenName(bad).ok).toBe(false);
   });
 
-  it("unique among accounts, ignoring case; guests and demo accounts can't rename", () => {
+  it("task 34: a shared name gets another tag; name and tag are unique ignoring case; guests and demo accounts can't rename", () => {
     const db = freshDb();
     const a = account(db);
     const b = account(db);
-    expect(rename(db, a, "Ace")).toEqual({ ok: true, name: "Ace" });
-    expect(rename(db, b, "ace")).toMatchObject({ ok: false, status: 409 });
-    expect(rename(db, b, "ACE ")).toMatchObject({ ok: false, status: 409 });
-    // renaming to your own name in another case is fine
-    expect(rename(db, a, "ACE")).toEqual({ ok: true, name: "ACE" });
-    // a demo account's name can't be taken either
-    expect(rename(db, b, "demo one")).toMatchObject({ ok: false, status: 409 });
+    const ra = rename(db, a, "Ace");
+    expect(ra).toMatchObject({ ok: true, name: "Ace" });
+    const tagA = getPlayer(db, a)!.tag;
+    // the same name in another case is allowed: it gets a different tag
+    const rb = rename(db, b, "ace");
+    expect(rb).toMatchObject({ ok: true, name: "ace" });
+    expect(getPlayer(db, b)!.tag).not.toBe(tagA);
+    // renaming to your own name in another case keeps your tag
+    expect(rename(db, a, "ACE")).toMatchObject({ ok: true, name: "ACE", tag: tagA });
+    // a demo account's name and tag can't be taken: another "Demo One" gets another tag
+    expect(rename(db, b, "demo one")).toMatchObject({ ok: true });
+    expect(getPlayer(db, b)!.tag).not.toBe(1);
 
     const g = newGuestToken();
     guestFor(db, g);
@@ -263,12 +271,13 @@ describe("display names (task 17)", () => {
     expect(getDemo(db, 1).name).toBe("Demo One");
   });
 
-  it("the database itself refuses two accounts with one name in different case", () => {
+  it("task 34: the database itself refuses two accounts with one name (any case) and one tag", () => {
     const db = freshDb();
     const a = account(db);
     const b = account(db);
     rename(db, a, "Unique");
-    expect(() => db.prepare("UPDATE players SET name = 'UNIQUE' WHERE token = ?").run(b)).toThrow(/UNIQUE/);
+    const tag = getPlayer(db, a)!.tag;
+    expect(() => db.prepare("UPDATE players SET name = 'UNIQUE', tag = ? WHERE token = ?").run(tag, b)).toThrow(/UNIQUE/);
   });
 });
 
