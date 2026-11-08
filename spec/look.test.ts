@@ -203,7 +203,7 @@ describe("schema v7 (task 33): stored task-18 looks in the new shape", () => {
     expect(lookOf(db, "acct-0")).toEqual(LOOK);
     expect(lookOf(db, "acct-1")).toEqual(fromTask18(OLD_LOOKS[1]));
     db.close();
-  });
+  }, 20_000); // two full migrations on a loaded machine; ~1.2 s alone
 });
 
 describe("the 3D character wears every option (task 33)", () => {
