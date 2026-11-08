@@ -56,6 +56,10 @@ const HINT = "Push up and towards the hoop, like a real shot. No need to jump.";
 export interface BasketballViewOptions {
   local?: boolean;
   leaveLabel?: string;
+  /** Task 38: practice's "Just me": one shooter, no second row or player. */
+  solo?: () => boolean;
+  /** Task 38: practice puts its panel in the view. */
+  onView?(view: HTMLElement): void;
 }
 
 const lerp3 = (a: Vec3, b: Vec3, k: number): Vec3 => ({ x: a.x + (b.x - a.x) * k, y: a.y + (b.y - a.y) * k, z: a.z + (b.z - a.z) * k });
@@ -105,6 +109,7 @@ export function startBasketball(root: HTMLElement, conn: GameLink, info: RoomInf
     </div>
   `;
   root.replaceChildren(view);
+  opts.onView?.(view);
   if (opts.local) {
     view.classList.add("local");
     for (const el of view.querySelectorAll<HTMLElement>(".code, [data-action=copy]")) el.hidden = true;
@@ -432,10 +437,11 @@ export function startBasketball(root: HTMLElement, conn: GameLink, info: RoomInf
   // ---- the HUD ----
   const shotMark = (x: ShotResult) => (x.lost === "time" ? "⏱" : x.swish ? "★" : x.made ? "●" : "○");
   const renderBoard = (s: WithVote) => {
-    spotEl.textContent = spotLine(s, opts.local);
+    spotEl.textContent = spotLine(s, opts.local, opts.solo?.());
     bonusEl.textContent = bonusLine(s.spot, s.suddenDeath);
     for (const seat of [0, 1] as const) {
       const row = view.querySelector(`.bb-row[data-seat="${seat}"]`) as HTMLElement;
+      row.hidden = seat === 1 && !!opts.solo?.();
       row.style.setProperty("--seat", SEAT_CSS[seat]);
       row.dataset.turn = String(s.turn === seat && s.phase !== "over");
       (row.querySelector(".bb-name") as HTMLElement).textContent = label(seat);
@@ -503,7 +509,7 @@ export function startBasketball(root: HTMLElement, conn: GameLink, info: RoomInf
       if (lastStateAt) ballGap = Math.min(120, Math.max(16, now - lastStateAt));
       lastStateAt = now;
       // a new turn: a fresh aim, nothing sent yet
-      if (next.phase === "aim" && (!prev || prev.phase !== "aim" || prev.turn !== next.turn || prev.round !== next.round)) {
+      if (next.phase === "aim" && (!prev || prev.phase !== "aim" || prev.turn !== next.turn || prev.round !== next.round || prev.matches !== next.matches)) {
         aim = 0;
         lastSentAim = 0;
         setSent = false;
@@ -677,6 +683,7 @@ export function startBasketball(root: HTMLElement, conn: GameLink, info: RoomInf
       const facing = Math.atan2(p.x, p.z);
       for (const seat of [0, 1] as const) {
         const sh = shooters[seat];
+        sh.group.visible = !(seat === 1 && opts.solo?.());
         sh.setLook(looks[seat]);
         const shooting = s.turn === seat && s.phase !== "over";
         if (shooting) sh.group.position.set(p.x, 0, p.z);

@@ -53,10 +53,10 @@ export function shotCall(shot: Pick<ShotResult, "made" | "swish" | "rim" | "boar
 }
 
 /** The spot line: "Spot 3 of 5 · Wing three · 3 pts", sudden death or unlimited's random spot. */
-export function spotLine(s: { format: string; spot: number; round: number; suddenDeath: boolean }, practice = false): string {
+export function spotLine(s: { format: string; spot: number; round: number; suddenDeath: boolean }, practice = false, solo = false): string {
   const sp = SPOTS[s.spot];
   if (s.suddenDeath) return `Sudden death · ${sp.name} · decides it`;
-  const where = s.format === "unlimited" ? "Unlimited" : `Spot ${s.spot + 1} of ${SPOTS.length}`;
+  const where = solo ? "Just me" : s.format === "unlimited" ? "Unlimited" : `Spot ${s.spot + 1} of ${SPOTS.length}`;
   return `${practice ? "Practice · " : ""}${where} · ${sp.name} · ${sp.points} pts`;
 }
 
