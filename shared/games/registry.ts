@@ -1,6 +1,7 @@
-import type { RoomFormat } from "../protocol.ts";
+import type { RoomEvent, RoomFormat } from "../protocol.ts";
 import { archery } from "./archery/index.ts";
 import { basketball } from "./basketball/index.ts";
+import { bowling } from "./bowling/index.ts";
 import { boxing } from "./boxing/index.ts";
 import { tennis } from "./tennis/index.ts";
 import { track } from "./track/index.ts";
@@ -33,7 +34,13 @@ export interface GameInstance {
    * `winner: null` is a draw (boxing's exact tie on damage, task 30); no
    * other game has one.
    */
-  finished(): { winner: 0 | 1 | null; score: [number, number]; format?: string; sets?: Array<[number, number]> } | null;
+  finished(): { winner: 0 | 1 | null; score: [number, number]; format?: string; sets?: Array<[number, number]>; detail?: Record<string, unknown> } | null;
+  /**
+   * Task 27: what the match row keeps beyond the score, as JSON (track: the
+   * event, times, hurdles). `finished().detail` for a finished match; this
+   * for unlimited's row, stored when someone leaves. Others leave it out.
+   */
+  detail?(): Record<string, unknown>;
   botInputs(seat: 0 | 1): unknown[];
   /**
    * Basketball (ADR 003): the room passes each seat's late-shot grace, ticks,
@@ -48,11 +55,14 @@ export interface GameDef {
   name: string;
   /** The room formats the host may pick, the default first. */
   formats: readonly RoomFormat[];
+  /** Task 27: the events the host may pick, the default first (track: sprint, hurdles); most games have none. */
+  events?: readonly RoomEvent[];
   /**
    * `endless`: no winner, play until everyone leaves (practice).
    * `format`: the game's own match format id; unknown values get its default.
+   * `event`: the game's own event (task 27, track); unknown values get its default.
    */
-  create(seed: number, options?: { endless?: boolean; format?: string }): GameInstance;
+  create(seed: number, options?: { endless?: boolean; format?: string; event?: string }): GameInstance;
 }
 
-export const games: Record<string, GameDef> = { tennis, archery, track, boxing, basketball };
+export const games: Record<string, GameDef> = { tennis, archery, track, boxing, basketball, bowling };

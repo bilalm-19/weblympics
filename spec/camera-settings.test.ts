@@ -180,17 +180,17 @@ describe("saved on the account (task 25)", () => {
     expect(db.prepare("SELECT COUNT(*) AS n FROM players WHERE camera_settings IS NOT NULL").get()).toEqual({ n: 0 });
   });
 
-  it("schema v7 opens a v6 database: every row kept, no settings yet, then takes them", () => {
+  it("schema v8 opens a v7 database: every row kept, no settings yet, then takes them", () => {
     const path = freshFile();
     const db = new DatabaseSync(path);
-    // v6: built through the real steps, then the v7 column taken off and the version put back
+    // v7: built through the real steps, then the v8 column taken off and the version put back
     migrate(db);
     const a = account(db);
-    db.exec("ALTER TABLE players DROP COLUMN camera_settings; UPDATE schema_version SET version = 6;");
-    expect(schemaVersion(db)).toBe(6);
+    db.exec("ALTER TABLE players DROP COLUMN camera_settings; UPDATE schema_version SET version = 7;");
+    expect(schemaVersion(db)).toBe(7);
     migrate(db);
     expect(schemaVersion(db)).toBe(SCHEMA_VERSION);
-    expect(SCHEMA_VERSION).toBeGreaterThanOrEqual(7);
+    expect(SCHEMA_VERSION).toBeGreaterThanOrEqual(8);
     expect(db.prepare("SELECT account FROM players WHERE token = ?").get(a)).toEqual({ account: 1 });
     expect(cameraSettingsOf(db, a)).toBeNull();
     expect(setCameraSettings(db, a, custom()).ok).toBe(true);

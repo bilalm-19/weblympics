@@ -3,7 +3,7 @@
 // room state (`lobby` messages) and sends `ready` / `format` requests; the
 // server decides. Hidden in practice (the bot is always ready) and once the
 // match is playing.
-import type { LobbyView, RoomFormat } from "../../../shared/protocol.ts";
+import type { LobbyView, RoomEvent, RoomFormat } from "../../../shared/protocol.ts";
 import "./ready-panel.css";
 
 export const FORMAT_LABELS: Record<RoomFormat, string> = {
@@ -13,6 +13,7 @@ export const FORMAT_LABELS: Record<RoomFormat, string> = {
   race: "Race",
   bout: "Bout",
   shootout: "Shootout",
+  game: "Five frames",
   unlimited: "Unlimited",
 };
 
@@ -23,6 +24,7 @@ const FORMAT_NOTES: Record<RoomFormat, string> = {
   race: "One 100 m sprint, first across the line wins.",
   bout: "Three rounds of 30 seconds. A knockout wins at once, else the most damage dealt; a tie is a draw.",
   shootout: "One shot each from five spots, 4.6 m to 9 m; the deep one is worth 4, a swish adds 1. Highest total wins.",
+  game: "Five frames each, real ten-pin scoring. Highest total wins; a tie is a draw unless you both play on.",
   unlimited: "Play as long as you like; points and best rally are counted. No winner, not rated.",
 };
 
@@ -30,8 +32,17 @@ const FORMAT_NOTES: Record<RoomFormat, string> = {
 const UNLIMITED_ARCHERY = "Random distance and wind every stage, as long as you like; points and best arrow are counted. No winner, not rated.";
 // track's unlimited runs race after race
 const UNLIMITED_TRACK = "Race after race, as long as you like; races won and best times are counted. No winner, not rated.";
+// bowling's unlimited bowls game after game
+const UNLIMITED_BOWLING = "Game after game, as long as you like; games won and the best score are counted. No winner, not rated.";
 // boxing's unlimited boxes bout after bout
 const UNLIMITED_BOXING = "Bout after bout, as long as you like; bouts won and knockouts are counted. No winner, not rated.";
+// task 27: track's events, picked by the host like the format
+export const EVENT_LABELS: Record<RoomEvent, string> = { sprint: "Sprint", hurdles: "Hurdles" };
+const EVENT_NOTES: Record<RoomEvent, string> = {
+  sprint: "100 m flat out.",
+  hurdles: "100 m over ten hurdles: jump each one (Space, the Jump button, or the camera). Hit one and you stumble.",
+};
+
 // basketball's unlimited shoots from a random spot every turn
 const UNLIMITED_BASKETBALL = "A random spot every shot, as long as you like; points, makes and the longest make are counted. No winner, not rated.";
 
@@ -49,15 +60,22 @@ export interface ReadyCallbacks {
   rated(rated: boolean): void;
   /** Opens the camera setup (the same as the HUD's Camera button). */
   openCamera(): void;
+  /** Task 27: the host's event (track); only called when the panel was given events. */
+  event?(event: RoomEvent): void;
 }
 
-/** `seat`: this viewer's seat, null for a spectator. `formats`: the ones the room's game offers (`GameDef.formats`). */
+/**
+ * `seat`: this viewer's seat, null for a spectator. `formats`: the ones the
+ * room's game offers (`GameDef.formats`). `events` (task 27, track): the
+ * game's events, shown as a picker above the format; none for other games.
+ */
 export function createReadyPanel(
   parent: HTMLElement,
   seat: 0 | 1 | null,
   room: string,
   cb: ReadyCallbacks,
   formats: readonly RoomFormat[] = ["oneSet", "bestOfThree", "unlimited"],
+  events: readonly RoomEvent[] = [],
 ): ReadyPanel {
   const notes = {
     ...FORMAT_NOTES,
@@ -65,6 +83,7 @@ export function createReadyPanel(
     ...(formats.includes("race") ? { unlimited: UNLIMITED_TRACK } : {}),
     ...(formats.includes("bout") ? { unlimited: UNLIMITED_BOXING } : {}),
     ...(formats.includes("shootout") ? { unlimited: UNLIMITED_BASKETBALL } : {}),
+    ...(formats.includes("game") ? { unlimited: UNLIMITED_BOWLING } : {}),
   };
   const el = document.createElement("section");
   el.className = "ready-panel";
@@ -73,6 +92,17 @@ export function createReadyPanel(
   el.innerHTML = `
     <h2 class="rp-title"></h2>
     <ul class="rp-seats"></ul>
+    ${
+      events.length
+        ? `<fieldset class="rp-event">
+      <legend>Event</legend>
+      <div class="rp-options" role="radiogroup" aria-label="Event">
+        ${events.map((e) => `<button type="button" role="radio" data-event="${e}">${EVENT_LABELS[e]}</button>`).join("")}
+      </div>
+      <p class="rp-event-note"></p>
+    </fieldset>`
+        : ""
+    }
     <fieldset class="rp-format">
       <legend>Format</legend>
       <div class="rp-options" role="radiogroup" aria-label="Match format">
@@ -139,6 +169,9 @@ export function createReadyPanel(
   let view: LobbyView | null = null;
 
   for (const b of formatButtons) b.addEventListener("click", () => cb.format(b.dataset.format as RoomFormat));
+  const eventButtons = [...el.querySelectorAll<HTMLButtonElement>("[data-event]")];
+  const eventNote = el.querySelector(".rp-event-note") as HTMLElement | null;
+  for (const b of eventButtons) b.addEventListener("click", () => cb.event?.(b.dataset.event as RoomEvent));
   readyBtn.addEventListener("click", () => {
     if (seat === null || !view) return;
     cb.ready(!view.seats[seat]?.ready);
@@ -189,6 +222,11 @@ export function createReadyPanel(
         b.disabled = !host;
       }
       note.textContent = `${notes[v.format]}${host ? "" : " The host picks the format."}`;
+      for (const b of eventButtons) {
+        b.setAttribute("aria-checked", String(b.dataset.event === v.event));
+        b.disabled = !host;
+      }
+      if (eventNote && v.event) eventNote.textContent = `${EVENT_NOTES[v.event]}${host ? "" : " The host picks the event."}`;
       // task 7: the host's rated option; the server says when it can't count
       ratedInput.checked = v.rated && v.ratedBlocked === null;
       ratedInput.disabled = !host || v.ratedBlocked !== null;

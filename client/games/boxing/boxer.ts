@@ -63,7 +63,7 @@ function glove(material: MeshLambertMaterial): Group {
 
 export function makeBoxer(look: Look, gloveColour: number): Boxer {
   const player = makePlayer(look, 0, { arms: false });
-  const { body, upper, head, top, skin } = player.parts;
+  const { body, upper, head, sleeve, skin } = player.parts;
 
   // the knockdown turns everything at the feet
   const root = new Group();
@@ -93,7 +93,7 @@ export function makeBoxer(look: Look, gloveColour: number): Boxer {
   const gloveMat = new MeshLambertMaterial({ color: gloveColour });
   const arms = HANDS.map((hand) => {
     const s = hand === "right" ? 1 : -1;
-    const upperArm = new Mesh(new CapsuleGeometry(0.062, UPPER_ARM - 0.06, 4, 8), top);
+    const upperArm = new Mesh(new CapsuleGeometry(0.062, UPPER_ARM - 0.06, 4, 8), sleeve);
     const fore = new Mesh(new CapsuleGeometry(0.055, FOREARM - 0.2, 4, 8), skin);
     const g = glove(gloveMat);
     waist.add(upperArm, fore, g);

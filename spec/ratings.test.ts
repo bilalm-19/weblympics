@@ -267,7 +267,7 @@ describe("survives a restart (task 7)", () => {
     const db = new DatabaseSync(path);
     // v5: build it through the real steps, then put the version back to 5 after adding a row
     migrate(db);
-    // (and undo v7, task 25, which came later)
+    // (and undo v8, task 25, which came later)
     db.exec("ALTER TABLE players DROP COLUMN camera_settings; DROP TABLE ratings; DROP INDEX IF EXISTS matches_p0; DROP INDEX IF EXISTS matches_p1; UPDATE schema_version SET version = 5;");
     db.prepare(
       "INSERT INTO matches (room, game, p0, p1, score0, score1, winner, ended_at, format, sets, practice, rated) VALUES ('OLD5', 'tennis', 'g1', 'g2', 1, 0, 0, 5, 'oneSet', '[[6,0]]', 0, 1)",

@@ -1,6 +1,6 @@
 # 27 Track: hurdles (second event)
 
-Status: planned (2026-10-29), jump control decided (2026-11-08), not built.
+Status: built on branch `hurdles-27` (2026-11-08), not merged; camera jump numbers are guesses until the recordings in `docs/camera-playtest.md` ("Hurdles' moves").
 Model: Opus (sim), Sonnet for the view and pose
 Session: later
 Waits on: 26 (sprint)
@@ -32,10 +32,22 @@ obstacle list, this task fills the list and adds the jump.
 - **Client:** jump pose and a falling-hurdle animation; the HUD adds hurdles
   cleared.
 
+## Built (2026-11-08, agent)
+- Ten hurdles 8.5 m apart from 13 m; a jump is 0.4 s in the air
+  (`AIR_TICKS`) from the tick it arrives, costs 1 m/s; a hurdle reached on
+  the ground falls and leaves 40% of your speed. Jump cap: 500 ms by the
+  jump's timestamp, a server bucket of one refilling at 2 a second, none in
+  the air. Race rule kept simple: pure sprint-with-hurdles, no bonus time.
+- Ratings: none added (user, 2026-11-08: ratings are going, match stats
+  only). Hurdles stays under track's sport id; a track match row stores
+  `{ event, times, cleared, hit, sets }` in its `sets` JSON column (no
+  schema step), so stats can tell hurdles from the sprint.
+
 ## Done when
-- [ ] Hurdles variant in `shared/games/track/` with specs: a clear, a hit,
+- [x] Hurdles variant in `shared/games/track/` with specs: a clear, a hit,
       early and late jumps, a jump with no hurdle near, determinism.
-- [ ] `jump` in the protocol; the server never trusts a client's claim of a clear.
-- [ ] View, practice, keyboard, touch and camera jump; `e2e/track-hurdles.e2e.ts`
+- [x] `jump` in the protocol; the server never trusts a client's claim of a clear.
+- [x] View, practice, keyboard, touch and camera jump; `e2e/track-hurdles.e2e.ts`
       at both viewports.
-- [ ] Event picker in the lobby; README, CLAUDE.md and `spec/` agree.
+- [x] Event picker in the lobby; README, CLAUDE.md and `spec/` agree.
+- [ ] The camera jump's numbers from a real recording.

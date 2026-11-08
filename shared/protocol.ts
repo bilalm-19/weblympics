@@ -8,8 +8,15 @@ import type { Look } from "./look.ts";
 // "race" is track's (task 26): one race, first across the line. "bout" is
 // boxing's (task 30): three rounds, a knockout or a decision on damage.
 // "shootout" is basketball's (task 32): five spots, one shot each per spot.
-export type RoomFormat = "oneSet" | "bestOfThree" | "stages" | "race" | "bout" | "shootout" | "unlimited";
-export const ROOM_FORMATS: readonly RoomFormat[] = ["oneSet", "bestOfThree", "stages", "race", "bout", "shootout", "unlimited"];
+// "game" is bowling's (task 29): five frames each, real ten-pin scoring.
+export type RoomFormat = "oneSet" | "bestOfThree" | "stages" | "race" | "bout" | "shootout" | "game" | "unlimited";
+export const ROOM_FORMATS: readonly RoomFormat[] = ["oneSet", "bestOfThree", "stages", "race", "bout", "shootout", "game", "unlimited"];
+
+// A room's event (task 27): track's sprint or hurdles. The host picks it like
+// the format, before play, from the ones its game offers (`GameDef.events`);
+// a game with no events has none (null in the room state).
+export type RoomEvent = "sprint" | "hurdles";
+export const ROOM_EVENTS: readonly RoomEvent[] = ["sprint", "hurdles"];
 
 // waiting (a seat is empty) -> ready-check -> countdown (3 s) -> playing;
 // paused while a dropped player's seat is held (30 s)
@@ -30,6 +37,8 @@ export interface LobbyView {
   /** A match is under way (it may be paused, or counting down to resume). */
   match: boolean;
   format: RoomFormat;
+  /** Task 27: the room's event (track: sprint or hurdles), or null for a game without events. */
+  event: RoomEvent | null;
   /** Seat of the player who picks the format, else null. */
   host: 0 | 1 | null;
   seats: [LobbySeat | null, LobbySeat | null];
@@ -63,6 +72,11 @@ export type ClientMsg =
   // the host's match format, before the match; a value not in ROOM_FORMATS is
   // a bad message
   | { t: "format"; format: RoomFormat }
+  // task 27: the host's event (track: sprint or hurdles), before the match,
+  // like the format; in practice vs the bot the player switches it any time
+  // (the race restarts). A value not in ROOM_EVENTS, or any extra field, is a
+  // bad message
+  | { t: "event"; event: RoomEvent }
   // task 7: the host's "rated" option, before the match; the server decides
   // whether the match actually counts
   | { t: "rated"; rated: boolean }
@@ -80,6 +94,11 @@ export type ClientMsg =
   // Never a distance or a finish: the server counts steps into speed and caps
   // the cadence at a human maximum
   | { t: "step"; side: "left" | "right"; at: number }
+  // track hurdles (task 27): a take-off, the sender's own clock (ms). Never a
+  // clear or a hit: the server puts the runner in the air for a fixed time
+  // and judges each hurdle on its own sim. Exactly { t, at }: any extra field
+  // drops it whole
+  | { t: "jump"; at: number }
   // boxing (task 30, ADR 002): a jab thrown (which hand, head or body, the
   // sender's own clock, ms), the guard (high, low or none) and a slip (which
   // way). Never damage, a hit or a health: the server lands the jab after its
@@ -90,12 +109,16 @@ export type ClientMsg =
   | { t: "slip"; side: "left" | "right" | null }
   // basketball (task 32, ADR 003): "I'm set" (starts the shot clock, shows
   // the ready cue), the aim -1..1 (so others see the arrow; it shares
-  // `t: "aim"` with archery but carries only `aim`) and the shot: power 0..1,
-  // aim, and the sender's own clock (ms). Never a make or a score: the server
-  // flies the ball. A message with any extra field is dropped whole
+  // `t: "aim"` with archery but carries only `aim`; bowling's start spot is
+  // the same message) and the shot: power 0..1, aim, and the sender's own
+  // clock (ms). Never a make or a score: the server flies the ball. A message
+  // with any extra field is dropped whole
   | { t: "set" }
   | { t: "aim"; aim: number }
   | { t: "shoot"; power: number; aim: number; at: number }
+  // bowling (task 29, ADR 004): the throw (speed 0..1, aim, spin -1..1, the
+  // sender's own clock, ms). Never a pin or a score: the server rolls the ball
+  | { t: "throw"; speed: number; aim: number; spin: number; at: number }
   // the vote after a level game (user, 2026-11-08: "draw" or "continue"),
   // bowling's and basketball's
   | { t: "tie"; choice: "draw" | "continue" }
@@ -165,6 +188,9 @@ export function parseClientMsg(raw: string): ClientMsg | null {
       return typeof m.ready === "boolean" ? { t: "ready", ready: m.ready } : null;
     case "format":
       return (ROOM_FORMATS as readonly unknown[]).includes(m.format) ? { t: "format", format: m.format as RoomFormat } : null;
+    case "event":
+      if (!onlyKeys(m, ["t", "event"])) return null;
+      return (ROOM_EVENTS as readonly unknown[]).includes(m.event) ? { t: "event", event: m.event as RoomEvent } : null;
     case "rated":
       return typeof m.rated === "boolean" ? { t: "rated", rated: m.rated } : null;
     case "swing": {
@@ -194,6 +220,9 @@ export function parseClientMsg(raw: string): ClientMsg | null {
     case "step":
       if (m.side !== "left" && m.side !== "right") return null;
       return typeof m.at === "number" && Number.isFinite(m.at) ? { t: "step", side: m.side, at: m.at } : null;
+    case "jump":
+      if (!onlyKeys(m, ["t", "at"])) return null;
+      return typeof m.at === "number" && Number.isFinite(m.at) ? { t: "jump", at: m.at } : null;
     case "punch":
       if (!onlyKeys(m, ["t", "hand", "target", "at"])) return null;
       if (m.hand !== "left" && m.hand !== "right") return null;
@@ -212,6 +241,12 @@ export function parseClientMsg(raw: string): ClientMsg | null {
       const { power, aim, at } = m;
       if (![power, aim, at].every((v) => typeof v === "number" && Number.isFinite(v))) return null;
       return { t: "shoot", power: power as number, aim: aim as number, at: at as number };
+    }
+    case "throw": {
+      if (!onlyKeys(m, ["t", "speed", "aim", "spin", "at"])) return null;
+      const { speed, aim, spin, at } = m;
+      if (![speed, aim, spin, at].every((v) => typeof v === "number" && Number.isFinite(v))) return null;
+      return { t: "throw", speed: speed as number, aim: aim as number, spin: spin as number, at: at as number };
     }
     case "tie":
       if (!onlyKeys(m, ["t", "choice"])) return null;

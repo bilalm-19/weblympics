@@ -1,20 +1,26 @@
 import { addSpectating } from "../../ui/spectate.ts";
 import { PerspectiveCamera, Scene, WebGLRenderer } from "three";
-import { MAX_SPEED } from "../../../shared/games/track/sim.ts";
-import type { Seat, Side, TrackSnapshot } from "../../../shared/games/track/sim.ts";
-import type { LobbyView, RoomFormat, RoomInfo, ServerMsg } from "../../../shared/protocol.ts";
+import { AIR_TICKS, MAX_SPEED } from "../../../shared/games/track/sim.ts";
+import type { Seat, Side, TrackEvent, TrackSnapshot } from "../../../shared/games/track/sim.ts";
+import type { LobbyView, RoomEvent, RoomFormat, RoomInfo, ServerMsg } from "../../../shared/protocol.ts";
 import type { GameLink } from "../../net/link.ts";
-import { createReadyPanel } from "../tennis/ready-panel.ts";
-import { buildTrack, laneZ, makeRunner } from "./lane.ts";
+import { EVENT_LABELS, createReadyPanel } from "../tennis/ready-panel.ts";
+import { DEFAULT_LOOKS } from "../../../shared/look.ts";
+import { buildHurdles, buildTrack, jumpPose, laneZ } from "./lane.ts";
+import type { HurdleRow, TrackScene } from "./lane.ts";
+import { makeRunner } from "./runner.ts";
+import { clockText, clockTime, excitement } from "./scene-model.ts";
 import { createRunCamera } from "./run-camera.ts";
 import "./track.css";
 
 // The track view (task 26): a side-on chase camera on two lanes. You step by
 // alternating A/D (or the arrows), the two tap buttons, or the camera; the
 // server counts the steps and says where everyone is. This only draws it.
+// Hurdles (task 27): Space, the Jump button or the camera jumps; the server
+// says who is in the air and which hurdles are down.
 
 const FORMATS: readonly RoomFormat[] = ["race", "unlimited"];
-const SEAT_COLOURS = [0x2f7fe0, 0xe0453a] as const;
+const EVENTS: readonly RoomEvent[] = ["sprint", "hurdles"];
 const SEAT_CSS = ["#2f7fe0", "#e0453a"] as const;
 const KEY_SIDE: Record<string, Side> = { KeyA: "left", ArrowLeft: "left", KeyD: "right", ArrowRight: "right" };
 
@@ -36,6 +42,9 @@ export function startTrack(root: HTMLElement, conn: GameLink, info: RoomInfo, on
       <div>
         <span class="muted code"></span>
         <span class="tracking" role="status" hidden></span>
+        <span class="tr-events" role="radiogroup" aria-label="Event" hidden>
+          ${EVENTS.map((e) => `<button type="button" role="radio" data-practice-event="${e}">${EVENT_LABELS[e]}</button>`).join("")}
+        </span>
         <button data-action="camera" hidden>Camera</button>
         <button data-action="copy">Copy invite</button>
         <button data-action="leave">Leave</button>
@@ -45,6 +54,7 @@ export function startTrack(root: HTMLElement, conn: GameLink, info: RoomInfo, on
     <div class="tr-call" aria-live="polite" hidden></div>
     <div class="controls" hidden>
       <button class="primary tr-step" type="button" data-side="left" aria-label="Left foot (A)">Left</button>
+      <button class="tr-jump" type="button" aria-label="Jump (Space)" hidden>Jump</button>
       <button class="primary tr-step" type="button" data-side="right" aria-label="Right foot (D)">Right</button>
     </div>
   `;
@@ -65,15 +75,22 @@ export function startTrack(root: HTMLElement, conn: GameLink, info: RoomInfo, on
 
   const scene = new Scene();
   let built = 0;
-  const runners = [makeRunner(SEAT_COLOURS[0]), makeRunner(SEAT_COLOURS[1])] as const;
+  let stadium: TrackScene | null = null;
+  // task 27: the hurdles, rebuilt when the event (or the course) changes
+  let hurdleRow: HurdleRow | null = null;
+  let hurdleKey = "";
+  // each seat in its look (task 31): the default until the room says otherwise
+  const runners = [makeRunner(DEFAULT_LOOKS[0]), makeRunner(DEFAULT_LOOKS[1])] as const;
   for (const seat of [0, 1] as const) {
     runners[seat].group.position.z = laneZ(seat);
+    // the character faces -z; the track runs down +x
+    runners[seat].group.rotation.y = -Math.PI / 2;
     scene.add(runners[seat].group);
   }
   const camera = new PerspectiveCamera(40, 1, 0.1, 400);
   const renderer = new WebGLRenderer({ canvas, antialias: false, powerPreference: "high-performance" });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-  renderer.setClearColor(0x9fd3f5);
+  renderer.setClearColor(0x86c4f4);
   const resize = () => {
     const { clientWidth: w, clientHeight: h } = view;
     renderer.setSize(w, h, false);
@@ -100,8 +117,24 @@ export function startTrack(root: HTMLElement, conn: GameLink, info: RoomInfo, on
     canvas.dataset.sent = String(Number(canvas.dataset.sent ?? 0) + 1);
   };
 
+  const hurdles = () => snap?.event === "hurdles";
+  const jumpBtn = view.querySelector(".tr-jump") as HTMLButtonElement;
+  const jump = () => {
+    if (!canStep() || !hurdles()) return;
+    conn.send({ t: "jump", at: performance.now() });
+    canvas.dataset.jumpsSent = String(Number(canvas.dataset.jumpsSent ?? 0) + 1);
+  };
+
   const onKey = (e: KeyboardEvent) => {
     if (e.target instanceof HTMLInputElement || e.target instanceof HTMLSelectElement) return;
+    if (e.code === "Space") {
+      // Space on a focused button (Camera, Ready, a format) presses that button; otherwise it jumps
+      if (e.target instanceof HTMLButtonElement && e.target !== jumpBtn) return;
+      if (!hurdles()) return;
+      e.preventDefault();
+      if (!e.repeat) jump();
+      return;
+    }
     const side = KEY_SIDE[e.code];
     if (!side) return;
     e.preventDefault();
@@ -118,11 +151,28 @@ export function startTrack(root: HTMLElement, conn: GameLink, info: RoomInfo, on
     });
     b.addEventListener("contextmenu", (e) => e.preventDefault());
   }
+  jumpBtn.addEventListener("pointerdown", (e) => {
+    e.preventDefault();
+    jump();
+  });
+  jumpBtn.addEventListener("contextmenu", (e) => e.preventDefault());
+
+  // practice (in the page or vs the bot) has no ready panel: the player switches the event here
+  const eventSwitch = view.querySelector(".tr-events") as HTMLElement;
+  eventSwitch.hidden = !info.practice || info.seat === null;
+  for (const b of eventSwitch.querySelectorAll<HTMLButtonElement>("[data-practice-event]")) {
+    b.addEventListener("click", () => {
+      conn.send({ t: "event", event: b.dataset.practiceEvent as RoomEvent });
+      b.blur();
+    });
+  }
 
   const cameraButton = view.querySelector("[data-action=camera]") as HTMLButtonElement;
   cameraButton.hidden = info.seat === null;
   const runCam = createRunCamera(view, cameraButton, view.querySelector(".tracking") as HTMLElement, {
     step,
+    jump,
+    hurdles,
     pause: (p) => {
       if (info.practice) conn.send({ t: "pause", paused: p });
     },
@@ -138,8 +188,10 @@ export function startTrack(root: HTMLElement, conn: GameLink, info: RoomInfo, on
       // task 7: the host's rated option is the room's, not tennis's
       rated: (rated) => conn.send({ t: "rated", rated }),
       openCamera: () => cameraButton.click(),
+      event: (event) => conn.send({ t: "event", event }),
     },
     FORMATS,
+    EVENTS,
   );
   readyPanel.camera("off");
   const camTimer = window.setInterval(() => readyPanel.camera(runCam.state()), 500);
@@ -158,7 +210,8 @@ export function startTrack(root: HTMLElement, conn: GameLink, info: RoomInfo, on
     board.replaceChildren();
     const head = document.createElement("div");
     head.className = "tr-head";
-    head.textContent = opts.local ? `Practice · ${s.length} m` : s.format === "unlimited" ? `Unlimited · ${s.length} m · race ${s.races + 1}` : `Sprint · ${s.length} m`;
+    const ev = EVENT_LABELS[s.event as TrackEvent];
+    head.textContent = opts.local ? `Practice · ${ev} · ${s.length} m` : s.format === "unlimited" ? `Unlimited · ${ev} · ${s.length} m · race ${s.races + 1}` : `${ev} · ${s.length} m`;
     board.append(head);
     for (const seat of [0, 1] as const) {
       const lane = s.lanes[seat];
@@ -176,6 +229,16 @@ export function startTrack(root: HTMLElement, conn: GameLink, info: RoomInfo, on
       time.className = "tr-time";
       time.textContent = lane.finish !== null ? fmt(lane.finish) : `${lane.speed.toFixed(1)} m/s`;
       row.append(name, bar, time);
+      if (s.event === "hurdles") {
+        // task 27: hurdles cleared out of those reached
+        const h = document.createElement("span");
+        h.className = "tr-hurdles";
+        h.dataset.cleared = String(lane.cleared);
+        h.dataset.hit = String(lane.hit);
+        h.textContent = `${lane.cleared}/${s.obstacles.length} cleared`;
+        h.title = `${lane.cleared} cleared, ${lane.hit} knocked down`;
+        row.append(h);
+      }
       if (s.best[seat] !== null && (opts.local || s.format === "unlimited")) row.title = `best ${fmt(s.best[seat])}`;
       board.append(row);
     }
@@ -188,6 +251,10 @@ export function startTrack(root: HTMLElement, conn: GameLink, info: RoomInfo, on
     const l = lobby;
     view.dataset.phase = s.phase;
     for (const b of view.querySelectorAll<HTMLButtonElement>(".tr-step")) b.disabled = !canStep();
+    view.dataset.event = s.event;
+    jumpBtn.hidden = s.event !== "hurdles";
+    jumpBtn.disabled = !canStep();
+    for (const b of eventSwitch.querySelectorAll<HTMLButtonElement>("[data-practice-event]")) b.setAttribute("aria-checked", String(b.dataset.practiceEvent === s.event));
     if (l?.phase === "paused" && l.hold) statusEl.textContent = `Paused: waiting for ${l.hold.seat === info.seat ? "you" : l.hold.name} to reconnect (${l.hold.seconds} s)`;
     else if (l?.match && l.phase === "countdown") statusEl.textContent = `Back. Resuming in ${l.countdown ?? 0}…`;
     else if (l && !info.practice && l.phase !== "playing" && s.phase !== "over") statusEl.textContent = "";
@@ -197,7 +264,14 @@ export function startTrack(root: HTMLElement, conn: GameLink, info: RoomInfo, on
       statusEl.textContent = s.winner === info.seat ? `You win in ${fmt(t)}!` : `${label(s.winner)} wins in ${fmt(t)}`;
     } else if (s.phase === "running") {
       const mine = info.seat === null ? null : s.lanes[info.seat];
-      statusEl.textContent = mine?.finish != null ? `Finished in ${fmt(mine.finish)}` : info.seat === null ? "Racing" : "Run! Alternate A and D, or Left and Right";
+      statusEl.textContent =
+        mine?.finish != null
+          ? `Finished in ${fmt(mine.finish)}`
+          : info.seat === null
+            ? "Racing"
+            : s.event === "hurdles"
+              ? "Run with A and D; Space to jump each hurdle"
+              : "Run! Alternate A and D, or Left and Right";
     }
   };
 
@@ -207,14 +281,27 @@ export function startTrack(root: HTMLElement, conn: GameLink, info: RoomInfo, on
       const prev = snap;
       if (prev && prev.phase === "set" && next.phase === "running") call("Go!");
       if (next.length !== built) {
-        buildTrack(scene, next.length);
+        stadium?.dispose();
+        stadium = buildTrack(scene, next.length);
         built = next.length;
       }
+      const key = next.obstacles.join(",");
+      if (key !== hurdleKey) {
+        hurdleRow?.dispose();
+        hurdleRow = next.obstacles.length ? buildHurdles(scene, next.obstacles) : null;
+        hurdleKey = key;
+      }
+      // a hurdle knocked down: the call says so for the viewer's own lane
+      if (prev && info.seat !== null && prev.event === "hurdles" && next.lanes[info.seat].hit > prev.lanes[info.seat].hit) call("Hit!");
       snap = next;
       canvas.dataset.phase = next.phase;
+      canvas.dataset.event = next.event;
       for (const seat of [0, 1] as const) {
         canvas.dataset[`d${seat}`] = next.lanes[seat].distance.toFixed(2);
         canvas.dataset[`steps${seat}`] = String(next.lanes[seat].steps);
+        canvas.dataset[`jumps${seat}`] = String(next.lanes[seat].jumps);
+        canvas.dataset[`cleared${seat}`] = String(next.lanes[seat].cleared);
+        canvas.dataset[`hit${seat}`] = String(next.lanes[seat].hit);
       }
       canvas.dataset.races = String(next.races);
       updateHud();
@@ -224,6 +311,10 @@ export function startTrack(root: HTMLElement, conn: GameLink, info: RoomInfo, on
     } else if (msg.t === "lobby") {
       const { t: _t, ...v } = msg;
       lobby = v;
+      for (const seat of [0, 1] as const) {
+        runners[seat].setLook(v.seats[seat]?.look ?? DEFAULT_LOOKS[seat]);
+        canvas.dataset[`look${seat}`] = String(runners[seat].group.userData.look);
+      }
       readyPanel.update(v);
       updateHud();
     }
@@ -247,6 +338,8 @@ export function startTrack(root: HTMLElement, conn: GameLink, info: RoomInfo, on
   // each runner's drawn distance eases toward the server's, and its stride phase
   const shown = [0, 0];
   const phase = [0, 0];
+  // when the first runner crossed the line, by this page's clock, for the crowd's burst
+  let finishedAt: number | null = null;
   const frame = (now: number) => {
     raf = requestAnimationFrame(frame);
     const dt = Math.min(0.1, (now - last) / 1000);
@@ -263,14 +356,23 @@ export function startTrack(root: HTMLElement, conn: GameLink, info: RoomInfo, on
         r.group.position.x = shown[seat];
         // a stride is about two metres at speed; on the spot it still ticks over with steps
         phase[seat] += dt * (lane.speed * 1.6 + lane.cadence * 1.2);
-        r.run(phase[seat], Math.min(1, lane.speed / MAX_SPEED));
+        r.run(phase[seat], Math.min(1, lane.speed / MAX_SPEED), s.phase === "set");
+        // task 27: in the air, from the server's ticks left; the hurdles stand or fall
+        jumpPose(r, lane.air > 0 ? 1 - lane.air / AIR_TICKS : null);
+        hurdleRow?.update(seat, lane.hurdles, dt);
       }
+      const anyFinish = s.lanes.some((l) => l.finish !== null);
+      if (!anyFinish) finishedAt = null;
+      else if (finishedAt === null) finishedAt = now;
+      const lead = Math.max(s.lanes[0].distance, s.lanes[1].distance) / s.length;
+      const loud = excitement(lead, finishedAt === null ? null : (now - finishedAt) / 1000, s.phase === "running");
       // chase the leader of the viewer's interest: my lane, or the front runner
       const focus = info.seat ?? (shown[0] >= shown[1] ? 0 : 1);
       const x = shown[focus];
       const portrait = camera.aspect < 1;
       camera.position.set(x - (portrait ? 2 : 3), portrait ? 3.2 : 2.6, portrait ? 9 : 8);
       camera.lookAt(x + (portrait ? 1.5 : 3), 0.8, 0);
+      stadium?.update(camera.position.x, loud, now / 1000, clockText(clockTime(s)));
     }
     renderer.render(scene, camera);
     canvas.dataset.frames = String(++frames);
@@ -287,6 +389,7 @@ export function startTrack(root: HTMLElement, conn: GameLink, info: RoomInfo, on
     runCam.dispose();
     disposeSpectating();
     observer.disconnect();
+    hurdleRow?.dispose();
     renderer.dispose();
   };
 }

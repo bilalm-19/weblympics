@@ -63,3 +63,6 @@ only "matches played", and of removing play options that aren't the
 default (in tennis, for example), keeping leaning as an optional extra.
 Discuss before touching: README, CLAUDE.md and many specs promise the
 leaderboard and ratings (task 7), so removing them is a coordinated change.
+Update (user, 2026-11-08): both parts are no longer parked. The leaderboard,
+Elo and the rated option are removed for match stats in task 37; tennis's
+non-default controls are removed in task 35.

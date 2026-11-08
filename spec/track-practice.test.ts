@@ -15,6 +15,29 @@ function runRace(sim: PracticeSim, everyTicks: number): void {
   }
 }
 
+describe("track practice: hurdles (task 27)", () => {
+  it("switches to hurdles (a new race), the pacer jumps, and a jump from the player is taken", () => {
+    const sim = new PracticeSim(1);
+    for (let i = 0; i < 200; i++) sim.tick();
+    sim.setEvent("hurdles");
+    expect(sim.state.event).toBe("hurdles");
+    expect(sim.state.phase).toBe("set");
+    expect(sim.state.obstacles).toHaveLength(10);
+    while (sim.state.phase === "set") sim.tick();
+    for (let i = 0; i < 30; i++) {
+      if (i % 8 === 0) sim.step(i % 16 ? "right" : "left", i * TICK_MS);
+      sim.tick();
+    }
+    sim.jump(5000);
+    sim.tick();
+    expect(sim.state.lanes[0].jumps).toBe(1);
+    for (let i = 0; i < 60 * 20; i++) sim.tick();
+    expect(sim.state.lanes[1].jumps).toBeGreaterThan(0);
+    sim.setEvent("sprint");
+    expect(sim.state.obstacles).toEqual([]);
+  });
+});
+
 describe("track practice", () => {
   it("runs a race against the pacer and starts the next one", () => {
     const sim = new PracticeSim(1);

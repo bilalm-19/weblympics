@@ -74,10 +74,10 @@ const ease = (from: number, to: number, rate: number, dt: number) => from + (to 
 
 export function makeShooter(look: Look): Shooter {
   const player = makePlayer(look, 0, { arms: false });
-  const { body, top, skin } = player.parts;
+  const { body, sleeve, skin } = player.parts;
   const handMat = new MeshLambertMaterial({ color: skin.color.getHex() });
   const arms = (["left", "right"] as const).map((hand) => {
-    const upper = new Mesh(new CapsuleGeometry(0.06, UPPER_ARM - 0.08, 4, 8), top);
+    const upper = new Mesh(new CapsuleGeometry(0.06, UPPER_ARM - 0.08, 4, 8), sleeve);
     const fore = new Mesh(new CapsuleGeometry(0.052, FOREARM - 0.12, 4, 8), skin);
     const palm = new Mesh(new SphereGeometry(0.068, 8, 6), handMat);
     body.add(upper, fore, palm);

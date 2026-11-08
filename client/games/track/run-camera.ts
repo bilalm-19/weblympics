@@ -2,18 +2,24 @@ import { cameraSettings, updateCameraSettings } from "../../net/camera-settings.
 import { CameraError, openCamera, startPose } from "../../input/camera/camera.ts";
 import type { CameraSession } from "../../input/camera/camera.ts";
 import type { CameraFrame } from "../../input/camera/pose.ts";
-import { RunTracker, restFrom, runHeights } from "../../input/camera/run-pose.ts";
-import type { RunMode, RunRest, RunSide } from "../../input/camera/run-pose.ts";
+import { JumpTracker, RunTracker, restFrom, runHeights, torsoOf, torsoRestFrom } from "../../input/camera/run-pose.ts";
+import type { RunMode, RunRest, RunSide, Torso } from "../../input/camera/run-pose.ts";
 
 // Track's camera (task 26): the same webcam and local pose model as tennis
 // and archery (video never leaves the browser), read as running on the spot.
 // Two modes until a real-webcam playtest picks one: "knees" (stand back, legs
 // in frame) and "elbows" (arm pumps, laptop distance). A stand-still
 // calibration first, like a start line. Every step can be skipped; A/D, the
-// arrows and the tap buttons still work.
+// arrows and the tap buttons still work. Hurdles (task 27): both arms up
+// (elbows) or a hop on the spot (knees) is a jump, read by `JumpTracker` from
+// the same calibration; Space and the Jump button still work.
 
 export interface RunCameraCallbacks {
   step(side: RunSide): void;
+  /** Hurdles (task 27): a jump read (both arms up, or a hop on the spot). */
+  jump(): void;
+  /** Hurdles is on: only then are jumps read and explained. */
+  hurdles(): boolean;
   /** The setup panel opened (true) or closed (false); practice holds the race meanwhile. */
   pause(paused: boolean): void;
 }
@@ -38,9 +44,17 @@ const saveMode = (m: RunMode): void => updateCameraSettings((s) => (s.track.mode
 const savedRest = (m: RunMode): RunRest | null => cameraSettings().track.rest[m];
 const saveRest = (m: RunMode, rest: RunRest): void => updateCameraSettings((s) => (s.track.rest[m] = { left: rest.left, right: rest.right }));
 
-const MODE_TEXT: Record<RunMode, { label: string; how: string }> = {
-  elbows: { label: "Pump your arms", how: "Stay at laptop distance, shoulders and hands in view. Swing your arms like a sprinter: each hand coming up is a step. Quick, small pumps beat big slow ones." },
-  knees: { label: "Lift your knees", how: "Step back until your knees are in view. Jog on the spot: each knee coming up is a step." },
+const MODE_TEXT: Record<RunMode, { label: string; how: string; jump: string }> = {
+  elbows: {
+    label: "Pump your arms",
+    how: "Stay at laptop distance, shoulders and hands in view. Swing your arms like a sprinter: each hand coming up is a step. Quick, small pumps beat big slow ones.",
+    jump: "Hurdles: throw both arms up together to jump.",
+  },
+  knees: {
+    label: "Lift your knees",
+    how: "Step back until your knees are in view. Jog on the spot: each knee coming up is a step.",
+    jump: "Hurdles: jump on the spot to jump.",
+  },
 };
 
 export function createRunCamera(view: HTMLElement, button: HTMLButtonElement, chip: HTMLElement, cb: RunCameraCallbacks): RunCamera {
@@ -68,10 +82,12 @@ export function createRunCamera(view: HTMLElement, button: HTMLButtonElement, ch
   let session: CameraSession | null = null;
   let tracker = new RunTracker(mode);
   tracker.rest = savedRest(mode);
+  // task 27: hurdles' jump, calibrated from the same stand-still frames
+  let jumper = new JumpTracker(mode);
   let starting = false;
   let tracking = false;
-  // calibration: collecting still frames until there are enough
-  let calibrating: { samples: RunRest[]; since: number } | null = null;
+  // calibration: collecting still frames until there are enough (the torso too, for knees mode's jump)
+  let calibrating: { samples: RunRest[]; arms: RunRest[]; torsos: Torso[]; since: number } | null = null;
 
   const setChip = (text: string, state: "ok" | "warn" | "off") => {
     chip.hidden = false;
@@ -80,11 +96,14 @@ export function createRunCamera(view: HTMLElement, button: HTMLButtonElement, ch
   };
 
   const finishCalibration = (rest: RunRest | null) => {
+    const cal = calibrating;
     calibrating = null;
     if (rest) {
       tracker.rest = rest;
       saveRest(mode, rest);
       tracker.reset();
+      jumper.rest = { arms: cal ? restFrom(cal.arms) : null, torso: cal ? torsoRestFrom(cal.torsos) : null };
+      jumper.reset();
       close();
       return;
     }
@@ -98,8 +117,13 @@ export function createRunCamera(view: HTMLElement, button: HTMLButtonElement, ch
     tracking = h !== null;
     setChip(h ? "Tracking" : mode === "knees" ? "Can't see your knees" : "Can't see your hands", h ? "ok" : "warn");
     video.dataset.tracking = String(tracking);
+    // hurdles' jump reads the hands (elbows) or the torso (knees), whatever the run mode reads
+    const arms = f.landmarks ? (mode === "elbows" ? h : runHeights(f.landmarks, f.aspect, "elbows")) : null;
+    const torso = f.landmarks ? torsoOf(f.landmarks, f.aspect) : null;
     if (calibrating) {
       if (h) calibrating.samples.push(h);
+      if (h && arms) calibrating.arms.push(arms);
+      if (h && torso) calibrating.torsos.push(torso);
       if (calibrating.samples.length >= CALIBRATE_FRAMES) finishCalibration(restFrom(calibrating.samples));
       else if (f.t - calibrating.since > CALIBRATE_TIMEOUT_MS) finishCalibration(null);
       return;
@@ -110,6 +134,7 @@ export function createRunCamera(view: HTMLElement, button: HTMLButtonElement, ch
       bar.style.height = `${Math.round(Math.max(0, Math.min(1, tracker.lift[side] / 0.4)) * 100)}%`;
     }
     if (s) cb.step(s.side);
+    if (cb.hurdles() && jumper.update({ arms, torso }, f.t)) cb.jump();
   };
 
   const close = () => {
@@ -123,6 +148,7 @@ export function createRunCamera(view: HTMLElement, button: HTMLButtonElement, ch
     tracking = false;
     calibrating = null;
     tracker.reset();
+    jumper.reset();
     video.hidden = true;
     meter.hidden = true;
     chip.hidden = true;
@@ -142,7 +168,7 @@ export function createRunCamera(view: HTMLElement, button: HTMLButtonElement, ch
       calibrating = null;
       close();
     });
-    calibrating = { samples: [], since: performance.now() };
+    calibrating = { samples: [], arms: [], torsos: [], since: performance.now() };
   }
 
   const start = async () => {
@@ -173,6 +199,7 @@ export function createRunCamera(view: HTMLElement, button: HTMLButtonElement, ch
         ${(["elbows", "knees"] as const).map((m) => `<button type="button" data-mode="${m}">${MODE_TEXT[m].label}</button>`).join("")}
       </fieldset>
       <p class="tr-how"></p>
+      <p class="tr-jump-how" hidden></p>
       <details class="rp-safety"><summary>Before you start</summary>
         <ul><li>Clear the space around you and check the floor isn't slippery.</li><li>Run on the spot; don't move toward the screen.</li><li>Stop if anything hurts.</li></ul>
       </details>
@@ -182,16 +209,20 @@ export function createRunCamera(view: HTMLElement, button: HTMLButtonElement, ch
         <button data-step="close">Not now</button>
       </div>`;
     const how = panel.querySelector(".tr-how") as HTMLElement;
+    const jumpHow = panel.querySelector(".tr-jump-how") as HTMLElement;
     const modeButtons = panel.querySelectorAll<HTMLButtonElement>("[data-mode]");
     const mark = () => {
       modeButtons.forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.mode === mode)));
       how.textContent = MODE_TEXT[mode].how;
+      jumpHow.textContent = MODE_TEXT[mode].jump;
+      jumpHow.hidden = !cb.hurdles();
     };
     modeButtons.forEach((b) =>
       b.addEventListener("click", () => {
         mode = b.dataset.mode as RunMode;
         tracker = new RunTracker(mode);
         tracker.rest = savedRest(mode);
+        jumper = new JumpTracker(mode);
         saveMode(mode);
         mark();
       }),

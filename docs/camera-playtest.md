@@ -50,6 +50,28 @@ head or body is split at the shoulder line, which is always in view. If the
 high and low guards don't separate on camera, the fallback is one guard that
 blocks head shots only, with a body shot getting through any guard.
 
+## Hurdles' moves
+Task 27, `client/input/camera/run-pose.ts` (`JumpTracker`, `DEFAULT_JUMP`);
+every number there is a first guess until these. Track's camera has no
+`?debug` recorder yet: adding one (like basketball's) is the first step.
+Calibrate standing still first, as in a race. Elbows mode at laptop
+distance, knees mode stood back with the hips and knees in view.
+1. **standing still**: arms relaxed, 5 s (what "nothing" looks like).
+2. **elbows: running pumps**, small and quick, as in a race. Must not read
+   as a jump.
+3. **elbows: big pumps**, as high as a tired runner flails. Must not read.
+4. **elbows: both arms up**, one throw a second or so, down between.
+5. **elbows: one arm up** (left, then right). Must not read.
+6. **knees: jogging on the spot**, knees high. Must not read.
+7. **knees: a hop on the spot**, one a second or so.
+8. **knees: rising on tiptoe** and settling. Must not read.
+
+Measures: elbows, each hand's lift above rest and the lower of the two
+(`armsOn` sits between move 3's high and move 4's low); knees, the
+shoulder/hip midpoint's rise above standing and its upward speed (`riseOn`
+and `riseSpeed` sit between move 6's high and move 7's low); jumps read:
+moves 4 and 7 one per throw or hop, all others none.
+
 ## Basketball's moves
 Task 32, `client/games/basketball/shoot-camera.ts` with `?debug`. Record
 each standing about 1 m back, then again seated at the laptop. Pushes are
@@ -77,6 +99,36 @@ Measures, per hand, in shoulder widths against the shoulder line:
 - **aim**: the aim the hands give, -1..1, over the recording.
 - **shots read**: the shots the current detector read, with power: moves
   2-6 should read one per push, 7 none, 8 soft.
+
+## Bowling's moves
+Task 29, `client/games/bowling/bowl-camera.ts` with `?debug`. Stand about
+2 m back, hips in view (the panel's silhouette is green), underarm swings
+one every second or two, right hand unless the move says. Keys 1-9, and 0
+for move 10.
+1. **slow swing.**
+2. **medium swing.**
+3. **fast swing.**
+4. **medium with a step and crouch**, as a real bowler does.
+5. **straight with a natural follow-through**: must read no curve.
+6. **curve left**: sweep the hand to your left as you let go.
+7. **curve right.**
+8. **left-handed medium.**
+9. **moving, no throw**: pick something up, stretch, walk sideways. None of
+   this may read as a throw.
+0. **medium at 1 m** (hips out of view: the chest fallback).
+
+Measures, in shoulder widths against the shoulders:
+- **release speed**: the wrist's speed as it comes up past the hip line,
+  lo/typ/hi over the crossings in front, and separately those the model's
+  depth put behind the hips (backswings). The threshold (`minSpeed`) sits
+  between move 9's high and move 1's low; 1-3 set `speed0` and `speed1`; 4
+  should read like 2.
+- **sweep**: the wrist's sideways move over the 150 ms around each throw.
+  Move 5 sets the dead zone (`sweepDead`), 6 and 7 the full sweep.
+- **hips seen, left, right**: the share of frames each was seen (does the
+  swing leave the frame? does move 10 lose the hips?).
+- **throws read**: the current detector's throws, speed/spin: one a swing in
+  1-8 and 10, none in 9.
 
 ## Measures (all in shoulder widths, so distance doesn't matter)
 - **size**: the hand's apparent size (wrist to index and pinky knuckles). It

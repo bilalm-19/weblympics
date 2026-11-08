@@ -1,6 +1,6 @@
 # 19 Crowd reactions and sound
 
-Status: widened to every game (user, 2026-11-08); to start next. Earlier: queued, to start on Opus 5.5 once the integration branch is green and
+Status: all decided (2026-11-08); starts once `integrate-rest` (bowling) is on main. Earlier: queued, to start on Opus 5.5 once the integration branch is green and
 merged (user, 2026-10-29). Tasks 16 and 20 are built, so both of its inputs
 exist; it must branch from the merged result, not from `main` before the merge.
 Model: Opus 5.5 for all of it (design, audio module, wiring and tests)
@@ -20,6 +20,18 @@ Session: its own session (B and C are finished)
   section belongs to is this task's job.
 - **Archery shares the room code:** the room, banner and score logic is tennis's;
   archery has its own view, so sound for archery is out of scope here.
+
+## Decided, round 3 (user, 2026-11-08)
+- **Where there's a crowd:** tennis, track and basketball keep their stands;
+  boxing gets a crowd round the ring (seen and heard); archery and bowling
+  get a few onlookers and quiet applause.
+- **Practice keeps the crowd, quieter; training has none,** so the coach's
+  words stay clear.
+- **Music is on by default, quiet,** starting only at the first gesture; the
+  music button turns it off, remembered per browser for guests and with the
+  account's settings (task 25) for accounts.
+- **Start synthesised** and judge the crowd by ear in a playtest; it sits
+  behind one swappable piece so a few CC0 clips can replace it later.
 
 ## Widened (user, 2026-11-08)
 - **Every game,** not only tennis: one shared module in `client/audio/`

@@ -1,6 +1,6 @@
 # 29 Bowling
 
-Status: planned (2026-11-08). Design accepted (ADR 004); nothing built. Runs in parallel with basketball (task 32).
+Status: parts 1-3 built (rules on `bowling-rules`, scene and view on `bowling-scene`, camera on `bowling-camera`, 2026-11-08) and merged on `integrate-rest` (2026-11-08), the camera replacing the scene's stub (part 4, integration; `main` moves after Claude's review). Camera numbers wait on the ten recordings. Design accepted (ADR 004). Runs in parallel with basketball (task 32).
 Model: Opus 5.5 for every part
 Waits on: nothing. Built without task 28; its podium replaces the end card later.
 

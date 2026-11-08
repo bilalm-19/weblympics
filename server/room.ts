@@ -7,7 +7,7 @@ import { games } from "../shared/games/registry.ts";
 import type { GameEvent, GameInstance } from "../shared/games/registry.ts";
 import type { Look } from "../shared/look.ts";
 import { MAX_WATCHERS, WATCHERS_FULL } from "../shared/protocol.ts";
-import type { ClientMsg, LobbyView, RoomFormat, ServerMsg } from "../shared/protocol.ts";
+import type { ClientMsg, LobbyView, RoomEvent, RoomFormat, ServerMsg } from "../shared/protocol.ts";
 import { Lobby } from "./lobby.ts";
 import type { Timing } from "./lobby.ts";
 import { log as realLog, who } from "./log.ts";
@@ -63,6 +63,9 @@ const BOX_PER_SECOND = 30;
 // basketball: set, aim and shoot messages a second accepted from one seat
 // (aim is throttled by the client); past this is a flood and is dropped here
 const HOOP_PER_SECOND = 40;
+// bowling: aim, throw and tie-vote messages a second accepted from one seat
+// (aim is throttled by the client); past this is a flood and is dropped here
+const BOWL_PER_SECOND = 40;
 const MAX_CATCHUP_TICKS = 5;
 const EMPTY_ROOM_TTL_MS = 30_000;
 const BOT_SEAT: Seat = 1;
@@ -104,6 +107,10 @@ export class Room {
     { start: 0, count: 0 },
     { start: 0, count: 0 },
   ];
+  private bowlWindow: [{ start: number; count: number }, { start: number; count: number }] = [
+    { start: 0, count: 0 },
+    { start: 0, count: 0 },
+  ];
   private ticks = 0;
   // ticks the game itself has stepped, which is what clients see and claim
   private simTick = 0;
@@ -125,6 +132,8 @@ export class Room {
     this.practice = practice;
     this.deps = deps;
     this.lobby = new Lobby(practice, practice ? games[gameId].formats[0] : format, deps.timing);
+    // task 27: a game with events starts on its first (track: the sprint)
+    this.lobby.event = games[gameId].events?.[0] ?? null;
     this.startedAt = deps.clock();
     this.emptySince = deps.clock();
     this.instance = this.newGame();
@@ -142,7 +151,7 @@ export class Room {
     const seed = (Math.random() * 2 ** 32) >>> 0;
     this.recorded = false;
     this.tally = { points: [0, 0], bestRally: 0 };
-    return games[this.gameId].create(seed, { endless: this.practice || unlimited, format: this.lobby.format });
+    return games[this.gameId].create(seed, { endless: this.practice || unlimited, format: this.lobby.format, event: this.lobby.event ?? undefined });
   }
 
   private clients(): Client[] {
@@ -269,6 +278,22 @@ export class Room {
     return null;
   }
 
+  /** Task 27: the host's event (track: sprint or hurdles); returns why it was refused, or null. */
+  event(c: Client, event: RoomEvent): string | null {
+    if (c.seat === null || this.seats[c.seat] !== c) return "only the host can change the event";
+    if (!games[this.gameId].events?.includes(event)) return "this game has no such event";
+    const r = this.lobby.setEvent(c.seat, event, this.deps.clock());
+    if (r === "not host") return "only the host can change the event";
+    if (r === "started") return "the match has started";
+    if (r === "ok") {
+      this.instance = this.newGame();
+      this.deps.log("event", { room: this.id, event });
+      this.broadcast({ t: "state", state: this.instance.snapshot() });
+      this.syncLobby();
+    }
+    return null;
+  }
+
   /** Task 7: the host's "rated" option; returns why it was refused, or null. */
   setRated(c: Client, rated: boolean): string | null {
     if (c.seat === null || this.seats[c.seat] !== c) return "only the host can change rated";
@@ -316,6 +341,20 @@ export class Room {
   }
 
   /**
+   * The turn-based games' messages, sent to this room's own game: basketball
+   * and bowling share a bare `aim` (no sight) and the `tie` vote, so the
+   * room's game decides who gets them. Another game's message (a `throw` in a
+   * basketball room, a `shoot` in a bowling one, either in tennis) is dropped.
+   */
+  turn(c: Client, msg: Extract<ClientMsg, { t: "set" | "shoot" | "throw" | "tie" } | { t: "aim"; aim: number }>): void {
+    if (this.gameId === "basketball") {
+      if (msg.t !== "throw") this.hoop(c, msg);
+    } else if (this.gameId === "bowling") {
+      if (msg.t !== "set" && msg.t !== "shoot") this.bowl(c, msg);
+    }
+  }
+
+  /**
    * Basketball's set, aim, shot and tie vote (task 32), in arrival order.
    * Rebuilt field by field, so nothing else reaches the game; the game ignores
    * a seat whose turn it isn't, a second shot in a turn and a second vote,
@@ -340,8 +379,35 @@ export class Room {
     this.pending.push({ seat: c.seat, input });
   }
 
-  /** Track's footfall; the game counts it, caps the cadence and owns the distance. */
-  step(c: Client, msg: Extract<ClientMsg, { t: "step" }>): void {
+  /**
+   * Bowling's aim, throw and tie vote (task 29), in arrival order. Rebuilt
+   * field by field, so nothing else reaches the game; the game ignores a seat
+   * whose turn it isn't, a second throw for one ball and a second vote, and
+   * rolls the ball and the pins itself.
+   */
+  bowl(c: Client, msg: Extract<ClientMsg, { t: "throw" | "tie" } | { t: "aim"; aim: number }>): void {
+    if (c.seat === null) return;
+    const w = this.bowlWindow[c.seat];
+    if (this.ticks - w.start >= 60) {
+      w.start = this.ticks;
+      w.count = 0;
+    }
+    if (++w.count > BOWL_PER_SECOND) return;
+    const input =
+      msg.t === "aim"
+        ? { t: "aim", aim: msg.aim }
+        : msg.t === "tie"
+          ? { t: "tie", choice: msg.choice }
+          : { t: "throw", speed: msg.speed, aim: msg.aim, spin: msg.spin, at: msg.at };
+    this.pending.push({ seat: c.seat, input });
+  }
+
+  /**
+   * Track's footfall and (task 27) hurdles' take-off, sharing one flood
+   * window; rebuilt field by field. The game counts steps, caps the cadence
+   * and the jumps, and owns the distance and every hurdle.
+   */
+  step(c: Client, msg: Extract<ClientMsg, { t: "step" | "jump" }>): void {
     if (c.seat === null) return;
     const w = this.stepWindow[c.seat];
     if (this.ticks - w.start >= 60) {
@@ -349,7 +415,7 @@ export class Room {
       w.count = 0;
     }
     if (++w.count > STEPS_PER_SECOND) return;
-    this.pending.push({ seat: c.seat, input: { t: "step", side: msg.side, at: msg.at } });
+    this.pending.push({ seat: c.seat, input: msg.t === "jump" ? { t: "jump", at: msg.at } : { t: "step", side: msg.side, at: msg.at } });
   }
 
   /**
@@ -470,6 +536,14 @@ export class Room {
       // boxing: a bout won counts toward unlimited (a draw counts for nobody)
       if (e.winner !== null) this.tally.points[e.winner as Seat]++;
       this.deps.log("bout", { room: this.id, winner: e.winner, result: e.result, dealt: e.dealt });
+    } else if (e.type === "bowlGame") {
+      // bowling: a game won counts toward unlimited (a draw counts for nobody); best is the best game score
+      if (e.winner !== null) this.tally.points[e.winner as Seat]++;
+      const score = e.score as [number, number];
+      this.tally.bestRally = Math.max(this.tally.bestRally, score[0], score[1]);
+      this.deps.log("bowl_game", { room: this.id, winner: e.winner, draw: e.draw, score });
+    } else if (e.type === "bowl") {
+      this.deps.log("bowl", { room: this.id, seat: e.seat, frame: e.frame, ball: e.ball, pins: e.pins, timeout: e.timeout });
     } else if (e.type === "fault") {
       this.deps.log("fault", { room: this.id, server: e.server, reason: e.reason });
     }
@@ -499,6 +573,7 @@ export class Room {
       sets: [],
       practice: false,
       bestRally: this.tally.bestRally,
+      detail: this.instance.detail?.(),
     });
     this.deps.log("match_end", { room: this.id, format: "unlimited", points: this.tally.points, bestRally: this.tally.bestRally });
   }
@@ -583,6 +658,7 @@ export class Room {
         draw: result.winner === null,
         format: result.format ?? "default",
         sets: result.sets ?? [],
+        detail: result.detail,
         practice: this.practice,
         bestRally: this.tally.bestRally,
         ...this.seatsForRecord(),

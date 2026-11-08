@@ -2,7 +2,7 @@
 // A native <dialog>, so focus stays inside it and Escape closes it. Play never
 // needs any of this: a guest can ignore it entirely.
 import "./profile.css";
-import { DEFAULT_LOOKS, HAIRS, LOOK_LABELS, SHIRTS, SHORTS, SKINS, STYLES, STYLE_LABELS, sameLook } from "../../shared/look.ts";
+import { BOTTOM_COLOURS, DEFAULT_LOOKS, HAIR_COLOURS, LOOK_LABELS, LOOK_OPTIONS, SKINS, TOP_COLOURS, optionLabel, sameLook } from "../../shared/look.ts";
 import type { Look } from "../../shared/look.ts";
 import { NAME_MAX, NAME_MIN, nameShapeProblem, normaliseName } from "../../shared/names.ts";
 import { ApiError, addPasskey, deleteAccount, fetchMe, passkeysSupported, removePasskey, saveLook, setName, signIn, signOut } from "../net/account.ts";
@@ -16,50 +16,68 @@ export interface ProfileHooks {
 }
 
 const hex = (n: number) => `#${n.toString(16).padStart(6, "0")}`;
-const COLOUR_FIELDS = [
-  ["shirt", SHIRTS],
-  ["shorts", SHORTS],
-  ["skin", SKINS],
-  ["hair", HAIRS],
-] as const;
-const titleCase = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
-/** A swatch's spoken name: "Blue shirt", "Black hair", or "Skin tone 3". */
-const swatchName = (field: string, value: string) => (field === "skin" ? `Skin tone ${value.slice(1)}` : `${titleCase(value)} ${field}`);
+
+// Task 33: the editor's four tabs and the fields on each. Colour fields show
+// a colour dot; every other option is a small picture of your player wearing
+// it, cropped to the part it changes.
+type Field = keyof Look;
+const TABS: ReadonlyArray<{ id: string; label: string; fields: Field[] }> = [
+  { id: "face", label: "Face", fields: ["skin", "eyes", "brows", "nose", "mouth"] },
+  { id: "hair", label: "Hair", fields: ["hairStyle", "hairColour", "facialHair"] },
+  { id: "clothes", label: "Clothes", fields: ["top", "topColour", "bottom", "bottomColour"] },
+  { id: "extras", label: "Extras", fields: ["headwear", "eyewear"] },
+];
+const COLOURS: Partial<Record<Field, Record<string, number>>> = { skin: SKINS, hairColour: HAIR_COLOURS, topColour: TOP_COLOURS, bottomColour: BOTTOM_COLOURS };
+const CROP: Partial<Record<Field, "top" | "legs">> = { top: "top", bottom: "legs" };
+
+/** One option's picture: a colour dot, or the look wearing that option. */
+function swatch(field: Field, value: string, look: Look): string {
+  const colour = COLOURS[field]?.[value];
+  if (colour !== undefined) return `<span class="look-swatch" style="background:${hex(colour)}"></span>`;
+  return `<span class="look-thumb">${lookSvg({ ...look, [field]: value } as Look, null, CROP[field] ?? "head")}</span>`;
+}
 
 /**
- * The customise section (task 18): one radio group per field, from the fixed
- * lists, and a live preview. Native radios, so arrow keys move within a group.
+ * The customise section (tasks 18 and 33): a big live preview beside four
+ * tabs of options, Save and Cancel. Native radios, so arrow keys move within
+ * a group; the tabs are an ARIA tablist (arrows move between them).
  */
-function customise(look: Look): string {
-  const group = (field: keyof Look, options: string, legend: string) => `
+function customise(look: Look, tab: string): string {
+  const group = (field: Field) => `
     <fieldset class="look-field" data-field="${field}">
-      <legend>${legend}</legend>
-      <div class="look-options">${options}</div>
+      <legend>${LOOK_LABELS[field]}</legend>
+      <div class="look-options">${(LOOK_OPTIONS[field] as readonly string[])
+        .map((value) => {
+          const label = optionLabel(field, value as never);
+          return `
+        <label class="look-option${COLOURS[field] ? " look-option--colour" : ""}" title="${label}" data-value="${value}">
+          <input type="radio" name="look-${field}" value="${value}" ${look[field] === value ? "checked" : ""} />
+          ${swatch(field, value, look)}<span class="sr-only">${label}</span>
+        </label>`;
+        })
+        .join("")}</div>
     </fieldset>`;
-  const radio = (field: keyof Look, value: string, label: string, swatch: string) => `
-    <label class="look-option" title="${label}">
-      <input type="radio" name="look-${field}" value="${value}" ${look[field] === value ? "checked" : ""} />
-      ${swatch}<span class="sr-only">${label}</span>
-    </label>`;
-  const colours = COLOUR_FIELDS.map(([field, palette]) =>
-    group(
-      field,
-      Object.entries(palette)
-        .map(([v, c]) => radio(field, v, swatchName(field, v), `<span class="look-swatch" style="background:${hex(c)}"></span>`))
-        .join(""),
-      LOOK_LABELS[field],
-    ),
+  const tabs = TABS.map(
+    (t) =>
+      `<button type="button" role="tab" class="look-tab" id="look-tab-${t.id}" data-tab="${t.id}" aria-controls="look-panel-${t.id}" aria-selected="${t.id === tab}" tabindex="${t.id === tab ? 0 : -1}">${t.label}</button>`,
   ).join("");
-  const styles = group("style", STYLES.map((s) => radio("style", s, STYLE_LABELS[s], `<span class="look-chip">${STYLE_LABELS[s]}</span>`)).join(""), LOOK_LABELS.style);
+  const panels = TABS.map(
+    (t) => `<div class="look-panel" role="tabpanel" id="look-panel-${t.id}" aria-labelledby="look-tab-${t.id}" ${t.id === tab ? "" : "hidden"}>${t.fields.map(group).join("")}</div>`,
+  ).join("");
   return `
     <section class="profile-look" aria-labelledby="pf-look-title">
       <h3 id="pf-look-title">Your player</h3>
-      <div class="look-layout">
+      <form class="look-form look-editor">
         <div class="look-preview">${lookSvg(look, "Preview of your player")}</div>
-        <form class="look-form">${colours}${styles}
-          <div class="profile-actions"><button type="submit" class="profile-btn" id="pf-look-save">Save look</button></div>
-        </form>
-      </div>
+        <div class="look-choices">
+          <div class="look-tabs" role="tablist" aria-label="Customise">${tabs}</div>
+          ${panels}
+          <div class="profile-actions look-actions">
+            <button type="submit" class="profile-btn profile-btn--primary" id="pf-look-save">Save look</button>
+            <button type="button" class="profile-btn" id="pf-look-cancel">Cancel</button>
+          </div>
+        </div>
+      </form>
     </section>`;
 }
 
@@ -93,8 +111,9 @@ export function openProfile(hooks: ProfileHooks): void {
   let confirmDelete = false;
   let confirmLastKey: string | null = null;
   let busy = false;
-  // the look being tried on, before Save
+  // the look being tried on, before Save, and the editor's open tab
   let draftLook: Look | null = null;
+  let lookTab = TABS[0].id;
 
   const changed = (next: Me | null) => {
     me = next;
@@ -139,6 +158,7 @@ export function openProfile(hooks: ProfileHooks): void {
       body.innerHTML = `
         <p class="profile-name">Playing as <strong></strong> (guest)</p>
         <p class="profile-note">Your matches are kept for this browser. Add a passkey to keep this profile on any device, choose your name and play rated matches. No password, nothing to remember.</p>
+        <p class="profile-note">With an account you can also dress your player: clothes, hair, face, hats and glasses. Saving a look needs an account; guests wear the seat's default.</p>
         <div class="profile-actions">
           <button type="button" class="profile-btn profile-btn--primary" id="pf-claim" data-act="claim">Create account with a passkey</button>
           <button type="button" class="profile-btn" id="pf-signin" data-act="signin">Sign in with a passkey</button>
@@ -150,7 +170,7 @@ export function openProfile(hooks: ProfileHooks): void {
         <p class="profile-name">Signed in as <strong></strong></p>
         <p class="profile-note">A demo account, for trying rated play. It is locked: no renaming, no passkeys, no deleting. Hidden from the public leaderboard.</p>
         ${ratingLine(me)}
-        ${customise(draftLook ?? me.look ?? DEFAULT_LOOKS[0])}
+        ${customise(draftLook ?? me.look ?? DEFAULT_LOOKS[0], lookTab)}
         <div class="profile-actions">
           <button type="button" class="profile-btn" id="pf-signout" data-act="signout">Sign out</button>
         </div>
@@ -166,7 +186,7 @@ export function openProfile(hooks: ProfileHooks): void {
           </div>
           <p class="profile-hint" id="pf-name-hint">${NAME_MIN} to ${NAME_MAX} letters, digits, spaces or _ . ' -</p>
         </form>
-        ${customise(draftLook ?? me.look ?? DEFAULT_LOOKS[0])}
+        ${customise(draftLook ?? me.look ?? DEFAULT_LOOKS[0], lookTab)}
         <h3>Passkeys</h3>
         <ul class="profile-keys"></ul>
         <div class="profile-actions">
@@ -259,21 +279,53 @@ export function openProfile(hooks: ProfileHooks): void {
       else body.append(cam);
     }
     const lookForm = body.querySelector<HTMLFormElement>(".look-form");
-    if (lookForm) {
+    if (lookForm && me) {
+      const saved = me.look ?? DEFAULT_LOOKS[0];
       const readLook = (): Look => {
         const data = new FormData(lookForm);
-        return {
-          shirt: data.get("look-shirt"),
-          shorts: data.get("look-shorts"),
-          skin: data.get("look-skin"),
-          hair: data.get("look-hair"),
-          style: data.get("look-style"),
-        } as Look;
+        return Object.fromEntries(Object.keys(LOOK_OPTIONS).map((f) => [f, data.get(`look-${f}`)])) as unknown as Look;
+      };
+      /** Redraws the preview and every option's picture for the look being tried on. */
+      const redraw = (look: Look) => {
+        lookForm.querySelector(".look-preview")!.innerHTML = lookSvg(look, "Preview of your player");
+        for (const opt of lookForm.querySelectorAll<HTMLElement>(".look-option")) {
+          const field = opt.closest<HTMLElement>(".look-field")!.dataset.field as Field;
+          const thumb = opt.querySelector(".look-thumb");
+          if (thumb) thumb.innerHTML = lookSvg({ ...look, [field]: opt.dataset.value } as Look, null, CROP[field] ?? "head");
+        }
       };
       lookForm.addEventListener("change", () => {
         // live preview only; nothing is sent until Save
         draftLook = readLook();
-        body.querySelector(".look-preview")!.innerHTML = lookSvg(draftLook, "Preview of your player");
+        redraw(draftLook);
+      });
+      const tabs = [...lookForm.querySelectorAll<HTMLButtonElement>(".look-tab")];
+      const showTab = (i: number, focus: boolean) => {
+        lookTab = tabs[i].dataset.tab!;
+        tabs.forEach((t, j) => {
+          t.setAttribute("aria-selected", String(i === j));
+          t.tabIndex = i === j ? 0 : -1;
+          lookForm.querySelector<HTMLElement>(`#${t.getAttribute("aria-controls")}`)!.hidden = i !== j;
+        });
+        if (focus) tabs[i].focus();
+      };
+      tabs.forEach((t, i) => {
+        t.addEventListener("click", () => showTab(i, false));
+        t.addEventListener("keydown", (event) => {
+          const n = tabs.length;
+          const to = event.key === "ArrowRight" ? (i + 1) % n : event.key === "ArrowLeft" ? (i + n - 1) % n : event.key === "Home" ? 0 : event.key === "End" ? n - 1 : null;
+          if (to === null) return;
+          event.preventDefault();
+          showTab(to, true);
+        });
+      });
+      lookForm.querySelector("#pf-look-cancel")!.addEventListener("click", () => {
+        // back to the saved look; nothing is sent
+        draftLook = null;
+        for (const input of lookForm.querySelectorAll<HTMLInputElement>("input[type=radio]")) {
+          input.checked = saved[input.name.slice("look-".length) as Field] === input.value;
+        }
+        redraw(saved);
       });
       lookForm.addEventListener("submit", (event) => {
         event.preventDefault();
