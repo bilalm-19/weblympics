@@ -132,3 +132,17 @@ test("the ring that marks where to stand stays up while the three arcs show, and
   await expect.poll(() => canvas.getAttribute("data-reach"), { timeout: 40_000 }).toMatch(/^(yes|no)$/);
 });
 
+
+test("after clicking the Aid button, Space swings again (the click hands focus back to the game)", async ({ page }) => {
+  await practice(page);
+  const toggle = page.getByRole("button", { name: "Trajectory aid" });
+  // off and back on with the mouse: the aid ends on, so the chosen strength shows
+  await toggle.click();
+  await toggle.click();
+  await expect(page.locator("canvas")).toHaveAttribute("data-aid", "on");
+  await expect(toggle).not.toBeFocused();
+  await page.keyboard.press("Space");
+  // Space is a medium swing; on a focused button it would press the button instead
+  await expect(page.locator(".aid-strength")).toHaveText("Chosen: medium");
+  await expect(page.locator("canvas")).toHaveAttribute("data-aid", "on");
+});

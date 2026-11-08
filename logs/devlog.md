@@ -2079,3 +2079,8 @@ Merged `track-feel` (adaptive arm steps, easier jump, slower bot, ?debug recorde
 - Merged `tennis-fixes` (camera backhand/sway fix, aid-off hides reticle and messages, centred `.shot-messages` row) onto main as integrate-tennis. Only `logs/devlog.md` conflicted (kept both sides); CLAUDE.md, tennis `view.ts` (task 19 sound plus the aid changes) and `e2e/call-banner.e2e.ts` auto-merged. `tsc` clean.
 - Checks on :8299: `pnpm check` 78 files, 1218/1218, exit 0. E2e (GPU, 2 workers) aid-messages, aid, stroke, call-banner, training, camera, tennis-sound, layout: 83 passed, 1 failed (call-banner:129 mobile, "banner covers the court"); passed twice alone headless on both viewports, so a GPU 2-worker timing flake.
 - Who: agent (Sonnet) merged.
+
+## 2026-11-08 22:26 · bug · Tennis: after clicking Aid, Space toggled the aid instead of swinging
+- What: found by the tennis agent, the user asked for the fix. The keys ignore Space on a focused button (so Space presses buttons for keyboard users), and the Aid button kept focus after a mouse click, so the next Space toggled the aid. Fix in `client/games/tennis/aid.ts`: a mouse or touch click (`detail > 0`) blurs the button; a keyboard press keeps focus where the player put it. Same pattern as track's and training's buttons.
+- Test: `e2e/aid.e2e.ts` "after clicking the Aid button, Space swings again": fails on the old build at both viewports (2 failed), passes with the fix; aid + aid-messages 14/14 headless on :8299.
+- Who: user (asked), Claude (fix).

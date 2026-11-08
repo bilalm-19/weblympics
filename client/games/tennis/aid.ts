@@ -98,10 +98,14 @@ export function createTrajectoryAid(view: HTMLElement, scene: Scene, canvas: HTM
     // messages hide by this class (aid.css), and the reticle by `on()`
     view.classList.toggle("aid-off", !on);
   };
-  toggle.addEventListener("click", () => {
+  toggle.addEventListener("click", (e) => {
     on = !on;
     saveOn(on);
     render();
+    // a mouse or touch click hands focus back to the game, so Space swings
+    // again (keys ignore Space on a focused button); a keyboard press
+    // (detail 0) keeps focus where the player put it
+    if (e.detail > 0) toggle.blur();
   });
   render();
 
