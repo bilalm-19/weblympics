@@ -1948,3 +1948,8 @@ the format of the entries below (see CLAUDE.md, Docs).
 - Bug: task 34 added two socket messages (`idle`, `status`) that the camera privacy e2e's allow-list didn't know, so that test failed on main since the friends merge (the friends agent ran only its own e2e). Fixed by allowing them (presence only, under 200 bytes); the failing test is the test. Both re-runs then 4/4. Main fast-forwarded. Not pushed.
 - Lesson: agents' e2e scope "only your own files" let a cross-cutting test break; the final full e2e before shipping must catch the rest.
 - Who: agent (task 25), Claude (merge, fix).
+
+## 2026-11-08 20:07 · decision · Boxing playtest fixes, and a city behind the basketball court
+- Boxing (user: "it seems to easily slip left and right, punching is not registered that easily and theres alot of delay, and i cant throw lots of punches at once"): Claude traced each to the code and the unmerged playtest-5 branch (boxing-diagnose, 2026-11-06). The user chose all four: merge playtest 5's fixes (a busy hand gives way to the free one; a drifted resting fist re-arms); make leaning deliberate (held about 0.2 s past a higher angle, a jab's own twist never leans); faster punching (about 6 a second, bursts of 3, the same hand after about 200 ms); jabs land in 100 ms instead of 150. The numbers are guesses; the user will record a ?debug session on the fixed version and the agent retunes from it.
+- Basketball: the user wants the outdoor court in a city (tall buildings behind), instead of the park.
+- Who: user (decided), Claude (diagnosis, briefs).
