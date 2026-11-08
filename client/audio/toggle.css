@@ -80,3 +80,24 @@
   flex: 1;
   min-width: 7rem;
 }
+
+/* On a phone the top bar fits one button each side of the logo (Friends
+   left, profile right: e2e/friends-panel's expectClearOfLogo), so the home
+   screen's sound button floats in the bottom-right corner instead; its
+   panel opens above it. */
+@media (max-width: 560px) {
+  .menu-corner .snd-button {
+    position: fixed;
+    right: 14px;
+    bottom: 14px;
+    z-index: 5;
+    box-shadow: 0 4px 14px rgba(18, 48, 74, 0.25);
+  }
+  .menu-corner .snd-panel {
+    position: fixed;
+    right: 14px;
+    bottom: 68px;
+    top: auto;
+    left: auto;
+  }
+}
