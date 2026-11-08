@@ -18,7 +18,7 @@
    and the pose model hosts (spec/privacy.test.ts); no fonts.googleapis.com */
 @font-face {
   font-family: "Fredoka";
-  font-weight: 600 700;
+  font-weight: 400 700;
   font-display: swap;
   src: url("./assets/fonts/fredoka-latin-var.woff2") format("woff2");
 }
@@ -67,9 +67,13 @@ a:focus-visible {
   outline-offset: 2px;
 }
 
-/* Home screen (task 13): pale sky, glossy pills, a framed preview of the
-   focused sport. Look borrowed from a console sports menu, built entirely
-   from CSS/SVG/DOM; no image files, no Three.js. */
+/* Home screen (task 36, the mock the user approved on 2026-11-08). A
+   full-screen scene under three columns of equal height: the sport cards,
+   the selected sport's panel and your party. Inline SVG and CSS only; no
+   image files, no Three.js on this path (the cards' optional 3D icons load
+   later, client/ui/home-3d.ts). The column height follows the window's
+   height (browser windows are shorter than the screen: checked at
+   1366x657), so the room code box stays on the first screen. */
 .menu {
   --ink: #12385e;
   --ink-soft: #3d5873;
@@ -78,113 +82,175 @@ a:focus-visible {
   --pill-bottom: #dcebf7;
   --pill-edge: #8fb3d1;
   --focus: #0b63c4;
+  --panel: rgba(255, 255, 255, 0.82);
+  --panel-edge: rgba(255, 255, 255, 0.95);
+  --top-h: clamp(84px, 15vh, 170px);
+  --bottom-h: clamp(40px, 6vh, 56px);
+  --colh: min(760px, calc(100dvh - var(--top-h) - var(--bottom-h)));
   color-scheme: light;
   position: relative;
-  min-height: 100dvh;
   display: flex;
-  justify-content: center;
-  padding: clamp(1rem, 3vh, 2.5rem) 1rem 2rem;
+  flex-direction: column;
+  min-height: 100dvh;
   color: var(--ink);
   font-family: "Fredoka", ui-rounded, system-ui, sans-serif;
-  background:
-    repeating-linear-gradient(180deg, #ffffff00 0 6px, #ffffff59 6px 8px),
-    linear-gradient(180deg, #cfe8fa 0%, #eaf5fd 45%, #ffffff 100%);
+  background: #bfe4ff;
+  overflow-x: clip;
 }
 
-.menu-tab {
-  position: absolute;
-  top: 0;
-  left: 0;
-  padding: 0.35rem 1.6rem 0.4rem 1rem;
-  border-radius: 0 0 22px 0;
-  background: linear-gradient(180deg, #0070ad, #005f93);
-  color: #fff;
-  font-weight: 600;
-  font-size: 0.95rem;
-  letter-spacing: 0.02em;
-  box-shadow: 0 2px 6px #12385e40;
+/* ---- the scene behind everything: one SVG, the field changes per sport ---- */
+.home-scene {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
 }
 
-.menu-column {
+.home-scene svg {
+  display: block;
   width: 100%;
-  max-width: 34rem;
-  display: flex;
-  flex-direction: column;
-  align-items: stretch;
-  gap: clamp(0.75rem, 2vh, 1.25rem);
+  height: 100%;
 }
 
-/* Two parts under the title: the sport picker and the selected sport's
-   detail (preview, then its options). Phone and narrow windows stack them;
-   from 900px they sit side by side, sports on the left (task 23). */
-.menu-body {
-  display: flex;
-  flex-direction: column;
-  gap: clamp(0.75rem, 2vh, 1.25rem);
-  min-width: 0;
+.hs-cloud {
+  fill: #fff;
+  opacity: 0.9;
 }
 
-.menu-picker,
-.menu-detail {
-  display: flex;
-  flex-direction: column;
-  gap: clamp(0.75rem, 2vh, 1.25rem);
-  min-width: 0;
+.hs-cloud--2 {
+  opacity: 0.7;
 }
 
-.menu-label {
-  display: none;
-  margin: 0;
-  font-size: 1rem;
-  font-weight: 600;
-  text-align: center;
+.hs-hills-far {
+  fill: var(--hill-far, #7cc6a0);
+  transition: fill 0.6s;
+}
+
+.hs-hills-near {
+  fill: var(--hill-near, #4fae7b);
+  transition: fill 0.6s;
+}
+
+.hs-ground {
+  fill: var(--ground, #3f9a57);
+  transition: fill 0.6s;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .hs-cloud {
+    animation: hs-drift 60s linear infinite;
+  }
+
+  .hs-cloud--2 {
+    animation-duration: 85s;
+    animation-delay: -30s;
+  }
+
+  .hs-cloud--3 {
+    animation-delay: -45s;
+  }
+
+  .hs-fans circle {
+    animation: hs-bob 1.6s ease-in-out infinite;
+  }
+
+  .hs-fans circle:nth-child(3n) {
+    animation-delay: -0.5s;
+  }
+
+  .hs-fans circle:nth-child(3n + 1) {
+    animation-delay: -1s;
+  }
+}
+
+/* a hidden tab stops everything that moves on the home screen (task 23) */
+.menu.is-hidden-tab *,
+.menu.is-hidden-tab *::before {
+  animation-play-state: paused !important;
+}
+
+@keyframes hs-drift {
+  from {
+    transform: translateX(-20%);
+  }
+  to {
+    transform: translateX(120%);
+  }
+}
+
+@keyframes hs-bob {
+  50% {
+    transform: translateY(-3px);
+  }
+}
+
+/* ---- the top bar: equal outer columns, so the logo is the page's middle ---- */
+.menu-top {
+  position: relative;
+  z-index: 3;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  height: var(--top-h);
+  padding: 0 clamp(16px, 2vw, 28px);
+}
+
+.menu-top-left {
+  justify-self: start;
+}
+
+.menu-corner {
+  justify-self: end;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-family: system-ui, sans-serif;
   color: var(--ink-soft);
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
 }
 
-/* The logo (task 14): five loose rings in a wave over the word, each letter
-   in one of the ring colours with a dark ink outline and a white rim, so
-   yellow and light blue still read on the pale sky (contrast in the devlog). */
+.menu-connecting {
+  margin: 0;
+  font-size: 0.9rem;
+}
+
+/* The logo: five rings that overlap like the Olympic rings (the 2nd and 4th
+   dropped by half a ring), over the word, each letter in a ring colour with
+   a dark ink outline so even yellow reads on the sky (task 14). */
 .menu .logo {
-  margin: 0.25rem 0 0;
+  margin: 0;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0;
-  font-size: clamp(2.6rem, 8vw, 3.6rem);
+  gap: 2px;
+  font-size: clamp(44px, 6.4vh, 70px);
   font-weight: 700;
   line-height: 1;
   text-align: center;
 }
 
 .logo-rings {
-  width: clamp(6.5rem, 20vw, 8rem);
+  width: calc(var(--ring, clamp(20px, 2.9vh, 30px)) * 3.37);
   height: auto;
   overflow: visible;
-  margin-bottom: -0.1rem;
 }
 
 .logo-ring {
   fill: none;
-  stroke-width: 5;
   transform-box: fill-box;
   transform-origin: center;
 }
 
 .logo-word {
   display: inline-flex;
-  letter-spacing: 0.01em;
+  letter-spacing: -0.01em;
 }
 
 .logo-letter {
   display: inline-block;
   color: var(--c);
-  -webkit-text-stroke: 0.09em var(--ink);
+  -webkit-text-stroke: 0.1em var(--ink);
   paint-order: stroke fill;
-  text-shadow:
-    0 0.06em 0 #fff,
-    0 0.12em 0.18em #12385e40;
+  text-shadow: 0 0.08em 0.16em #12385e40;
 }
 
 @media (prefers-reduced-motion: no-preference) {
@@ -219,247 +285,177 @@ a:focus-visible {
 @keyframes logo-float {
   0%,
   100% {
-    transform: translateY(0) rotate(0deg);
+    transform: translateY(0);
   }
   50% {
-    transform: translateY(-4px) rotate(8deg);
+    transform: translateY(-3px);
   }
 }
 
-/* Framed preview: thin bright frame, rounded corners, soft drop shadow */
-.thumb {
-  margin: 0;
-  padding: 6px;
-  border-radius: 22px;
-  background: linear-gradient(180deg, #ffffff, #d5e6f4);
-  border: 2px solid #9fbfd9;
-  box-shadow:
-    0 10px 24px -12px #12385e66,
-    inset 0 1px 0 #fff;
+/* a short laptop window: a smaller logo, so the columns keep their height */
+@media (max-height: 760px) and (min-width: 761px) {
+  .menu .logo {
+    font-size: 46px;
+  }
+
+  .logo-rings {
+    --ring: 19px;
+  }
 }
 
-.thumb-frame {
+/* ---- the three columns ---- */
+.menu-body {
   position: relative;
-  aspect-ratio: 16 / 9;
-  overflow: hidden;
-  border-radius: 16px;
-  border: 2px solid #ffffff;
-  background: #bfe0f7;
-  container-type: inline-size;
-}
-
-.thumb-art,
-.thumb-svg {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  display: block;
-}
-
-/* gloss across the top of the preview, like a glass screen */
-.thumb-frame::after {
-  content: "";
-  position: absolute;
-  inset: 0 0 55% 0;
-  background: linear-gradient(180deg, #ffffff47, #ffffff00);
-  pointer-events: none;
-}
-
-.thumb-frame.is-soon .thumb-art {
-  filter: saturate(0.45) brightness(1.05);
-}
-
-.thumb-caption {
-  padding: 0.5rem 0.5rem 0.15rem;
-  color: var(--ink-soft);
-  font-family: system-ui, sans-serif;
-  font-size: 0.95rem;
-  line-height: 1.35;
-  text-align: center;
-  min-height: 2.9em;
-}
-
-.thumb-caption strong {
-  color: var(--ink);
-  font-family: "Fredoka", ui-rounded, system-ui, sans-serif;
-}
-
-/* Glossy pill buttons: bright rim, light top-to-bottom gradient, a white
-   shine on the upper half, and a darker edge underneath. */
-.menu .pill {
-  position: relative;
-  min-height: 52px;
-  padding: 0 1.5rem;
-  border: 2px solid var(--pill-edge);
-  border-radius: 999px;
-  background:
-    linear-gradient(180deg, #ffffffcc 0 45%, #ffffff00 55%),
-    linear-gradient(180deg, var(--pill-top), var(--pill-bottom));
-  color: var(--ink);
-  font-family: "Fredoka", ui-rounded, system-ui, sans-serif;
-  font-size: 1.1rem;
-  font-weight: 600;
-  letter-spacing: 0.01em;
-  box-shadow:
-    inset 0 0 0 2px var(--rim),
-    0 3px 0 #9fbcd4,
-    0 6px 12px -8px #12385e80;
-  transition:
-    transform 0.1s ease,
-    box-shadow 0.1s ease,
-    border-color 0.1s ease;
-}
-
-.menu .pill:active {
-  transform: translateY(2px);
-  box-shadow:
-    inset 0 0 0 2px var(--rim),
-    0 1px 0 #9fbcd4;
-}
-
-.menu .pill--primary {
-  --pill-top: #ffeec8;
-  --pill-bottom: var(--ring-yellow);
-  --pill-edge: #d48a00;
-  color: #4d2c00;
-  box-shadow:
-    inset 0 0 0 2px #fffbe8,
-    0 3px 0 #c98a00,
-    0 6px 12px -8px #5a330080;
-}
-
-.menu .pill--blue {
-  --pill-top: #e3f3ff;
-  --pill-bottom: #8cceff;
-  --pill-edge: var(--ring-blue);
-  color: #06263f;
-  box-shadow:
-    inset 0 0 0 2px var(--rim),
-    0 3px 0 #2f86c0,
-    0 6px 12px -8px #12385e80;
-}
-
-/* the other two ring colours, light enough to keep dark text at AA */
-.menu .pill--green {
-  --pill-top: #e6f8ee;
-  --pill-bottom: #7fd8a6;
-  --pill-edge: var(--ring-green);
-  color: #003a1c;
-  box-shadow:
-    inset 0 0 0 2px var(--rim),
-    0 3px 0 #1f9a5a,
-    0 6px 12px -8px #003a1c80;
-}
-
-.menu .pill--red {
-  --pill-top: #fff0f2;
-  --pill-bottom: #ffb3c0;
-  --pill-edge: var(--ring-red);
-  color: #5a0016;
-  box-shadow:
-    inset 0 0 0 2px var(--rim),
-    0 3px 0 #d0485f,
-    0 6px 12px -8px #5a001680;
-}
-
-.menu .pill--small {
-  min-height: 44px;
-  padding: 0 0.9rem;
-  font-size: 0.9rem;
-}
-
-.menu .pill:focus-visible,
-.menu input:focus-visible,
-.menu a:focus-visible {
-  outline: 3px solid var(--focus);
-  outline-offset: 3px;
-}
-
-/* Sport buttons: a compact wrapping grid when stacked (any number of
-   sports fits the width), one column on the left from 900px. */
-.sports {
+  z-index: 2;
+  flex: 1 0 auto;
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(7rem, 1fr));
-  gap: 0.6rem;
+  grid-template-columns: minmax(280px, 0.82fr) minmax(460px, 1.36fr) minmax(280px, 0.82fr);
+  gap: clamp(16px, 2vw, 28px);
+  align-items: center;
+  padding: 0 clamp(20px, 2.5vw, 40px);
+}
+
+.menu-picker,
+.menu-detail,
+.menu-party {
+  height: var(--colh);
+  min-height: 0;
+  min-width: 0;
+}
+
+/* sport cards: 2x3, the icon in its own column so it never covers the name */
+/* inset a little, so the picked card's lift and white ring stay inside the column */
+.sports {
+  height: 100%;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: repeat(3, minmax(0, 1fr));
+  gap: clamp(10px, 1.6vh, 16px);
+  padding: 12px 8px 4px;
 }
 
 .menu .sport {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.45rem;
-  min-height: 52px;
-  padding: 0 0.6rem;
-  font-size: 1.1rem;
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-rows: auto 1fr auto;
+  column-gap: 8px;
+  min-height: 0;
+  margin: 0 0 6px;
+  padding: clamp(10px, 1.6vh, 16px);
+  border: 0;
+  border-radius: 22px;
+  background: var(--c);
+  color: #fff;
+  text-align: left;
+  font-family: inherit;
+  box-shadow:
+    0 6px 0 var(--c-dark),
+    0 12px 24px rgba(18, 48, 74, 0.25);
+  overflow: hidden;
+  transition:
+    transform 0.15s,
+    box-shadow 0.15s;
+}
+
+.menu .sport:hover,
+.menu .sport.is-pointed {
+  transform: translateY(-3px);
 }
 
 .menu .sport[aria-pressed="true"] {
-  --pill-top: #f2fbff;
-  --pill-bottom: #a8dcff;
-  --pill-edge: var(--ring-blue);
+  outline: 5px solid #fff;
+  outline-offset: 0;
+  transform: translateY(-4px) scale(1.03);
   box-shadow:
-    inset 0 0 0 2px var(--rim),
-    0 0 0 3px #7cc4ff80,
-    0 3px 0 #5b9fd6,
-    0 6px 14px -8px #12385e99;
+    0 8px 0 var(--c-dark),
+    0 18px 34px rgba(18, 48, 74, 0.35);
+  z-index: 1;
 }
 
-.menu .sport.is-pointed {
-  border-color: var(--ring-blue);
+.menu .sport:focus-visible {
+  outline: 5px solid #fff;
+  box-shadow:
+    0 0 0 9px var(--focus),
+    0 6px 0 var(--c-dark);
 }
 
-.menu .sport[aria-disabled="true"] {
-  flex-direction: column;
-  gap: 0;
-  min-height: 52px;
-  padding: 0.2rem 0.75rem;
-  font-size: 1.05rem;
+/* the name has the whole top row; the icon sits under it on the right */
+.sport-name {
+  grid-column: 1 / -1;
+  grid-row: 1;
+  font-weight: 700;
+  font-size: clamp(17px, 1.5vw, 26px);
   line-height: 1.15;
-  --pill-top: #f7fafc;
-  --pill-bottom: #e6edf3;
-  --pill-edge: #c3d1dd;
-  color: #4f6273;
-  cursor: not-allowed;
-  box-shadow:
-    inset 0 0 0 2px var(--rim),
-    0 2px 0 #c3d1dd;
+  text-shadow: 0 2px 0 rgba(0, 0, 0, 0.15);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.menu .sport[aria-disabled="true"]:active {
-  transform: none;
-}
-
-.sport-icon {
-  width: 1.5em;
-  height: 1.5em;
-  flex: 0 0 auto;
-  filter: drop-shadow(0 1px 1px #12385e40);
-}
-
-.menu .sport[aria-disabled="true"] .sport-icon {
-  width: 1.2rem;
-  height: 1.2rem;
-  opacity: 0.75;
+.sport-tag {
+  grid-column: 1;
+  grid-row: 3;
+  align-self: end;
+  font-size: 13px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .sport-soon {
-  color: #4f6273;
-  font-family: system-ui, sans-serif;
-  font-size: 0.7rem;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
+  display: none;
 }
 
-/* the pointer arrow sits on the right of the focused/hovered pill */
+.sport-art {
+  grid-column: 2;
+  grid-row: 2 / span 2;
+  align-self: center;
+  display: grid;
+  width: clamp(56px, 5.2vw, 104px);
+  aspect-ratio: 1;
+}
+
+.sport-art > * {
+  grid-area: 1 / 1;
+  width: 100%;
+  height: 100%;
+}
+
+.menu.has3d .sport-art svg.ic {
+  visibility: hidden;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .menu .sport[aria-pressed="true"] svg.ic {
+    animation: sport-wiggle 1.2s ease-in-out infinite;
+  }
+}
+
+@keyframes sport-wiggle {
+  50% {
+    transform: rotate(-8deg) scale(1.06);
+  }
+}
+
+@media (max-width: 1500px) and (min-width: 761px) {
+  .sport-tag {
+    display: none;
+  }
+}
+
+.menu .sport[aria-disabled="true"] {
+  filter: saturate(0.3);
+  cursor: not-allowed;
+}
+
+/* the pointer arrow marks the focused or hovered card, by its bottom right */
 .pointer {
   position: absolute;
-  right: 1.1rem;
-  top: 50%;
-  width: 30px;
-  height: 30px;
-  margin-top: -6px;
+  right: 8px;
+  bottom: 6px;
+  width: 28px;
+  height: 28px;
   opacity: 0;
   transform: translate(6px, 4px) rotate(-14deg);
   transition:
@@ -474,16 +470,523 @@ a:focus-visible {
   transform: translate(0, 0) rotate(-14deg);
 }
 
+/* ---- the middle panel ---- */
+.menu-detail {
+  display: flex;
+  flex-direction: column;
+  gap: clamp(8px, 1.4vh, 14px);
+  padding: clamp(12px, 2vh, 20px);
+  border: 2px solid var(--panel-edge);
+  border-radius: 28px;
+  background: var(--panel);
+  box-shadow: 0 16px 40px rgba(18, 48, 74, 0.22);
+  backdrop-filter: blur(6px);
+}
+
+.menu-detail.is-opened {
+  animation: options-open 0.35s ease;
+}
+
+@keyframes options-open {
+  0% {
+    box-shadow: 0 0 0 0 #7cc4ffcc;
+  }
+  100% {
+    box-shadow: 0 0 0 14px #7cc4ff00;
+  }
+}
+
+.thumb {
+  flex: 1 1 auto;
+  min-height: 120px;
+  margin: 0;
+  display: flex;
+}
+
+.thumb-frame {
+  position: relative;
+  flex: 1;
+  overflow: hidden;
+  border-radius: 18px;
+  background: #dff1ff;
+  box-shadow: inset 0 0 0 3px #fff;
+}
+
+.thumb-svg {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.thumb-frame.is-soon .thumb-svg {
+  filter: saturate(0.45) brightness(1.05);
+}
+
+.pitch {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  column-gap: 12px;
+  row-gap: 2px;
+}
+
+.pitch h2 {
+  margin: 0;
+  font-size: clamp(24px, 3.2vh, 34px);
+  line-height: 1.05;
+}
+
+.pitch-line {
+  flex: 1 1 14em;
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: 15px;
+}
+
+.pitch-chip {
+  padding: 3px 10px;
+  border-radius: 10px;
+  background: #d9efff;
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.menu .error {
+  margin: 0;
+  color: #b3122e;
+  font-weight: 600;
+}
+
+.options {
+  display: flex;
+  flex-direction: column;
+  gap: clamp(8px, 1.4vh, 14px);
+}
+
+.options-row {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+/* the buttons, chunky and bright as in the mock */
+.menu .pill {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 48px;
+  margin-bottom: 5px;
+  padding: clamp(8px, 1.4vh, 14px) 16px;
+  border: 0;
+  border-radius: 20px;
+  background: #fff;
+  color: var(--ink);
+  font-family: inherit;
+  font-size: 18px;
+  font-weight: 700;
+  text-align: left;
+  box-shadow: 0 5px 0 #c9d6e2;
+  transition: transform 0.1s;
+}
+
+.menu .pill:hover {
+  transform: translateY(-2px);
+}
+
+.menu .pill:active {
+  transform: translateY(3px);
+  box-shadow: 0 2px 0 #c9d6e2;
+}
+
+.menu .pill:focus-visible,
+.menu input:focus-visible,
+.menu a:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 3px;
+}
+
+.pill .ico {
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  width: clamp(34px, 5vh, 46px);
+  height: clamp(34px, 5vh, 46px);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.7);
+  font-size: 24px;
+}
+
+.pill .lbl {
+  min-width: 0;
+}
+
+.pill small {
+  display: block;
+  color: var(--ink-soft);
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.menu .pill--primary {
+  grid-column: 1 / -1;
+  padding: clamp(10px, 1.8vh, 18px) 20px;
+  background: linear-gradient(#ffeec8, var(--ring-yellow));
+  color: #4d2c00;
+  font-size: clamp(20px, 3vh, 26px);
+  box-shadow: 0 6px 0 #c98a14;
+}
+
+.menu .pill--primary .ico {
+  width: clamp(40px, 6vh, 56px);
+  height: clamp(40px, 6vh, 56px);
+  font-size: clamp(22px, 3.4vh, 30px);
+}
+
+.menu .pill--primary small {
+  color: #4d2c00;
+  font-size: 14px;
+}
+
+.menu .pill--red {
+  background: #fff0f2;
+  color: #5a0016;
+  box-shadow: 0 5px 0 #e9a3b0;
+}
+
+.menu .pill--green {
+  background: #e6f8ee;
+  color: #003a1c;
+  box-shadow: 0 5px 0 #8fd1a8;
+}
+
+.menu .pill--purple {
+  background: #f1e6ff;
+  color: #3b1a6e;
+  box-shadow: 0 5px 0 #c3a6ea;
+}
+
+.menu .pill--blue {
+  flex: 0 0 auto;
+  justify-content: center;
+  padding: 10px 22px;
+  background: #e3f3ff;
+  color: #06263f;
+  font-size: 16px;
+  box-shadow: 0 5px 0 #8cb8dc;
+}
+
+/* desktop: the smaller buttons stack their picture over the word */
+@media (min-width: 761px) {
+  .options-row .pill:not(.pill--primary) {
+    flex-direction: column;
+    justify-content: center;
+    gap: 4px;
+    padding: 8px 6px;
+    font-size: 16px;
+    text-align: center;
+  }
+
+  .options-row .pill:not(.pill--primary) small {
+    display: none;
+  }
+
+  .options-row .pill:not(.pill--primary) .ico {
+    width: 34px;
+    height: 34px;
+    font-size: 20px;
+  }
+}
+
+.menu .join {
+  display: flex;
+  gap: 10px;
+  min-width: 0;
+}
+
+.menu .join input {
+  flex: 1;
+  min-width: 0;
+  min-height: 48px;
+  padding: clamp(8px, 1.3vh, 12px) 16px;
+  border: 2px solid #8fb3d1;
+  border-radius: 16px;
+  background: #fff;
+  color: var(--ink);
+  font-family: system-ui, sans-serif;
+  letter-spacing: 0.25em;
+  text-transform: uppercase;
+}
+
+.menu .join input::placeholder {
+  color: #5e7387;
+}
+
+/* ---- your party ---- */
+.menu-party {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: clamp(12px, 2vh, 20px);
+  border: 2px solid var(--panel-edge);
+  border-radius: 28px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.92) 0%, rgba(232, 244, 255, 0.88) 78%, #bfe6c8 78%, #9fd8ad 100%);
+  box-shadow: 0 16px 40px rgba(18, 48, 74, 0.22);
+  backdrop-filter: blur(4px);
+  overflow: hidden;
+}
+
+.party-title {
+  margin: 0;
+  padding: 4px 14px;
+  border-radius: 14px;
+  background: var(--panel);
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.crew {
+  flex: 1 1 auto;
+  min-height: 0;
+  width: 100%;
+  display: grid;
+  grid-template-columns: repeat(var(--cols, 1), minmax(0, 1fr));
+  grid-template-rows: repeat(var(--rows, 1), minmax(0, 1fr));
+  align-items: end;
+  justify-items: center;
+  gap: 8px 4px;
+}
+
+.member {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  min-width: 0;
+}
+
+.member-fig {
+  flex: 1 1 0;
+  min-height: 0;
+  width: 100%;
+  max-width: 100%;
+  display: flex;
+  justify-content: center;
+}
+
+.member-fig .look-svg {
+  height: 100%;
+  width: auto;
+  max-width: 100%;
+  aspect-ratio: 100 / 140;
+  overflow: visible;
+  filter: drop-shadow(0 10px 8px rgba(18, 48, 74, 0.25));
+}
+
+.crew[data-size="solo"] .member-fig {
+  max-height: 440px;
+}
+
+.bubble {
+  position: relative;
+  margin: 0 0 6px;
+  padding: 8px 14px;
+  border-radius: 16px;
+  background: #fff;
+  font-size: 15px;
+  font-weight: 600;
+  white-space: nowrap;
+  box-shadow: 0 4px 12px rgba(18, 48, 74, 0.15);
+}
+
+.bubble::after {
+  content: "";
+  position: absolute;
+  bottom: -8px;
+  left: 50%;
+  margin-left: -8px;
+  border: 8px solid transparent;
+  border-top-color: #fff;
+  border-bottom: 0;
+}
+
+.nameplate {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  max-width: 100%;
+  margin: 0;
+  padding: 3px 9px;
+  border-radius: 12px;
+  background: #fff;
+  font-size: 14px;
+  font-weight: 700;
+  white-space: nowrap;
+  box-shadow: 0 3px 8px rgba(18, 48, 74, 0.15);
+}
+
+.np-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.crew[data-size="big"] .nameplate {
+  padding: 2px 6px;
+  font-size: 11px;
+  gap: 3px;
+}
+
+.crew[data-size="big"] .sdot {
+  width: 7px;
+  height: 7px;
+}
+
+.lead {
+  font-size: 0.85em;
+}
+
+.slot {
+  align-self: stretch;
+  width: 100%;
+  min-height: 48px;
+  max-width: 180px;
+  border: 3px dashed rgba(18, 48, 74, 0.35);
+  border-radius: 24px;
+  background: rgba(255, 255, 255, 0.35);
+  color: var(--ink-soft);
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  text-align: center;
+}
+
+.crew[data-size="big"] .slot {
+  font-size: 12px;
+  padding: 4px;
+}
+
+.party-look {
+  min-height: 44px;
+  padding: 4px 14px;
+  border-radius: 12px;
+  background: var(--panel);
+  color: #0b5aa8;
+  font-family: inherit;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.party-look:focus-visible,
+.slot:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 3px;
+}
+
+/* idle moves, each member a different one */
+@media (prefers-reduced-motion: no-preference) {
+  .member {
+    animation: member-arrive 0.5s backwards;
+  }
+
+  .m-hop .member-fig {
+    animation: member-hop 1.8s ease-in-out infinite;
+  }
+
+  .m-sway .member-fig {
+    transform-origin: 50% 100%;
+    animation: member-sway 2.6s ease-in-out infinite;
+  }
+
+  .m-bob .member-fig {
+    animation: member-bob 2.2s ease-in-out infinite;
+  }
+}
+
+@keyframes member-arrive {
+  from {
+    transform: translateY(30px) scale(0.6);
+    opacity: 0;
+  }
+}
+
+@keyframes member-hop {
+  0%,
+  70%,
+  100% {
+    transform: translateY(0);
+  }
+  80% {
+    transform: translateY(-14px);
+  }
+}
+
+@keyframes member-sway {
+  50% {
+    transform: rotate(4deg);
+  }
+}
+
+@keyframes member-bob {
+  50% {
+    transform: translateY(-5px) scale(1.02, 0.98);
+  }
+}
+
+/* the profile, friends and party popovers open under the top bar's buttons */
+@media (min-width: 761px) {
+  .menu dialog.sheet {
+    top: calc(var(--top-h) / 2 + 34px);
+    right: clamp(16px, 2vw, 28px);
+    max-height: calc(100dvh - var(--top-h) / 2 - 50px);
+  }
+}
+
+/* ---- footer ---- */
+.menu-footer {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: var(--bottom-h);
+  font-family: system-ui, sans-serif;
+  font-size: 13px;
+}
+
+.menu-footer p {
+  margin: 0;
+}
+
+.menu-footer a {
+  display: inline-block;
+  padding: 4px 12px;
+  border-radius: 12px;
+  background: #ffffff;
+  color: #0b5aa8;
+  font-weight: 600;
+  text-decoration: none;
+}
+
 /* Task 23: on the home screen the mouse cursor is that same chunky arrow
-   (POINTER in menu.ts, our own drawing), so it shows as the mouse moves. Only
-   for a mouse (a fine pointer that hovers): touch shows no cursor, and the
-   game's own canvas keeps the normal one. The tip is the hotspot (6 3).
-   A plain CSS cursor: nothing follows the mouse in script, so it never lags
-   and never animates, reduced motion or not. */
+   (POINTER in menu.ts, our own drawing). Only for a mouse (a fine pointer
+   that hovers): touch shows no cursor, and the game's own canvas keeps the
+   normal one. The tip is the hotspot (6 3). */
 @media (hover: hover) and (pointer: fine) {
   .menu,
   .menu .pill,
+  .menu .sport,
   .menu a,
+  .menu button,
   .menu .sport[aria-disabled="true"] {
     cursor:
       url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32'%3E%3Cpath d='M6 3 L6 25 L11.5 20 L15.5 29 L20 27 L16 18.5 L24 18.5 Z' fill='%23fff' stroke='%231769b8' stroke-width='2.4' stroke-linejoin='round'/%3E%3C/svg%3E")
@@ -497,154 +1000,337 @@ a:focus-visible {
   }
 }
 
-.menu .error {
-  margin: 0;
-  color: #b3122e;
-  font-weight: 600;
-  text-align: center;
-}
-
-/* The selected sport's options */
-.options {
-  padding: 0.9rem 1rem 1rem;
-  border-radius: 22px;
-  background: #ffffffb3;
-  border: 2px solid #c6dbec;
-}
-
-.options h2 {
-  margin: 0 0 0.6rem;
-  font-size: 1rem;
-  font-weight: 600;
-  text-align: center;
-  color: var(--ink-soft);
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-}
-
-.options-row {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 0.6rem;
-}
-
-/* "Create a room" is the big button across the row (user, 2026-11-05);
-   vs the bot and training or practice are the smaller pair under it */
-.menu .options-row > .pill--primary {
-  grid-column: 1 / -1;
-  min-height: 60px;
-  font-size: 1.3rem;
-}
-
-.options-row .join {
-  grid-column: 1 / -1;
-  display: flex;
-  gap: 0.5rem;
-  min-width: 0;
-}
-
-.menu .join input {
-  flex: 1;
-  min-width: 0;
-  min-height: 52px;
-  padding: 0 1rem;
-  border: 2px solid #3a8fd0;
-  border-radius: 999px;
-  background: #fff;
-  color: var(--ink);
-  box-shadow: inset 0 2px 4px #12385e1f;
-  font-family: system-ui, sans-serif;
-  text-transform: uppercase;
-  letter-spacing: 0.2em;
-}
-
-.menu .join input::placeholder {
-  color: #5e7387;
-}
-
-.join .pill {
-  flex: 0 0 auto;
-}
-
-.options.is-opened {
-  animation: options-open 0.35s ease;
-}
-
-@keyframes options-open {
-  0% {
-    box-shadow: 0 0 0 0 #7cc4ffcc;
+/* ---- a narrow desktop window: three columns no longer fit, so two then one ---- */
+@media (max-width: 1100px) and (min-width: 761px) {
+  .menu .logo {
+    font-size: 40px;
   }
-  100% {
-    box-shadow: 0 0 0 14px #7cc4ff00;
+
+  .menu .pm-name,
+  .menu .fr-label,
+  .menu .fr-olabel {
+    display: none;
+  }
+
+  .menu .pm-button {
+    padding: 4px;
+  }
+
+  .menu-body {
+    grid-template-columns: minmax(260px, 0.9fr) minmax(400px, 1.4fr);
+  }
+
+  .menu-party {
+    grid-column: 1 / -1;
+    height: auto;
+    min-height: 260px;
+  }
+
+  .crew {
+    height: 200px;
   }
 }
 
-.menu-footer {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.5rem;
-  font-family: system-ui, sans-serif;
-  color: var(--ink-soft);
-  text-align: center;
+/* ---- phone: stacked; sports 3x2, the panel, the party as a strip ---- */
+@media (max-width: 760px) {
+  .menu {
+    --top-h: 60px;
+  }
+
+  /* one button each side of the logo: Friends left, the profile right
+     (the sound button floats bottom right, client/audio/toggle.css) */
+  .menu-top {
+    position: sticky;
+    top: 0;
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+    grid-template-areas: "left logo right";
+    column-gap: 8px;
+    padding: 0 12px;
+    background: linear-gradient(rgba(191, 228, 255, 0.95), rgba(191, 228, 255, 0));
+  }
+
+  .menu-corner {
+    display: contents;
+  }
+
+  .menu-top-left,
+  .menu-corner .fr-button {
+    grid-area: left;
+    justify-self: start;
+  }
+
+  .menu .logo {
+    grid-area: logo;
+  }
+
+  .menu-corner .pm-button,
+  .menu-corner .snd,
+  .menu-connecting {
+    grid-area: right;
+    justify-self: end;
+  }
+
+  .menu .logo {
+    font-size: 28px;
+  }
+
+  .logo-rings {
+    --ring: 14px;
+  }
+
+  .menu-body {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 4px 16px 0;
+  }
+
+  .menu-picker,
+  .menu-detail,
+  .menu-party {
+    height: auto;
+  }
+
+  .sports {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-rows: none;
+    gap: 10px;
+  }
+
+  .menu .sport {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto auto;
+    justify-items: start;
+    min-height: 70px;
+    padding: 6px 10px;
+    border-radius: 16px;
+  }
+
+  .sport-name {
+    grid-row: 2;
+    font-size: 14px;
+  }
+
+  .sport-tag {
+    display: none;
+  }
+
+  .sport-art {
+    grid-column: 1;
+    grid-row: 1;
+    justify-self: end;
+    width: 34px;
+  }
+
+  .menu .sport[aria-pressed="true"] {
+    transform: translateY(-2px);
+    outline-width: 4px;
+  }
+
+  .pointer {
+    right: 2px;
+    bottom: 2px;
+    width: 22px;
+    height: 22px;
+  }
+
+  .sports {
+    padding: 8px 6px 2px;
+  }
+
+  .menu-detail {
+    padding: 12px;
+    border-radius: 22px;
+  }
+
+  .thumb {
+    flex: none;
+    min-height: 0;
+  }
+
+  .thumb-frame {
+    aspect-ratio: 2 / 1;
+  }
+
+  .pitch h2 {
+    font-size: 24px;
+  }
+
+  .pitch-line {
+    font-size: 13px;
+  }
+
+  .options-row {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .menu .pill {
+    gap: 8px;
+    padding: 8px;
+    font-size: 15px;
+  }
+
+  .options-row .pill:not(.pill--primary) {
+    flex-direction: column;
+    justify-content: center;
+    gap: 2px;
+    padding: 6px 4px;
+    font-size: 14px;
+    line-height: 1.2;
+    text-align: center;
+  }
+
+  .options-row .pill:not(.pill--primary) small {
+    display: none;
+  }
+
+  .pill .ico {
+    width: 28px;
+    height: 28px;
+    font-size: 17px;
+  }
+
+  .menu .pill--primary {
+    font-size: 20px;
+    padding: 16px 14px;
+  }
+
+  .menu .pill--primary .ico {
+    width: 48px;
+    height: 48px;
+    font-size: 26px;
+  }
+
+  /* the party as a strip of heads, under the panel */
+  .menu-party {
+    flex-direction: row;
+    flex-wrap: wrap;
+    justify-content: flex-start;
+    gap: 6px 10px;
+    padding: 10px 12px;
+    border-radius: 18px;
+    background: var(--panel);
+  }
+
+  .party-title {
+    width: 100%;
+    padding: 0 4px;
+    background: none;
+    font-size: 13px;
+  }
+
+  .crew,
+  .crew[data-size] {
+    display: flex;
+    flex: 1 1 100%;
+    gap: 10px;
+    overflow-x: auto;
+    align-items: center;
+    padding-bottom: 2px;
+  }
+
+  .member {
+    flex: 0 0 auto;
+    width: 76px;
+    height: auto;
+  }
+
+  .bubble {
+    display: none;
+  }
+
+  .member-fig,
+  .crew[data-size="solo"] .member-fig {
+    flex: none;
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    overflow: hidden;
+    background: #dff1ff;
+  }
+
+  .member-fig .look-svg {
+    width: 44px;
+    height: auto;
+    max-width: none;
+    aspect-ratio: auto;
+    filter: none;
+    /* the head and shoulders of the full figure */
+    transform: translateY(4px) scale(2.1);
+    transform-origin: 50% 0;
+  }
+
+  .nameplate,
+  .crew[data-size="big"] .nameplate {
+    padding: 0;
+    background: none;
+    box-shadow: none;
+    font-size: 12px;
+    max-width: 76px;
+  }
+
+  .slot,
+  .crew[data-size="big"] .slot {
+    flex: 0 0 auto;
+    width: auto;
+    min-height: 44px;
+    padding: 0 12px;
+    font-size: 12px;
+  }
+
+  .party-look {
+    margin-left: auto;
+    font-size: 13px;
+  }
+
+  /* room for the sound button that floats bottom right (task 19) */
+  .menu-footer {
+    height: auto;
+    padding: 14px 72px 24px;
+  }
 }
 
-.menu-footer p {
-  margin: 0;
-}
+@media (prefers-reduced-motion: reduce) {
+  .menu .pill,
+  .menu .sport,
+  .pointer {
+    transition: none;
+  }
 
-.menu-footer strong {
-  color: var(--ink);
-}
-
-.menu-footer a {
-  color: #0b5aa8;
-  font-weight: 600;
+  .menu-detail.is-opened {
+    animation: none;
+  }
 }
 
 .hud .muted {
   color: var(--muted);
 }
 
-/* The profile button, top right (user, 2026-11-05): a round picture of
-   your own character (client/ui/profile-menu.ts), your name beside it on
-   desktop. It opens the panel with sign in, the demo accounts and the
-   ways to the profile and the leaderboard. */
-.menu-corner {
-  position: absolute;
-  top: 0.6rem;
-  right: 0.75rem;
-  display: flex;
-  align-items: center;
-  font-family: system-ui, sans-serif;
-  color: var(--ink-soft);
-}
-
-.menu-connecting {
-  margin: 0;
-  font-size: 0.9rem;
-}
-
+/* The profile button, top right (user, 2026-11-05; task 36's look): a
+   round picture of your own character (client/ui/profile-menu.ts) with your
+   status dot, your name beside it on desktop. It opens the panel with sign
+   in, the demo accounts and the ways to the profile and the leaderboard. */
 .menu .pm-button {
   display: flex;
   align-items: center;
-  gap: 0.6rem;
+  gap: 10px;
   min-height: 52px;
-  padding: 3px 1.1rem 3px 3px;
-  border: 2px solid var(--pill-edge);
-  border-radius: 999px;
-  background: linear-gradient(180deg, var(--pill-top), var(--pill-bottom));
+  padding: 4px 16px 4px 4px;
+  border: 0;
+  border-radius: 30px;
+  background: var(--panel);
   color: var(--ink);
   font-family: "Fredoka", ui-rounded, system-ui, sans-serif;
   font-size: 1.05rem;
   font-weight: 600;
-  box-shadow:
-    inset 0 0 0 2px var(--rim),
-    0 3px 0 #9fbcd4;
+  box-shadow: 0 4px 14px rgba(18, 48, 74, 0.18);
 }
 
 .menu .pm-button[aria-expanded="true"] {
-  border-color: var(--ring-blue);
+  box-shadow:
+    0 0 0 2px var(--ring-blue),
+    0 4px 14px rgba(18, 48, 74, 0.18);
 }
 
 .menu .pm-button:focus-visible {
@@ -653,21 +1339,28 @@ a:focus-visible {
 }
 
 .pm-avatar {
+  position: relative;
   display: block;
   flex: 0 0 auto;
   width: 44px;
   height: 44px;
-  overflow: hidden;
-  border-radius: 50%;
-  border: 2px solid #fff;
-  background: linear-gradient(180deg, #a8dcff, #e3f3ff);
-  box-shadow: 0 0 0 1px var(--pill-edge);
 }
 
 .pm-avatar .look-svg {
   display: block;
   width: 100%;
   height: 100%;
+  border-radius: 50%;
+  background: #dff1ff;
+}
+
+/* your status (task 34's "show me as"), on your picture */
+.pm-avatar .sdot {
+  position: absolute;
+  right: -1px;
+  bottom: -1px;
+  width: 12px;
+  height: 12px;
 }
 
 .pm-name {
@@ -680,9 +1373,9 @@ a:focus-visible {
 /* The panel: a popover under the button on desktop, a bottom sheet on a phone */
 .menu dialog.pm-panel {
   position: fixed;
-  inset: 4.4rem 0.75rem auto auto;
+  inset: calc(var(--top-h) / 2 + 34px) clamp(16px, 2vw, 28px) auto auto;
   width: min(22rem, calc(100vw - 1.5rem));
-  max-height: calc(100dvh - 5.4rem);
+  max-height: calc(100dvh - var(--top-h) / 2 - 50px);
   margin: 0;
   padding: 0;
   overflow: auto;
@@ -811,14 +1504,8 @@ a:focus-visible {
   margin-top: 0.25rem;
 }
 
-/* Phone: the button is the round picture only (its name is its label), and
-   the panel is a sheet along the bottom edge */
-@media (max-width: 560px) {
-  .menu-corner {
-    top: 0.4rem;
-    right: 0.5rem;
-  }
-
+/* Phone layout: the button is the round picture only (its name is its label) */
+@media (max-width: 760px) {
   .menu .pm-button {
     padding: 2px;
     min-height: 0;
@@ -827,9 +1514,14 @@ a:focus-visible {
   .pm-name {
     display: none;
   }
+}
+
+/* Phone: the panel is a sheet along the bottom edge */
+@media (max-width: 560px) {
 
   .menu dialog.pm-panel {
     inset: auto 0 0 0;
+    max-height: 85dvh;
     width: 100%;
     max-width: none;
     max-height: 85dvh;
@@ -842,657 +1534,6 @@ a:focus-visible {
   }
 }
 
-/* Desktop: two equal columns under the title. Sports on the left as one
-   column, the preview on the right with the selected sport's options under
-   it, so all of it fits one 1080p screen without scrolling. */
-@media (min-width: 900px) {
-  .menu-column {
-    max-width: 64rem;
-  }
-
-  .menu-body {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-    gap: clamp(1.25rem, 3vw, 2.5rem);
-    align-items: start;
-  }
-
-  .menu-picker {
-    gap: 0.6rem;
-    padding: 0.9rem 1rem 1rem;
-    border-radius: 22px;
-    background: #ffffffb3;
-    border: 2px solid #c6dbec;
-  }
-
-  .menu-label {
-    display: block;
-  }
-
-  .sports {
-    grid-template-columns: 1fr;
-    gap: 0.7rem;
-  }
-
-  .menu .sport {
-    justify-content: flex-start;
-    gap: 0.75rem;
-    min-height: 60px;
-    padding: 0 3.4rem 0 1.25rem;
-    font-size: 1.3rem;
-  }
-
-  /* wider than tall so the logo, preview, sports (archery is playable, so its
-     button takes a full row), options and the footer all fit one 1080p screen */
-  .thumb-frame {
-    aspect-ratio: 2.6 / 1;
-  }
-
-  .menu .sport[aria-disabled="true"] {
-    flex-direction: row;
-    gap: 0.75rem;
-    min-height: 56px;
-    padding: 0 3.4rem 0 1.25rem;
-    font-size: 1.2rem;
-  }
-
-  .menu .sport[aria-disabled="true"] .sport-icon {
-    width: 1.4rem;
-    height: 1.4rem;
-  }
-
-  .sport-soon {
-    margin-left: auto;
-  }
-
-  .options-row > .pill {
-    white-space: nowrap;
-  }
-}
-
-/* Phone: tighter spacing and a shorter preview so Tennis's options sit on
-   the first screen at 390x844. */
-@media (max-width: 560px) {
-  .menu {
-    padding-top: 0.5rem;
-  }
-
-  .menu-tab {
-    display: none;
-  }
-
-  .menu-column {
-    gap: 0.6rem;
-  }
-
-  .menu h1 {
-    margin-top: 0.25rem;
-  }
-
-  .thumb-frame {
-    aspect-ratio: 2.1 / 1;
-  }
-
-  .sports {
-    gap: 0.5rem;
-  }
-
-  .options h2 {
-    margin-bottom: 0.45rem;
-    font-size: 0.85rem;
-  }
-
-  .menu-footer {
-    gap: 0.4rem;
-  }
-
-  .thumb-caption {
-    min-height: 0;
-    font-size: 0.85rem;
-  }
-
-  .menu .pill {
-    padding: 0 0.8rem;
-    font-size: 1rem;
-  }
-
-  .options {
-    padding: 0.75rem;
-  }
-
-  .menu-footer {
-    font-size: 0.9rem;
-  }
-
-  .menu .sport {
-    min-height: 48px;
-    padding: 0 0.4rem;
-    font-size: 1rem;
-  }
-
-  .menu .sport[aria-disabled="true"] {
-    min-height: 48px;
-    padding: 0.15rem 0.4rem;
-    font-size: 0.95rem;
-  }
-
-  .sport-soon {
-    font-size: 0.6rem;
-  }
-
-  /* no room for a badge beside "Coming soon" on a compact tile */
-  .menu .sport[aria-disabled="true"] .sport-icon {
-    display: none;
-  }
-
-  /* compact tiles: the arrow points at the tile from its corner */
-  .pointer {
-    top: auto;
-    right: -4px;
-    bottom: -10px;
-    width: 22px;
-    height: 22px;
-    margin-top: 0;
-  }
-
-  .menu .options-row > .pill--primary {
-    min-height: 56px;
-    font-size: 1.15rem;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .menu .pill,
-  .pointer {
-    transition: none;
-  }
-
-  .options.is-opened {
-    animation: none;
-  }
-}
-
-/* Thumbnail loops (task 23): each sport's preview is a short seamless loop
-   drawn inside its own SVG (menu.ts), so it lines up with the picture at any
-   frame shape. Transforms on SVG groups only: no layout shift, cheap. One
-   still frame under reduced motion; paused while the tab is hidden
-   (menu.ts toggles .is-paused). */
-.loop * {
-  transform-box: view-box;
-}
-
-/* Tennis: a rally. The near player (blue) and the far one (red) take turns;
-   the ball arcs between their rackets on one 2.4 s cycle. */
-.loop-ball {
-  animation: rally-ball 2.4s linear infinite;
-}
-
-.loop-ball-shadow {
-  animation: rally-shadow 2.4s linear infinite;
-}
-
-.loop-near-arm {
-  transform-origin: 215px 132px;
-  animation: rally-near-swing 2.4s ease-in-out infinite;
-}
-
-.loop-far-arm {
-  transform-origin: 154px 75.6px;
-  animation: rally-far-swing 2.4s ease-in-out infinite;
-}
-
-.loop-near {
-  animation: rally-near-step 2.4s ease-in-out infinite;
-}
-
-.loop-far {
-  animation: rally-far-step 2.4s ease-in-out infinite;
-}
-
-/* Positions in the 320x180 view box, matching figure() in menu.ts: the near
-   racket meets the ball at about (224,126), the far one at (160,72); the ball
-   bounces once on each side (far court at y 98, near court at y 150). The
-   net is at y 128 across, so the ball passes over it high. */
-@keyframes rally-ball {
-  0% {
-    transform: translate(224px, 126px) scale(1);
-  }
-  14% {
-    transform: translate(204px, 74px) scale(0.85);
-  }
-  30% {
-    transform: translate(180px, 98px) scale(0.7);
-  }
-  40% {
-    transform: translate(170px, 78px) scale(0.64);
-  }
-  50% {
-    transform: translate(160px, 72px) scale(0.6);
-  }
-  64% {
-    transform: translate(184px, 70px) scale(0.75);
-  }
-  82% {
-    transform: translate(214px, 150px) scale(0.95);
-  }
-  92% {
-    transform: translate(220px, 134px) scale(1);
-  }
-  100% {
-    transform: translate(224px, 126px) scale(1);
-  }
-}
-
-@keyframes rally-shadow {
-  0% {
-    transform: translate(222px, 160px) scale(1);
-    opacity: 0.25;
-  }
-  30% {
-    transform: translate(180px, 99px) scale(0.7);
-    opacity: 0.35;
-  }
-  50% {
-    transform: translate(160px, 98px) scale(0.6);
-    opacity: 0.2;
-  }
-  82% {
-    transform: translate(214px, 151px) scale(0.95);
-    opacity: 0.35;
-  }
-  100% {
-    transform: translate(222px, 160px) scale(1);
-    opacity: 0.25;
-  }
-}
-
-@keyframes rally-near-swing {
-  0% {
-    transform: rotate(-70deg);
-  }
-  8% {
-    transform: rotate(40deg);
-  }
-  30%,
-  80% {
-    transform: rotate(0deg);
-  }
-  92% {
-    transform: rotate(-80deg);
-  }
-  100% {
-    transform: rotate(-70deg);
-  }
-}
-
-@keyframes rally-far-swing {
-  0%,
-  30% {
-    transform: rotate(0deg);
-  }
-  44% {
-    transform: rotate(70deg);
-  }
-  50% {
-    transform: rotate(60deg);
-  }
-  58% {
-    transform: rotate(-40deg);
-  }
-  80%,
-  100% {
-    transform: rotate(0deg);
-  }
-}
-
-@keyframes rally-near-step {
-  0%,
-  100% {
-    transform: translateX(0);
-  }
-  45% {
-    transform: translateX(-10px);
-  }
-}
-
-@keyframes rally-far-step {
-  0%,
-  100% {
-    transform: translateX(10px);
-  }
-  45% {
-    transform: translateX(0);
-  }
-}
-
-/* Bowling: the ball rolls down the lane into the pins, which tumble, then reset. */
-.loop-bowl {
-  animation: bowl-roll 3s ease-in infinite;
-}
-
-.loop-pins {
-  transform-origin: 160px 70px;
-  animation: bowl-pins 3s ease-out infinite;
-}
-
-@keyframes bowl-roll {
-  0%,
-  10% {
-    transform: translate(0, 0) scale(1);
-    opacity: 1;
-  }
-  55% {
-    transform: translate(0, -100px) scale(0.45);
-    opacity: 1;
-  }
-  62%,
-  100% {
-    transform: translate(0, -104px) scale(0.42);
-    opacity: 0;
-  }
-}
-
-@keyframes bowl-pins {
-  0%,
-  52% {
-    transform: none;
-    opacity: 1;
-  }
-  60% {
-    transform: translateY(-4px) rotate(-6deg) scale(1.04);
-  }
-  72% {
-    transform: translateY(6px) rotate(8deg) scale(0.96);
-    opacity: 0.25;
-  }
-  86% {
-    opacity: 0;
-    transform: none;
-  }
-  100% {
-    opacity: 1;
-    transform: none;
-  }
-}
-
-/* Archery: an arrow flies in from the left and thuds into the target, which shivers. */
-.loop-arrow {
-  animation: arrow-fly 2.8s cubic-bezier(0.3, 0.1, 0.4, 1) infinite;
-}
-
-.loop-target {
-  transform-origin: 170px 92px;
-  animation: target-thud 2.8s ease-out infinite;
-}
-
-@keyframes arrow-fly {
-  0%,
-  8% {
-    transform: translate(-150px, 30px);
-    opacity: 0;
-  }
-  12% {
-    opacity: 1;
-  }
-  40%,
-  88% {
-    transform: translate(0, 0);
-    opacity: 1;
-  }
-  100% {
-    transform: translate(0, 0);
-    opacity: 0;
-  }
-}
-
-@keyframes target-thud {
-  0%,
-  40% {
-    transform: none;
-  }
-  44% {
-    transform: translateX(2px) rotate(1.2deg);
-  }
-  48% {
-    transform: translateX(-1.5px) rotate(-0.8deg);
-  }
-  54%,
-  100% {
-    transform: none;
-  }
-}
-
-/* Track: the two runners bob as they run on the spot. */
-.loop-runner-a {
-  animation: runner-bob 0.6s ease-in-out infinite;
-}
-
-.loop-runner-b {
-  animation: runner-bob 0.6s ease-in-out -0.3s infinite;
-}
-
-/* Boxing: the two boxers bob and throw a glove in turn. */
-.loop-box-a {
-  animation: runner-bob 0.7s ease-in-out infinite;
-}
-
-.loop-box-b {
-  animation: runner-bob 0.7s ease-in-out -0.35s infinite;
-}
-
-.loop-glove-a {
-  animation: glove-jab-a 1.4s ease-in-out infinite;
-}
-
-.loop-glove-b {
-  animation: glove-jab-b 1.4s ease-in-out -0.7s infinite;
-}
-
-@keyframes glove-jab-a {
-  0%,
-  60%,
-  100% {
-    transform: translateX(0);
-  }
-  75% {
-    transform: translateX(26px);
-  }
-}
-
-@keyframes glove-jab-b {
-  0%,
-  60%,
-  100% {
-    transform: translateX(0);
-  }
-  75% {
-    transform: translateX(-26px);
-  }
-}
-
-@keyframes runner-bob {
-  0%,
-  100% {
-    transform: translateY(0);
-  }
-  50% {
-    transform: translateY(-5px);
-  }
-}
-
-/* Basketball: the shooter dips and pushes up, the ball arcs high and drops
-   through the hoop (smaller as it goes away), the chain net ripples. */
-.loop-hoop-ball {
-  animation: hoop-ball 2.6s ease-in-out infinite;
-}
-
-.loop-hoop-arms {
-  animation: hoop-arms 2.6s ease-in-out infinite;
-}
-
-.loop-shooter {
-  animation: hoop-shooter 2.6s ease-in-out infinite;
-}
-
-.loop-net {
-  transform-origin: 160px 52px;
-  animation: hoop-net 2.6s ease-out infinite;
-}
-
-@keyframes hoop-ball {
-  0%,
-  18% {
-    transform: translate(160px, 96px) scale(1);
-    opacity: 1;
-  }
-  26% {
-    transform: translate(160px, 86px) scale(0.95);
-  }
-  44% {
-    transform: translate(160px, 14px) scale(0.6);
-  }
-  60% {
-    transform: translate(160px, 50px) scale(0.45);
-  }
-  70% {
-    transform: translate(160px, 66px) scale(0.45);
-    opacity: 1;
-  }
-  76%,
-  94% {
-    transform: translate(160px, 78px) scale(0.45);
-    opacity: 0;
-  }
-  100% {
-    transform: translate(160px, 96px) scale(1);
-    opacity: 0;
-  }
-}
-
-@keyframes hoop-arms {
-  0%,
-  10% {
-    transform: translateY(24px);
-  }
-  20% {
-    transform: translateY(30px);
-  }
-  27%,
-  60% {
-    transform: translateY(0);
-  }
-  80%,
-  100% {
-    transform: translateY(24px);
-  }
-}
-
-@keyframes hoop-shooter {
-  0%,
-  10%,
-  40%,
-  100% {
-    transform: translateY(0);
-  }
-  20% {
-    transform: translateY(3px);
-  }
-  27% {
-    transform: translateY(-4px);
-  }
-}
-
-@keyframes hoop-net {
-  0%,
-  62% {
-    transform: none;
-  }
-  68% {
-    transform: scale(0.85, 1.2);
-  }
-  76% {
-    transform: scale(1.08, 0.95);
-  }
-  84%,
-  100% {
-    transform: none;
-  }
-}
-
-/* Mystery tiles: the question marks bob and the sparkles twinkle. */
-.loop-mystery {
-  transform-origin: 160px 90px;
-  animation: mystery-bob 2.6s ease-in-out infinite;
-}
-
-.loop-spark {
-  transform-origin: center;
-  transform-box: fill-box;
-  animation: spark 2.6s ease-in-out infinite;
-}
-
-.loop-spark:nth-of-type(2) {
-  animation-delay: -0.9s;
-}
-
-.loop-spark:nth-of-type(3) {
-  animation-delay: -1.7s;
-}
-
-@keyframes mystery-bob {
-  0%,
-  100% {
-    transform: translateY(0) rotate(-3deg);
-  }
-  50% {
-    transform: translateY(-8px) rotate(3deg);
-  }
-}
-
-@keyframes spark {
-  0%,
-  100% {
-    transform: scale(0.3);
-    opacity: 0;
-  }
-  50% {
-    transform: scale(1);
-    opacity: 1;
-  }
-}
-
-/* paused while the tab is hidden (menu.ts) */
-.thumb-frame.is-paused .loop * {
-  animation-play-state: paused;
-}
-
-/* one still frame: each loop is drawn mid-rally, no motion */
-@media (prefers-reduced-motion: reduce) {
-  .loop * {
-    animation: none !important;
-  }
-
-  .loop-ball {
-    transform: translate(204px, 74px) scale(0.85);
-  }
-
-  .loop-ball-shadow {
-    transform: translate(204px, 130px) scale(0.85);
-    opacity: 0.25;
-  }
-
-  .loop-far {
-    transform: translateX(10px);
-  }
-
-  .loop-spark {
-    opacity: 1;
-  }
-
-  .loop-hoop-ball {
-    transform: translate(160px, 30px) scale(0.55);
-  }
-}
 
 .game {
   position: fixed;

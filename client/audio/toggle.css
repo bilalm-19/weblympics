@@ -85,7 +85,7 @@
    left, profile right: e2e/friends-panel's expectClearOfLogo), so the home
    screen's sound button floats in the bottom-right corner instead; its
    panel opens above it. */
-@media (max-width: 560px) {
+@media (max-width: 760px) {
   .menu-corner .snd-button {
     position: fixed;
     right: 14px;

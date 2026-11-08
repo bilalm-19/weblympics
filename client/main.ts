@@ -16,7 +16,7 @@ import { Connection } from "./net/socket.ts";
 import { addPasskey, signIn, signInDemo, signOut } from "./net/account.ts";
 import { SPORTS, renderMenu } from "./ui/menu.ts";
 import { friendsButton, openFriends } from "./ui/friends.ts";
-import { addPartyStrip, openParty, partyButton, showInvite } from "./ui/party.ts";
+import { addPartyStrip, openParty, showInvite } from "./ui/party.ts";
 import { SocialState } from "./ui/social-state.ts";
 import { useFriendLink } from "./net/account.ts";
 import { audioEngine, homeMusic, mountSoundToggle } from "./audio/index.ts";
@@ -38,7 +38,7 @@ const partyActions = {
 let currentPractice = false;
 const friendActions = {
   onWatch: partyActions.onWatch,
-  onParty: () => openParty(root.querySelector(".pt-button"), social, partyActions),
+  onParty: () => openParty(root.querySelector("[data-action=party]"), social, partyActions),
   inRoom: () => currentRoom !== null && !currentPractice,
 };
 
@@ -54,7 +54,7 @@ let disposeMenuToggle: (() => void) | null = null;
 function menuSound(): void {
   disposeMenuToggle?.();
   const corner = root.querySelector(".menu-corner");
-  disposeMenuToggle = corner ? mountSoundToggle(audioEngine(), corner, corner.firstElementChild) : null;
+  disposeMenuToggle = corner ? mountSoundToggle(audioEngine(), corner, corner.querySelector(".pm-button")) : null;
   homeMusic().start();
 }
 /** Into a game: the music fades out and the menu's sound button goes. */
@@ -74,7 +74,7 @@ function showMenu(): void {
   conn.roomCode = null;
   renderMenu(
     root,
-    { name: conn.name, matches: conn.matches, account: conn.account, demo: conn.demo, look: conn.look },
+    { name: conn.name, matches: conn.matches, account: conn.account, demo: conn.demo, look: conn.look, status: conn.name ? social.state.status : undefined },
     error,
     {
       onTrain: (s) =>
@@ -108,14 +108,18 @@ function showMenu(): void {
         conn.reconnect();
       },
       onSelect: (s) => (sport = s),
+      // task 34's party panel, from the home screen's Party button or its "Invite a friend" slot
+      onParty: (opener) => openParty(opener, social, partyActions),
+      onLook: () => openProfile({ onIdentityChange: () => conn.reconnect(), section: "look" }),
     },
     sport,
+    social,
   );
-  // task 34: Friends (and the party, once in one) beside the profile button
+  // task 34: Friends beside the profile button (the party is the home screen's own panel)
   const corner = root.querySelector(".menu-corner");
   const who = { name: conn.name, tag: conn.tag, account: conn.account };
   const friends = friendsButton(who, social, friendActions);
-  if (corner && friends) corner.prepend(friends, partyButton(social, partyActions));
+  if (corner && friends) corner.prepend(friends);
   menuSound();
 }
 
