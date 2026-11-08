@@ -290,12 +290,16 @@
   background: #51cf66;
 }
 
-/* the camera setup is a dialog: above the practice pickers and side column
-   (a phone stacks them where its buttons are), which step aside meanwhile */
+/* the camera setup is a dialog: above the practice pickers, the ready panel
+   and the hold button (a phone stacks them where its buttons are), which step
+   aside meanwhile; on a phone the ready panel otherwise covered "Use keyboard
+   instead" */
 .archery .camera-panel {
   z-index: 5;
 }
 
-.archery:has(.camera-panel:not([hidden])) .ar-practice {
+.archery:has(.camera-panel:not([hidden])) .ar-practice,
+.archery:has(.camera-panel:not([hidden])) .ready-panel,
+.archery:has(.camera-panel:not([hidden])) .controls {
   visibility: hidden;
 }

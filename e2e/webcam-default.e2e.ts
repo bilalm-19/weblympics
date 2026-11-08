@@ -154,3 +154,99 @@ test("Skip training on the offer goes straight to the practice game", async ({ p
   await expect(page.locator("video.selfview")).toBeVisible();
   await expect(page.locator(".hud .status")).not.toHaveText(/paused/i);
 });
+
+// Archery started without asking for the camera (user, 2026-11-08). Its
+// practice and room now open the bow camera setup first, like every game.
+test("archery practice opens the camera setup first; nothing advances until Use keyboard instead, then it plays on keys", async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: /Archery/ }).click();
+  await page.getByRole("button", { name: "Practice", exact: true }).click();
+  const panel = panelOf(page);
+  await expect(panel.getByRole("heading", { name: /shoot with your camera/i })).toBeVisible();
+  const keyboard = panel.getByRole("button", { name: /use keyboard instead/i });
+  await insideViewport(page, panel);
+  await insideViewport(page, keyboard);
+  expect(await noHorizontalScroll(page)).toBe(true);
+
+  // practice waits: the sim's clock doesn't move while the setup is open
+  const canvas = page.locator(".archery canvas");
+  await expect.poll(async () => Number(await canvas.getAttribute("data-frames"))).toBeGreaterThan(5);
+  const tick = Number(await canvas.getAttribute("data-tick"));
+  await page.waitForTimeout(1000);
+  expect(Number(await canvas.getAttribute("data-tick"))).toBe(tick);
+  // and keys don't shoot behind it
+  await page.keyboard.down("Space");
+  await page.waitForTimeout(600);
+  await page.keyboard.up("Space");
+  await expect(canvas).toHaveAttribute("data-phase", "aim");
+
+  await keyboard.click();
+  await expect(panel).toBeHidden();
+  await expect.poll(async () => Number(await canvas.getAttribute("data-tick"))).toBeGreaterThan(tick);
+  // Space draws and shoots; the hold button is there too
+  await page.keyboard.down("Space");
+  await page.waitForTimeout(900);
+  await page.keyboard.up("Space");
+  await expect(canvas).toHaveAttribute("data-shots", "1", { timeout: 5_000 });
+  await insideViewport(page, page.locator(".ar-shoot"));
+
+  // the camera is still one button away, and Escape is the keyboard way out
+  await page.getByRole("button", { name: "Camera", exact: true }).click();
+  await expect(panel.getByRole("heading", { name: /shoot with your camera/i })).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(panel).toBeHidden();
+});
+
+test("archery: a refused camera permission falls back to a playable practice", async ({ page }) => {
+  await page.addInitScript(() => {
+    navigator.mediaDevices.getUserMedia = () => Promise.reject(new DOMException("denied", "NotAllowedError"));
+  });
+  await page.goto("/");
+  await page.getByRole("button", { name: /Archery/ }).click();
+  await page.getByRole("button", { name: "Practice", exact: true }).click();
+  const panel = panelOf(page);
+  await panel.getByRole("button", { name: /start camera/i }).click();
+  await expect(panel.getByRole("alert")).toBeVisible();
+  await insideViewport(page, panel);
+  await panel.getByRole("button", { name: "OK" }).click();
+  await expect(panel).toBeHidden();
+  await page.keyboard.down("Space");
+  await page.waitForTimeout(900);
+  await page.keyboard.up("Space");
+  await expect(page.locator(".archery canvas")).toHaveAttribute("data-shots", "1", { timeout: 5_000 });
+});
+
+test("an archery room opens the camera setup on top: nothing covers Use keyboard instead; a watcher gets none", async ({ page, browser }, testInfo) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: /Archery/ }).click();
+  await page.getByRole("button", { name: /create a room/i }).click();
+  await expect(page).toHaveURL(/#\/room\/[A-Z]{4}$/);
+  const panel = panelOf(page);
+  await expect(panel.getByRole("heading", { name: /shoot with your camera/i })).toBeVisible();
+  const keys = panel.getByRole("button", { name: /use keyboard instead/i });
+  await insideViewport(page, keys);
+  const b = (await keys.boundingBox())!;
+  // the element under the button's middle must be the button itself
+  const onTop = await page.evaluate(
+    ([x, y]) => /use keyboard instead/i.test(document.elementFromPoint(x, y)?.closest("button")?.textContent ?? ""),
+    [b.x + b.width / 2, b.y + b.height / 2],
+  );
+  expect(onTop, "Use keyboard instead is covered").toBe(true);
+  const ready = page.getByRole("region", { name: /match setup/i });
+  await expect(ready).toBeHidden();
+  await keys.click();
+  await expect(panel).toBeHidden();
+  await expect(ready).toBeVisible();
+  await expect(ready.getByText(/camera off \(optional\)/i)).toBeVisible();
+  expect(await noHorizontalScroll(page)).toBe(true);
+
+  // a spectator (watch link) gets no setup
+  const mobile = testInfo.project.name === "mobile";
+  const ctx = await browser.newContext({ viewport: page.viewportSize()!, isMobile: mobile, hasTouch: mobile });
+  const watcher = await ctx.newPage();
+  await watcher.goto(`/#/watch/${page.url().slice(-4)}`);
+  await expect(watcher.locator(".watch-badge")).toBeVisible({ timeout: 15_000 });
+  await expect(watcher.getByRole("dialog", { name: /camera setup/i })).toBeHidden();
+  await expect(watcher.getByRole("button", { name: /^camera$/i })).toBeHidden();
+  await ctx.close();
+});
