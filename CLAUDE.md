@@ -66,9 +66,10 @@ lazily and only when a player enters a game. Video never leaves the browser.
   the call with the stacking swish, "Too soft"/"Just right"/"Too hard", the
   spot line, the held bar: `spec/basketball-calls.test.ts`), `court.ts`
   (the park court from primitives; bleachers seated with tennis's
-  `standSeats`/`seatCrowd`, which cheer or groan), `shooter.ts` (the tennis
+  `standSeats`/`seatCrowd`; seat 1's blue stand on the left, each side
+  cheering or going aww for its shooter), `shooter.ts` (the tennis
   character with arms holding the ball, one shot; `shotPose` pure),
-  `sound.ts` (WebAudio, after a gesture), `tie-vote.ts` (the level-score
+  `sound.ts` (its cues, task 19), `tie-vote.ts` (the level-score
   pop-up: Draw or Continue, D/C, sends `tie`; a spectator sees both
   choices: `spec/basketball-tie-vote.test.ts`), `shoot-camera.ts` (its camera,
   task 32 part 3), `practice.ts` + `practice-sim.ts` (in-page practice vs
@@ -85,7 +86,7 @@ lazily and only when a player enters a game. Video never leaves the browser.
   `alley.ts` (the hall from merged primitives, tennis's crowd via
   `crowdMeshes`), `calls.ts` (pure: the call, speed and curve read, the
   guide arrow, the meter: `spec/bowling-calls.test.ts`), `sound.ts`
-  (WebAudio), `practice.ts` + `practice-sim.ts`, `bowling.css`; it
+  (its cues, task 19), `practice.ts` + `practice-sim.ts`, `bowling.css`; it
   reuses tennis's ready panel. Its camera (part 3):
   `client/input/camera/bowl-pose.ts` (pure: aim across the picture, the
   release past the hip, speed, the curve window, the chest fallback;
@@ -108,11 +109,26 @@ lazily and only when a player enters a game. Video never leaves the browser.
   `names.ts` (pseudonyms and the chosen-name rules; shape shared in
   `shared/names.ts`).
   Rooms get their sim from the registry, so networking is game-agnostic.
-- `client/` `ui/spectate.ts` + `.css` (task 24: "Copy watch link" and the
+- `client/` `audio/` (task 19, sound for every screen): `engine.ts` (the
+  one AudioContext, made in the first gesture; mute, effects, music and
+  volume buses; muted makes no nodes), `settings.ts` (saved in
+  localStorage behind `loadAudioSettings`/`saveAudioSettings`, for task 25
+  to move onto the account), `synth.ts` (noise bursts, tones, clap trains,
+  bells, panning), `sounds.ts` (every game's sound recipe by name and the
+  player that plays a list of cues), `crowd.ts` (pure: the crowd table,
+  who cheers or awws by side, panned and weighted for this screen;
+  `spec/crowd-reactions.test.ts`), `crowd-sound.ts` (the crowd's cheer,
+  aww and applause: the one piece to swap for CC0 clips), `music.ts` (the
+  home jazz loop, `jazzBar` pure), `toggle.ts` + `.css` (the sound button
+  and panel in each HUD and beside the profile button), `index.ts`. Each
+  game's `games/<name>/sound.ts` is a pure function of two snapshots to a
+  list of cues (`spec/audio.test.ts`), and
+  `games/tennis/crowd-motion.ts` moves any instanced crowd by side
+  (`crowdPose` pure). `ui/spectate.ts` + `.css` (task 24: "Copy watch link" and the
   watcher's badge, added to every game's HUD); Vite app: `games/<name>/view.ts` (scene, HUD, input wiring),
   `games/tennis/score-bar.ts` (top score bar), task 16's point call:
   `point-call.ts` (pure: the call in tennis words, who won, how big, who
-  reacts; task 19's crowd and sound should reuse it), `call-banner.ts` + `.css`
+  reacts; task 19's crowd and sound use it), `call-banner.ts` + `.css`
   (the big call across the top, the live region) and `reaction-fx.ts`
   (scribble and sparkles over the players; the fist pump and slump are
   `Player.react` in `character.ts`),
@@ -502,6 +518,25 @@ lazily and only when a player enters a game. Video never leaves the browser.
   leaves a playable game on keys. After the setup, practice offers training
   once per device ("Train first" / "Skip training"); Train stays on the home
   screen. Spectators get no camera setup.
+- Sound (task 19; `spec/audio.test.ts`, `spec/crowd-reactions.test.ts`,
+  `e2e/*-sound.e2e.ts`): one `client/audio/` module for every screen.
+  Synthesised with Web Audio, no files; the crowd's voice sits in
+  `crowd-sound.ts` so CC0 clips can replace it. No AudioContext before the
+  first gesture; muted (or effects off) makes no audio nodes. One sound
+  button in each game's HUD and beside the home screen's profile button:
+  Sound, Effects and crowd, Music, Volume, remembered per browser (task 25
+  moves it onto the account). Every sound is worked out on each screen from
+  two snapshots (no new network message; your own swing's whoosh plays as
+  you send it). The crowd is placed by side: the winner's side cheers and
+  the loser's goes "aww" (never boos), everyone hears both, each side panned
+  and weighted to where its stand is on that screen (your own side on your
+  left and louder; a spectator hears seat 1 left, seat 2 right; boxing's
+  fans sit behind their own boxer); bigger moments are bigger. Archery and
+  bowling have a few onlookers who back nobody. Practice keeps the crowd
+  quieter; training has none. Under prefers-reduced-motion the stands change
+  pose without the jumping loop. Home music: a jazz loop on by default and
+  quiet, starting at the first gesture, fading out into a game and back on
+  the home screen.
 - Auto-move (`spec/auto-move.test.ts`) walks slower than manual movement
   (`AUTO_SPEED` share of `PLAYER.speed`) so a wide hard shot can beat it;
   strength must keep mattering. The movement mode is an input to the sim,
