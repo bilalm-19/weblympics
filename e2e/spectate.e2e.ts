@@ -30,8 +30,8 @@ async function createRoom(page: Page, sport?: RegExp): Promise<string> {
   if (sport) await page.getByRole("button", { name: sport }).click();
   await page.getByRole("button", { name: /create a room/i }).click();
   await expect(page).toHaveURL(/#\/room\/[A-Z]{4}$/);
-  // tennis opens the camera setup first (task 15); archery and track wait for the Camera button
-  if (!sport) await useKeyboard(page);
+  // tennis and track open the camera setup first (task 15); archery waits for the Camera button
+  if (!sport || /Track/.test(sport.source)) await useKeyboard(page);
   return page.url().slice(-4);
 }
 
@@ -93,6 +93,7 @@ test("archery and track: a watcher arriving mid-match gets the state at once, wi
     const code = await createRoom(page, sport);
     const guest = await newPage(browser, page, testInfo);
     await guest.goto(`/#/room/${code}`);
+    if (sport.source === "Track") await useKeyboard(guest);
     for (const p of [page, guest]) await p.getByRole("button", { name: "I'm ready" }).click();
     await expect(page.locator(".ready-panel")).toBeHidden({ timeout: 15_000 });
     const watcher = await newPage(browser, page, testInfo);

@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import type { Locator, Page } from "@playwright/test";
+import { useKeyboard } from "./flow.ts";
 
 // Task 27: hurdles, track's second event, at both viewports. Space and the
 // Jump button stand in for the camera's jump; the camera setup runs on
@@ -44,6 +45,7 @@ async function openTrack(page: Page): Promise<void> {
 async function hurdlesPractice(page: Page): Promise<void> {
   await openTrack(page);
   await page.getByRole("button", { name: "Practice", exact: true }).click();
+  await useKeyboard(page);
   await page.getByRole("radio", { name: "Hurdles" }).click();
   await expect(page.locator(".tr-board")).toContainText("Hurdles");
   await expect(canvas(page)).toHaveAttribute("data-event", "hurdles");
@@ -114,6 +116,7 @@ test("vs the bot: the server runs hurdles from steps and jumps; only { t, at } g
   page.on("websocket", (ws) => ws.on("framesent", (f) => sent.push(String(f.payload))));
   await openTrack(page);
   await page.getByRole("button", { name: "Play vs bot" }).click();
+  await useKeyboard(page);
   await expect(page.locator(".tr-board")).toContainText("Sprint · 100 m");
   await page.getByRole("radio", { name: "Hurdles" }).click();
   await expect(page.locator(".tr-board")).toContainText("Hurdles · 100 m");
@@ -130,6 +133,7 @@ test("vs the bot: the server runs hurdles from steps and jumps; only { t, at } g
 test("a room: the host picks the event in the ready panel", async ({ page }) => {
   await openTrack(page);
   await page.getByRole("button", { name: "Create a room" }).click();
+  await useKeyboard(page);
   const panel = page.locator(".ready-panel");
   await expect(panel).toBeVisible();
   await expect(panel.locator("[data-event]")).toHaveText(["Sprint", "Hurdles"]);
@@ -149,7 +153,7 @@ test("camera: the setup explains the jump for each mode, the fake webcam starts,
   const panel = page.getByRole("dialog", { name: /camera setup/i });
   await expect(panel.getByRole("heading", { name: /run with your camera/i })).toBeVisible();
   await insideViewport(page, panel);
-  await expect(panel.locator(".tr-jump-how")).toHaveText(/both arms up/i);
+  await expect(panel.locator(".tr-jump-how")).toHaveText(/both hands together/i);
   await panel.getByRole("button", { name: /lift your knees/i }).click();
   await expect(panel.locator(".tr-jump-how")).toHaveText(/jump on the spot/i);
   await panel.getByRole("button", { name: /pump your arms/i }).click();
