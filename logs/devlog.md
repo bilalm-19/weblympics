@@ -2092,3 +2092,7 @@ Merged `track-feel` (adaptive arm steps, easier jump, slower bot, ?debug recorde
 - Why: the user approved the mock ("i am happy with the look") and queued it as task 36.
 - Who: user (approved the mock), agent (build).
 - 23:40 follow-up, GPU e2e (user's OK for tonight): home + home-layout 41 passed, 9 skipped, exit 0; layout, friends-panel, friends-party-guests, friends-party, tennis-sound, webcam-default 48 passed, exit 0. A first GPU run had 2 failures in home.e2e: one was the loop test comparing sampled SVG shapes, which a headed GPU window doesn't re-sample between reads (it now reads the drawing's clock); the other (the preview img not found once) didn't come back in the next two runs. `pnpm check` on the final tree 1197/1197. Who: agent.
+
+## 2026-11-08 23:39 - milestone - task 36 merged on integrate-home
+
+Merged home-36 (home screen redesign) onto main's tennis-fixes. Checked: no conflict markers; CLAUDE.md keeps main's text (RiseMeter, swing from rest, aid off) and the new home-art/home-3d/home-3d-gate layout; every main devlog line is still present; tsc clean. On :8299: pnpm check 78 files, 1224 tests, exit 0. GPU e2e (home, home-layout, layout, friends, home-sound, webcam-default, accounts, look, leaderboard, 2 workers): 103 passed, 9 skipped, 2 failed (home.e2e.ts:19 desktop, tennis preview not found; home.e2e.ts:224 desktop, basketball clock slow), both passed alone headless on both viewports, so load flakes. Nothing needed fixing. Who: agent (Sonnet) merged.
