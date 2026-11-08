@@ -1,6 +1,6 @@
 # 36 Home screen redesign
 
-Status: queued (2026-11-08); mock approved by the user. Starts once `integrate-rest` (bowling, track and archery looks, customisation) is on main.
+Status: building (2026-11-08 21:35); mock approved by the user. Started late: it could have started once integrate-rest landed (~18:45) and Claude missed it until the user asked.
 Model: Opus 5.5
 Waits on: `integrate-rest` merged (the menu lists bowling; the party figures use task 33's looks). The friends panel's live data waits on task 34; until then it is built against task 34's protocol or left showing only your own status.
 
