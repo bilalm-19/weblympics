@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import type { Locator, Page } from "@playwright/test";
+import { useKeyboard } from "./flow.ts";
 
 // Task 38: track practice opens on "Just me" at both viewports: your lane
 // alone, race after race, your time and best, sprint or hurdles; "vs Bot"
@@ -58,6 +59,7 @@ test("Just me: run alone on keys to the line, your time and best; hurdles too; v
   await page.getByRole("button", { name: /Track/ }).click();
   await expect(page.locator("#options-title")).toHaveText("Track");
   await page.getByRole("button", { name: "Practice", exact: true }).click();
+  await useKeyboard(page);
   const sent = frames.length;
 
   await expect(page.getByRole("radio", { name: "Just me" })).toHaveAttribute("aria-checked", "true");
