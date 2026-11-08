@@ -1897,3 +1897,7 @@ the format of the entries below (see CLAUDE.md, Docs).
 - Outcome: `pnpm check` 861/861; track e2e 22/22 at both viewports (hurdles 10, sprint 12; the sprint's practice header became "Practice · Sprint · 100 m").
 - Open: every camera jump number (`DEFAULT_JUMP`) and the sim's hurdle numbers are guesses. Recording moves are in `docs/camera-playtest.md` ("Hurdles' moves"); track has no `?debug` recorder yet.
 - Who: agent (build, numbers), user (jump control 2026-11-08; no ratings, event in the stored result).
+
+## 2026-11-08 18:47 · milestone · Hurdles (task 27) on main
+- What: Claude merged hurdles-27 onto the new main (bowling, looks, customisation) on integrate-hurdles. Conflicts: room.ts kept bowl() beside the step/jump handler; track's view.ts kept task 31's runner.ts, stadium and looks and added the hurdles, the event picker and the jump pose; lane.ts's hurdle code needed BoxGeometry, its own material helper and Runner's type from runner.ts; CLAUDE.md's track layout line combined. `pnpm check` 983/983 and `pnpm e2e --workers=1 e2e/track e2e/bowling e2e/basketball` 60/60 on :8299, then main fast-forwarded. Not pushed.
+- Who: agent (hurdles), Claude (merge, checks).
