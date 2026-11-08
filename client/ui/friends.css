@@ -1,6 +1,6 @@
 /* Task 34: the Friends button beside the profile button, and the friends
    panel (client/ui/friends.ts), after the approved mock
-   (client/mock-home.html): a popover under the top bar on desktop, a bottom
+   (task 36, now the home screen): a popover under the top bar on desktop, a bottom
    sheet on a phone. The party panel (party.css) shares the sheet. */
 .fr-button,
 .pt-button {
