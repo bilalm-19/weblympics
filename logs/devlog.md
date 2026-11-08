@@ -2048,3 +2048,7 @@ the format of the entries below (see CLAUDE.md, Docs).
 ## 2026-11-08 21:31 · decision · Merges handed to Sonnet agents
 - What: the user asked whether a separate Sonnet session should do the merges, to save tokens (this session's context is long). Claude advised against two sessions merging into main and port 8299 at once, and proposed handing each merge to a Sonnet agent from this session instead (it resolves, builds and tests in its own fresh context; Claude reads its report and alone moves main). User: "ok do your sonnet way". Applies to the three still building: tennis fixes, track feel, home redesign.
 - Who: user (decided), Claude (proposal).
+
+## 2026-11-08 21:41 · decision · Track feel: the agent's four choices approved
+- User OK'd ("i ok those things"): a jump also needs neither hand falling (stops big alternating swings reading as both up); knees mode eased the same way (adaptive low, riseOn 0.2, riseSpeed 1.2); the bot at 3.2 steps a second (race about 16.4 s), slower than before because the user asked for slower; the elbows jump hint "lift both hands together, about to your chest".
+- Who: user (approved), agent (proposed).
