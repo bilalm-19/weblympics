@@ -168,37 +168,3 @@
     font-size: 1.1rem;
   }
 }
-
-/* Task 7: the host's rated switch and each seat's rating */
-.ready-panel .rp-rated {
-  display: flex;
-  align-items: center;
-  gap: 0.6rem;
-  min-height: 44px;
-  margin-top: 0.4rem;
-  cursor: pointer;
-}
-
-.ready-panel .rp-rated input {
-  width: 1.4rem;
-  height: 1.4rem;
-  margin: 0;
-  accent-color: #ffd23f;
-}
-
-.ready-panel .rp-rated:has(input:disabled) {
-  cursor: default;
-  opacity: 0.7;
-}
-
-.ready-panel .rp-rated-note {
-  margin: 0.2rem 0 0;
-  font-size: 0.85rem;
-  color: var(--muted, #9fb0c0);
-}
-
-.ready-panel .rp-rating {
-  color: var(--accent, #ffd23f);
-  font-variant-numeric: tabular-nums;
-  font-weight: 600;
-}

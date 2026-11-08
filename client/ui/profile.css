@@ -378,7 +378,7 @@ dialog.profile:has(.look-editor) {
   outline-offset: 2px;
 }
 
-/* Task 7: ratings in the profile */
+/* Your longest rally in the profile */
 .profile-ratings {
   margin: 0.5rem 0 0;
   padding: 0;
@@ -386,7 +386,3 @@ dialog.profile:has(.look-editor) {
   font-size: 0.95rem;
 }
 
-.profile-rating {
-  font-variant-numeric: tabular-nums;
-  font-weight: 700;
-}

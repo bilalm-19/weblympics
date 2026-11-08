@@ -46,7 +46,7 @@ import type { Look } from "../shared/look.ts";
 import { games } from "../shared/games/registry.ts";
 import { Challenges, RateLimit, allowedOrigin, cookie, parseCookies, rpIdFor } from "./guard.ts";
 import { who } from "./log.ts";
-import { history, leaderboard, longestRally, ratingOf } from "./ratings.ts";
+import { history, longestRally } from "./history.ts";
 
 export const GUEST_COOKIE = "wl_guest";
 export const SESSION_COOKIE = "wl_session";
@@ -66,8 +66,6 @@ export interface Me {
   passkeys: { id: string; createdAt: number; lastUsedAt: number | null }[];
   /** The saved look (task 18); null for the default (always, for a guest). */
   look: Look | null;
-  /** Task 7: an account's rating per sport (every registered sport, 1000 until played); empty for a guest. */
-  ratings: Record<string, { rating: number; wins: number; losses: number }>;
   /** Longest rally (shots) in any match you played. */
   longestRally: number;
   /** Task 25: the account's camera settings; null for the defaults (always, for a guest: theirs stay in the browser). */
@@ -151,7 +149,6 @@ export function createAuth(deps: AuthDeps) {
     matches: matchCountFor(db, p.token),
     passkeys: passkeysOf(db, p.token).map((k) => ({ id: k.id, createdAt: k.createdAt, lastUsedAt: k.lastUsedAt })),
     look: lookOf(db, p.token),
-    ratings: p.account ? Object.fromEntries(Object.keys(games).map((sport) => [sport, ratingOf(db, p.token, sport)])) : {},
     longestRally: longestRally(db, p.token),
     cameraSettings: cameraSettingsOf(db, p.token),
   });
@@ -188,13 +185,7 @@ export function createAuth(deps: AuthDeps) {
       return json(res, 200, me(guest), set), true;
     }
 
-    // ---- task 7: leaderboards and history (reads; no Origin needed) ----
-    if (path === "/api/leaderboard" && req.method === "GET") {
-      const sport = new URL(req.url ?? "/", "http://x").searchParams.get("sport") ?? "";
-      if (!Object.hasOwn(games, sport)) return json(res, 404, { error: "No such sport." }), true;
-      const viewer = sessionPlayer(db, jar.get(SESSION_COOKIE), clock());
-      return json(res, 200, leaderboard(db, sport, viewer?.token ?? null)), true;
-    }
+    // ---- match history (a read; no Origin needed) ----
     if (path === "/api/history" && req.method === "GET") {
       const viewer = sessionPlayer(db, jar.get(SESSION_COOKIE), clock()) ?? guestFor(db, jar.get(GUEST_COOKIE), clock());
       return json(res, 200, { matches: viewer ? history(db, viewer.token) : [] }), true;

@@ -406,7 +406,6 @@ export function startTennis(root: HTMLElement, conn: GameLink, info: RoomInfo, o
   let lobby: LobbyView | null = null;
   const readyPanel = createReadyPanel(view, info.seat, info.room, {
     ready: (ready) => conn.send({ t: "ready", ready }),
-    rated: (rated) => conn.send({ t: "rated", rated }),
     format: (format) => conn.send({ t: "format", format }),
     openCamera: () => cameraButton.click(),
   });

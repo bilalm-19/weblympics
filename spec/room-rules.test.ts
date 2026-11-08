@@ -6,7 +6,6 @@ import type { TennisSnapshot } from "../shared/games/tennis/sim.ts";
 import type { LobbyView, RoomFormat, ServerMsg } from "../shared/protocol.ts";
 import { Room } from "../server/room.ts";
 import type { Client } from "../server/room.ts";
-import { isRated } from "../server/schema.ts";
 import type { MatchRecord } from "../server/schema.ts";
 
 const COUNTDOWN = 100;
@@ -183,7 +182,6 @@ describe("unlimited: no winner, points and best rally, never rated, ends when so
     const r = records[0];
     expect(r).toMatchObject({ format: "unlimited", winner: null, practice: false, tokens: ["a", "b"] });
     expect(r.score).toEqual(view.tally!.points);
-    expect(isRated(r)).toBe(false);
   });
 
   it("a held seat that expires also ends unlimited with an unrated result", () => {
@@ -198,7 +196,6 @@ describe("unlimited: no winner, points and best rally, never rated, ends when so
     room.leave(a, true);
     run(GRACE + 100);
     expect(records).toHaveLength(1);
-    expect(isRated(records[0])).toBe(false);
   });
 
   it("the host's switch to unlimited makes a new endless game and clears ready", () => {
@@ -225,6 +222,5 @@ describe("one player on two tabs (same token), allowed for testing", () => {
     room.join(t2);
     expect([t1.seat, t2.seat]).toEqual([0, 1]);
     expect(lobby(t1)!.seats.map((s) => s!.name)).toEqual(["Sam", "Sam (2)"]);
-    expect(isRated({ room: "X", game: "tennis", tokens: ["same", "same"], score: [1, 0], winner: 0, format: "oneSet", sets: [[6, 0]], practice: false })).toBe(false);
   });
 });

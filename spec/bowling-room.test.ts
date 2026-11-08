@@ -1,16 +1,9 @@
 // Bowling (task 29) through the same Room, Lobby and protocol as the other
 // games, with a fake clock and fake sockets like spec/archery-room.test.ts.
-import { mkdtempSync, rmSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
-import { DatabaseSync } from "node:sqlite";
-import { afterEach, describe, expect, it } from "vitest";
-import { addPasskey, guestFor, newGuestToken } from "../server/accounts.ts";
-import { ratingOf, recordResult } from "../server/ratings.ts";
+import { describe, expect, it } from "vitest";
 import { Room } from "../server/room.ts";
 import type { Client } from "../server/room.ts";
 import { asRoomFormat } from "../server/rooms.ts";
-import { isRated, migrate } from "../server/schema.ts";
 import type { MatchRecord } from "../server/schema.ts";
 import type { BowlingSnapshot } from "../shared/games/bowling/sim.ts";
 import { MAX_GRACE_TICKS, SHOT_CLOCK_TICKS } from "../shared/games/bowling/sim.ts";
@@ -66,7 +59,6 @@ function seated(format: RoomFormat = "game", opts: { rated?: boolean } = {}) {
   }
   s.room.join(a);
   s.room.join(b);
-  if (opts.rated) expect(s.room.setRated(a, true)).toBeNull();
   s.room.ready(a, true);
   s.room.ready(b, true);
   s.run(COUNTDOWN + 50);
@@ -154,25 +146,16 @@ describe("bowling rooms", () => {
     expect(lateBy(5000, null)).toMatchObject({ timeout: true });
   });
 
-  it("a finished game between two accounts is recorded as bowling and rated", () => {
+  it("a finished game between two accounts is recorded as bowling", () => {
     const s = seated("game", { rated: true });
     playOut(s, (seat) => (seat === 0 ? strikeBall() : gutterBall));
     s.run(500);
     expect(s.records).toHaveLength(1);
     expect(s.records[0]).toMatchObject({ game: "bowling", format: "game", winner: 0, score: [150, 0], practice: false });
-    expect(isRated(s.records[0])).toBe(true);
     expect(lobby(s.a)!.phase).toBe("ready-check");
   });
 
-  it("unrated unless the host asked and both seats are accounts", () => {
-    const s = seated();
-    playOut(s, (seat) => (seat === 1 ? strikeBall() : gutterBall));
-    s.run(500);
-    expect(s.records[0]).toMatchObject({ game: "bowling", winner: 1 });
-    expect(isRated(s.records[0])).toBe(false);
-  });
-
-  it("a level game votes; either seat's draw records a draw, rated between two accounts", () => {
+  it("a level game votes; either seat's draw records a draw", () => {
     const s = seated("game", { rated: true });
     playOut(s, () => gutterBall);
     expect(state(s.a).phase).toBe("tie-vote");
@@ -184,7 +167,6 @@ describe("bowling rooms", () => {
     s.run(500);
     expect(s.records).toHaveLength(1);
     expect(s.records[0]).toMatchObject({ game: "bowling", winner: null, draw: true, score: [0, 0] });
-    expect(isRated(s.records[0])).toBe(true);
   });
 
   it("both continue bowl a tie frame through the room", () => {
@@ -208,7 +190,6 @@ describe("bowling rooms", () => {
     s.room.leave(s.b);
     expect(s.records).toHaveLength(1);
     expect(s.records[0]).toMatchObject({ game: "bowling", format: "unlimited", winner: null, score: [1, 0] });
-    expect(isRated(s.records[0])).toBe(false);
   });
 
   it("practice vs the bot starts at once, plays a game to the end as bowling, and is never rated", () => {
@@ -222,48 +203,6 @@ describe("bowling rooms", () => {
     expect(s.records.length).toBeGreaterThan(0);
     expect(s.records[0]).toMatchObject({ game: "bowling", format: "game", winner: 1, practice: true });
     expect(s.records[0].score[1]).toBeGreaterThan(0);
-    expect(s.records.every((r) => !isRated(r))).toBe(true);
-  });
-});
-
-describe("a rated bowling game moves only the bowling rating", () => {
-  const dirs: string[] = [];
-  afterEach(() => {
-    for (const d of dirs.splice(0)) rmSync(d, { recursive: true, force: true });
-  });
-
-  function account(db: DatabaseSync): string {
-    const t = newGuestToken();
-    guestFor(db, t);
-    addPasskey(db, t, { id: `k-${Math.random()}`, publicKey: new Uint8Array([1]), counter: 0, transports: [] });
-    return t;
-  }
-
-  it("a win moves both players' bowling rating and leaves tennis alone; a draw moves neither", () => {
-    const d = mkdtempSync(join(tmpdir(), "weblympics-bowl-"));
-    dirs.push(d);
-    const db = new DatabaseSync(join(d, "app.db"));
-    migrate(db);
-    const a = account(db);
-    const b = account(db);
-    const s = seated("game", { rated: true });
-    playOut(s, (seat) => (seat === 0 ? strikeBall() : gutterBall));
-    s.run(500);
-    const win = { ...s.records[0], tokens: [a, b] as [string, string] };
-    expect(recordResult(db, win)).toMatchObject({ rated: true, delta: 16 });
-    expect(ratingOf(db, a, "bowling")).toMatchObject({ rating: 1016, wins: 1 });
-    expect(ratingOf(db, b, "bowling")).toMatchObject({ rating: 984, losses: 1 });
-    expect(ratingOf(db, a, "tennis").rating).toBe(1000);
-    expect(ratingOf(db, a, "archery").rating).toBe(1000);
-    // a voted draw is stored rated, with no winner, and moves nobody (as boxing's)
-    const t = seated("game", { rated: true });
-    playOut(t, () => gutterBall);
-    t.room.bowl(t.a, { t: "tie", choice: "draw" });
-    t.run(500);
-    expect(recordResult(db, { ...t.records[0], tokens: [a, b] })).toEqual({ rated: true, delta: 0 });
-    expect(ratingOf(db, a, "bowling").rating).toBe(1016);
-    const row = db.prepare("SELECT game, rated, winner FROM matches ORDER BY id DESC LIMIT 1").get();
-    expect(row).toEqual({ game: "bowling", rated: 1, winner: null });
-    db.close();
+    expect(s.records.every((r) => r.practice)).toBe(true);
   });
 });

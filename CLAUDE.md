@@ -3,7 +3,7 @@
 Wii-Tennis-style game in the browser. Two players (or one vs a bot) hit a shared
 ball by swinging in front of their webcam; spectators watch live. The server
 owns the ball and the score. Clients only send swing events and render what the
-server says. Rooms, matches and ratings persist in SQLite on `/data`.
+server says. Rooms and matches persist in SQLite on `/data`.
 
 Brief: https://comp.anu.edu.au/courses/comp4020-agentic-coding-studio/assessments/final-project/
 Fixed by the course: `fly.toml`, `Dockerfile` shape, `spec/invariants.test.ts`
@@ -111,11 +111,11 @@ lazily and only when a player enters a game. Video never leaves the browser.
   the real clock and db), `room.ts` (one room: 60 Hz tick loop, seats,
   spectators, game), `lobby.ts` (pure room rules: phases, ready, format,
   countdown, the 30 s hold; clock injected), `db.ts` (SQLite on `/data`), `schema.ts` (versioned
-  schema, migrations, match rows, who is rated), `log.ts` (JSON log lines;
+  schema, migrations, match rows), `log.ts` (JSON log lines;
   players appear only as `who`, a per-run keyed hash; `/stats` in
   `index.ts` gives counts, loop timing and memory, task 8),
   task 17: `accounts.ts` (guests, accounts, passkeys, sessions, delete; pure
-  over a db handle), `ratings.ts` (task 7: Elo, leaderboards, history), `auth.ts` (the `/api/*` account routes and passkey
+  over a db handle), `history.ts` (a player's recent matches and longest rally; task 37 removed Elo and the leaderboards that sat beside it), `auth.ts` (the `/api/*` account routes and passkey
   ceremonies), `guard.ts` (cookies, Origin check, challenges, rate limits),
   `names.ts` (pseudonyms and the chosen-name rules; shape shared in
   `shared/names.ts`).
@@ -206,7 +206,7 @@ lazily and only when a player enters a game. Video never leaves the browser.
   your status dot; name beside it on desktop; its panel, a popover on desktop and a bottom sheet
   on a phone, holds the passkey sign in or create, sign out, the closed
   "Dev tools" with the demo accounts, and the ways to the profile dialog and
-  the leaderboard: `e2e/home.e2e.ts`), `ui/brand.ts` (the five ring
+  the profile dialog: `e2e/home.e2e.ts`), `ui/brand.ts` (the five ring
   colours and every text/background pair, held to WCAG AA by
   `spec/brand.test.ts`; task 14), `ui/profile.ts` + `.css` (task 17's profile
   dialog, with task 33's look editor: live preview, Face/Hair/Clothes/Extras
@@ -218,7 +218,7 @@ lazily and only when a player enters a game. Video never leaves the browser.
   and saves; an account's from `/api/me`, a guest's in `localStorage`),
   `input/camera/power-calibration.ts` (task 25: pure soft/hard to a power
   range, for basketball's push and bowling's roll),
-  `ui/leaderboard.ts` + `.css` (task 7: a tab per sport, polled each second). Camera swings have two modes,
+  Camera swings have two modes,
   "classic" (default) and "follow" (character copies the arm, hit at the
   hitting line), and two aim modes, "timing" (default) and "point"; see
   the camera setup notes in `tasks/done/`. Movement has two modes per seat,
@@ -286,7 +286,7 @@ lazily and only when a player enters a game. Video never leaves the browser.
   (task 16, `spec/point-call.test.ts`, `e2e/call-banner.e2e.ts`) is worked out
   on each screen from two snapshots: no network message, spectators see it
   too, and it never covers the court or the HUD. Practice never ends
-  (a won match starts a new one) and practice-vs-bot is never rated
+  (a won match starts a new one) and practice-vs-bot is never counted as a match between people
   (`spec/db.test.ts`).
 - Rooms (task 4; `spec/lobby.test.ts`, `spec/room-rules.test.ts`,
   `spec/rooms.test.ts`): invite link or room code only, no public list. Two
@@ -308,27 +308,24 @@ lazily and only when a player enters a game. Video never leaves the browser.
   3 s countdown resumes play, otherwise the room closes with no result.
   Pressing Leave mid-match ends it with no result. Unlimited has no winner,
   counts points and best rally, ends when someone leaves and is stored
-  unrated. Practice vs bot starts at once. One token may hold both seats (two
-  tabs, for testing); its second seat is shown "<name> (2)" and its matches
-  are unrated. Ratings read only `rated = 1` rows.
-- Ratings (task 7; `spec/ratings.test.ts`, `spec/rated-match.test.ts`,
-  `e2e/leaderboard.e2e.ts`): "rated" is the host's option on the room, set
-  before play; a change clears both ready flags. A match is stored
-  `rated = 1` only if the host had it on, both seats are accounts on
-  different tokens, it isn't practice, the format has a winner and it
-  finished (`isRated` in `server/schema.ts`; the lobby's `ratedBlocked` says
-  why not, using the same rule). Elo per account per sport: start 1000,
-  K = 32, floor 100, updated in the match row's transaction
-  (`server/ratings.ts`). A match only moves its own sport's rating; sports are
-  the registry's ids (`matches.game`, `ratings.sport`). The leaderboard lists
-  accounts only, hides the demo accounts, and shows your rank outside the
-  top list; it polls once a second.
+  with no winner. Practice vs bot starts at once. One token may hold both
+  seats (two tabs, for testing); its second seat is shown "<name> (2)".
+- No ratings (task 37, user, 2026-11-08; `spec/db.test.ts` "schema v10"):
+  Elo, the leaderboard, its polling, the room's "Rated match" switch, the
+  `rated` message and `LobbyView` fields, `isRated` and `ratedBlocked` are
+  gone, and schema step 10 drops the `ratings` table. Every finished match
+  is still a row in `matches` (`insertMatch`), practice and unlimited
+  flagged as before; the old `rated` column stays in the table, always 0
+  now, and nothing reads it. The server no longer needs a host option or
+  account check to store a match. Stats from these rows (played, won, lost,
+  drawn, one record per sport, head-to-head) are the rest of
+  `tasks/37-match-stats.md` and are not built yet.
 - Accounts (task 17; `spec/accounts.test.ts`, `spec/auth-api.test.ts`,
   `e2e/accounts.e2e.ts`): who you are comes only from HttpOnly cookies the
   server sets (`wl_guest`, a random guest id; `wl_session`, 256 random bits
   with only its hash stored), never from a message. Play never needs an
   account. A guest keeps a server-made pseudonym, can't rename and is never
-  rated or on a leaderboard. A passkey (`@simplewebauthn`, never hand-rolled)
+  ranked. A passkey (`@simplewebauthn`, never hand-rolled)
   claims the guest, keeping its history; an account may choose a name: 3 to
   16 ASCII letters, digits, spaces or `_ . ' -`, not reserved (Bot, Admin,
   the server's pseudonym shape) and passing `obscenity`, all checked on the
@@ -338,10 +335,10 @@ lazily and only when a player enters a game. Video never leaves the browser.
   another name"; a rename keeps the tag if it is free under the new name;
   the demo accounts are `Demo One#0001` and `Demo Two#0002`. The tag shows
   only in the friends list, the profile and requests; games, the score bar
-  and the leaderboard show just the name. Every POST and the WebSocket check Origin;
+  show just the name. Every POST and the WebSocket check Origin;
   challenges are single use and expire in 2 minutes; ceremonies are rate
   limited; no cookie, challenge or credential is logged. Deleting needs a
-  fresh passkey check and removes passkeys, sessions, name, look and ratings;
+  fresh passkey check and removes passkeys, sessions, name and look;
   match rows stay with a random tombstone shown as "Deleted player". The two
   demo accounts are locked (no rename, delete or passkey), hidden from the
   board, and reached only from the closed "Dev tools" in the home screen's
@@ -433,7 +430,7 @@ lazily and only when a player enters a game. Video never leaves the browser.
   the arrow and scores it; the client's sight is `predictHit` with no wind.
   Formats are a game's own (`GameDef.formats`): archery offers "stages" and
   "unlimited" (random level each stage, counts points and best arrow,
-  unrated). Practice runs in the page, cycling levels or on a picked distance
+  no winner). Practice runs in the page, cycling levels or on a picked distance
   and wind; nothing sent to the server. Camera: the aiming hand aims, the
   draw is the hands' gap along the shoulders, opening the drawing hand
   shoots (MediaPipe's hand model, fingers' fold in 3D); with no hand read a
@@ -451,9 +448,9 @@ lazily and only when a player enters a game. Video never leaves the browser.
   (10 a second, by the step's own timestamp and by the server's own clock)
   are dropped, so shaking or mashing buys nothing. Steps before the gun
   don't count. First across the line wins; a dead heat is run again; the
-  other runner has 5 s after the first finish. Formats: "race" (rated
-  between two people) and "unlimited" (race after race, counts races won and
-  best times, unrated). Practice vs bot is never rated. Practice runs in the
+  other runner has 5 s after the first finish. Formats: "race" (between
+  two people) and "unlimited" (race after race, counts races won and
+  best times). Practice vs bot is not a match between people. Practice runs in the
   page; nothing sent to the server. Camera
   (`spec/track-run-pose.test.ts`): two modes behind a setting, "elbows"
   (a hand rising 0.15 shoulder widths is a step; either arm counts, sent as
@@ -482,7 +479,7 @@ lazily and only when a player enters a game. Video never leaves the browser.
   are guesses for the playtest. The bot jumps once per hurdle with seeded
   timing noise, so it sometimes hits one. No rating of its own (user,
   2026-11-08: ratings are going, match stats only): it is the `track` sport,
-  rated exactly as the sprint. A track match row says which event: its
+  stored exactly as the sprint. A track match row says which event: its
   `sets` JSON column holds `{ event, times, cleared, hit, sets }` (no schema
   step; `parseSetsColumn` reads either shape). Keys: Space or the Jump button.
   Camera: elbows mode, both hands rising about 0.6 shoulder widths together
@@ -523,11 +520,10 @@ lazily and only when a player enters a game. Video never leaves the browser.
   body against a high guard, and stays beatable. Three rounds of 30 s with
   a 5 s break; jabs in the air at the bell don't count; a knockout ends it
   at once; after three rounds the most damage dealt wins and an exact tie
-  is a draw (`finished()` gives `winner: null`, recorded with `draw`, rated
-  between two people). The round clock is the sim's ticks, so the
-  reconnect pause freezes it. Formats: "bout" (rated between two people)
+  is a draw (`finished()` gives `winner: null`, recorded with `draw`). The round clock is the sim's ticks, so the
+  reconnect pause freezes it. Formats: "bout" (between two people)
   and "unlimited" (bout after bout, counts bouts won and knockouts,
-  unrated). Practice vs bot is never rated. Camera
+  no winner). Practice vs bot is not a match between people. Camera
   (`spec/boxing-box-pose.test.ts`, `cameraBoxing` in `box-pose.ts`): it
   sends the same messages a key does, never a hit. A seated player's bout
   opens the camera setup first, practice paused until it closes (task 15;
@@ -561,7 +557,7 @@ lazily and only when a player enters a game. Video never leaves the browser.
   swished money ball is 5. A level shootout asks both players, as bowling
   does (user, 2026-11-08): phase "tie-vote", each seat sends `tie` {choice
   "draw"|"continue"} once; either "draw" ends it as a draw (`winner: null`,
-  recorded `draw`, rated between two accounts with no rating change); only
+  recorded `draw`); only
   both "continue" plays a sudden-death round from the deep spot (a make
   against a miss wins, the first shooter alternating, not added to the
   score), and a level round votes again. 15 s to vote (`VOTE_TICKS`), no
@@ -579,9 +575,9 @@ lazily and only when a player enters a game. Video never leaves the browser.
   aims inside it. Shot clock 15 s on the sim's ticks, from the shooter's
   first `set` or 5 s into the turn; running out is a miss; a shot after the
   buzzer counts within the seat's measured round trip, capped at 150 ms (9
-  ticks), none if unmeasured. Formats: "shootout" (rated between two
+  ticks), none if unmeasured. Formats: "shootout" (between two
   people) and "unlimited" (a seeded random spot each turn, counts points,
-  makes and the longest make, no winner, unrated). The physics numbers are
+  makes and the longest make, no winner). The physics numbers are
   first guesses until the camera's recordings. Camera (`ShootDetector` in
   `shoot-pose.ts`): it sends the same `set`, `aim` and `shoot` a key does.
   A wrist held still at the chest is `set`; the hands' sideways offset is
@@ -602,12 +598,12 @@ lazily and only when a player enters a game. Video never leaves the browser.
   random scatter. 20 s shot clock a ball (out of time is a gutter ball); a
   throw after the buzzer counts within the seat's round trip, capped at
   9 ticks (`setLag`, `lateShotTicks`). A level game (or tie frame) asks both
-  to vote (user, 2026-11-08): either "draw" draws (`winner: null`, rated as
-  a draw between two people, moving nobody, like boxing's), both "continue"
+  to vote (user, 2026-11-08): either "draw" draws (`winner: null`, stored
+  as a draw, like boxing's), both "continue"
   bowl a tie frame (no bonus balls, not added to the score); 15 s, a missing
-  vote counts as draw; the bot votes continue. Formats "game" (rated
-  between two people) and "unlimited" (games won, a level vote too, best
-  score, unrated). The physics numbers are first guesses
+  vote counts as draw; the bot votes continue. Formats "game" (between
+  two people) and "unlimited" (games won, a level vote too, best
+  score). The physics numbers are first guesses
   (`spec/bowling-physics.test.ts` holds what they must do: a pocket ball at
   speed strikes, a curving one more often than a straight one, a slow ball
   leaves pins, a head-on hit can split, spares are pickable). On screen:

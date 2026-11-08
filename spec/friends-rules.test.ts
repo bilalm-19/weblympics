@@ -86,6 +86,7 @@ describe("schema v8 (task 34): name tags and friends tables", () => {
       INSERT INTO players (token, name, created_at, account, demo) VALUES ('demo-1', 'Demo One', 0, 1, 1), ('demo-2', 'Demo Two', 0, 1, 1);
       INSERT INTO players (token, name, created_at, account) VALUES ('acct-a', 'Sam', 1, 1), ('acct-b', 'Ali', 2, 1);
       INSERT INTO players (token, name, created_at) VALUES ('11111111-2222-4333-8444-555555555555', 'Lucky Otter 12', 3);
+      CREATE TABLE ratings (player TEXT NOT NULL, sport TEXT NOT NULL, rating INTEGER NOT NULL, wins INTEGER NOT NULL DEFAULT 0, losses INTEGER NOT NULL DEFAULT 0, updated_at INTEGER NOT NULL, PRIMARY KEY (player, sport));
       INSERT INTO ratings (player, sport, rating, updated_at) VALUES ('acct-a', 'tennis', 1032, 5);
     `);
     expect(schemaVersion(old)).toBe(7);
@@ -94,7 +95,7 @@ describe("schema v8 (task 34): name tags and friends tables", () => {
     const db = new DatabaseSync(path);
     migrate(db);
     expect(schemaVersion(db)).toBe(SCHEMA_VERSION);
-    expect(SCHEMA_VERSION).toBe(9);
+    expect(SCHEMA_VERSION).toBe(10);
     expect(getDemo(db, 1).tag).toBe(1);
     expect(getDemo(db, 2).tag).toBe(2);
     for (const t of ["acct-a", "acct-b"]) {
@@ -103,7 +104,8 @@ describe("schema v8 (task 34): name tags and friends tables", () => {
       expect(tag).toBeLessThan(10_000);
     }
     expect(getPlayer(db, "11111111-2222-4333-8444-555555555555")!.tag).toBeNull();
-    expect(db.prepare("SELECT rating FROM ratings WHERE player = 'acct-a'").get()).toEqual({ rating: 1032 });
+    // v10 (task 37) dropped the ratings table the v7 database still had
+    expect(db.prepare("SELECT name FROM sqlite_master WHERE name = 'ratings'").all()).toEqual([]);
     // the new tables work
     const a = getPlayer(db, "acct-a")!;
     const b = getPlayer(db, "acct-b")!;

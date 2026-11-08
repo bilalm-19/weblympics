@@ -24,7 +24,7 @@ import type { ProfileMenuActions, ProfileMenuWho } from "./profile-menu.ts";
 
 /**
  * The profile button's actions (top right: sign in and out, the demo
- * accounts, the profile dialog, task 7's leaderboard) and the sport options.
+ * accounts, the profile dialog) and the sport options.
  */
 export interface MenuActions extends ProfileMenuActions {
   /** Training (task 5, tennis) or practice (the other sports): runs in the page, no server. */

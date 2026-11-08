@@ -217,7 +217,7 @@ export function startBoxing(root: HTMLElement, conn: GameLink, info: RoomInfo, o
     },
   });
 
-  // ---- the room's ready panel (the host's format and rated option, ready-up) ----
+  // ---- the room's ready panel (the host's format, ready-up) ----
   const readyPanel = createReadyPanel(
     view,
     info.seat,
@@ -225,7 +225,6 @@ export function startBoxing(root: HTMLElement, conn: GameLink, info: RoomInfo, o
     {
       ready: (ready) => conn.send({ t: "ready", ready }),
       format: (format) => conn.send({ t: "format", format }),
-      rated: (rated) => conn.send({ t: "rated", rated }),
       openCamera: () => cameraButton.click(),
     },
     FORMATS,

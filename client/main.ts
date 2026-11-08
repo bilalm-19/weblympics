@@ -20,7 +20,6 @@ import { addPartyStrip, openParty, showInvite } from "./ui/party.ts";
 import { SocialState } from "./ui/social-state.ts";
 import { useFriendLink } from "./net/account.ts";
 import { audioEngine, homeMusic, mountSoundToggle } from "./audio/index.ts";
-import { openLeaderboard } from "./ui/leaderboard.ts";
 import { openProfile } from "./ui/profile.ts";
 
 const root = document.getElementById("app") as HTMLElement;
@@ -94,7 +93,6 @@ function showMenu(): void {
       onJoin: (code) => conn.send({ t: "join", room: code }),
       // who you are changed: a new socket, whose welcome draws the menu (and its avatar) again
       onProfile: () => openProfile({ onIdentityChange: () => conn.reconnect() }),
-      onLeaderboard: openLeaderboard,
       onPasskey: async (kind) => {
         await (kind === "create" ? addPasskey() : signIn());
         conn.reconnect();

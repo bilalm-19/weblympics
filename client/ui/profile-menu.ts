@@ -3,7 +3,7 @@
 // (a guest wears seat 1's default), drawn once as flat SVG by look-preview.ts:
 // the menu never loads Three.js and nothing here animates or re-renders on a
 // loop. The panel holds sign in and out, the demo accounts (behind a closed
-// "Dev tools") and the ways to the profile dialog and the leaderboard.
+// "Dev tools") and the way to the profile dialog.
 // A native modal <dialog>: focus moves in, Tab stays inside, Escape closes it
 // and focus goes back to the button. A popover under the button on desktop,
 // a bottom sheet on a phone (style.css).
@@ -32,7 +32,6 @@ export interface ProfileMenuActions {
   onSignOut(): Promise<void>;
   /** The full profile dialog (name, passkeys, look, delete). */
   onProfile(): void;
-  onLeaderboard(): void;
 }
 
 // After an action from the panel the menu is drawn again (a fresh welcome);
@@ -91,14 +90,13 @@ function openPanel(button: HTMLButtonElement, who: ProfileMenuWho, look: Look, a
         ${
           who.account
             ? `<button type="button" class="pm-btn" data-act="signout">${who.demo ? "Play as guest" : "Sign out"}</button>`
-            : `<p class="pm-note">Playing as a guest: your matches stay in this browser. A passkey keeps them on any device and lets you play rated matches.</p>
+            : `<p class="pm-note">Playing as a guest: your matches stay in this browser. A passkey keeps them on any device.</p>
                <button type="button" class="pm-btn pm-btn--primary" data-act="create">Create account with a passkey</button>
                <button type="button" class="pm-btn" data-act="signin">Sign in with a passkey</button>`
         }
       </div>
       <div class="pm-actions" role="group" aria-label="More">
         <button type="button" class="pm-btn" data-act="profile">${who.account ? "Edit profile and look" : "Profile details"}</button>
-        <button type="button" class="pm-btn" data-act="leaderboard">Leaderboard</button>
       </div>
       <details class="pm-devtools">
         <summary>Dev tools</summary>
@@ -175,10 +173,6 @@ function openPanel(button: HTMLButtonElement, who: ProfileMenuWho, look: Look, a
         case "profile":
           close();
           actions.onProfile();
-          break;
-        case "leaderboard":
-          close();
-          actions.onLeaderboard();
           break;
       }
     }),

@@ -1,5 +1,5 @@
 // Track (task 26): the sprint sim. Cadence to speed, alternation, the human
-// cadence cap, the finish, determinism, and the bot never being rated.
+// cadence cap, the finish, determinism, and the bot never being recorded as a match between people.
 import { describe, expect, it } from "vitest";
 import { BOT_CADENCE, botInputs } from "../shared/games/track/bot.ts";
 import { asInput, track } from "../shared/games/track/index.ts";
@@ -20,7 +20,6 @@ import {
 } from "../shared/games/track/sim.ts";
 import type { Seat, Side, StepInput, TrackGameEvent, TrackSnapshot, TrackState } from "../shared/games/track/sim.ts";
 import { games } from "../shared/games/registry.ts";
-import { isRated } from "../server/schema.ts";
 
 /** Steps past "set" to the gun. */
 function toGun(s: TrackState): void {
@@ -285,7 +284,6 @@ describe("track: determinism and the bot", () => {
     for (let i = 0; i < 60 * 30 && !g.finished(); i++) g.step(g.botInputs(1).map((input) => ({ seat: 1 as const, input })));
     const result = g.finished();
     expect(result).toMatchObject({ winner: 1, format: "race" });
-    expect(isRated({ room: "X", game: "track", tokens: ["a", null], score: result!.score, winner: result!.winner, format: "race", sets: [], practice: true })).toBe(false);
   });
 
   it("unlimited never finishes (the room keeps its tally)", () => {

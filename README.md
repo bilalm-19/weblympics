@@ -24,7 +24,7 @@ Every player sees the ball slightly in the past, so an on-time swing can reach t
 
 ## Playing together
 
-Invite link or room code only; no public room list. Two seats; up to 10 others watch, and a watch link never takes a seat. The host picks one set, best of three or unlimited (no winner, unrated); both press Ready, camera optional, then a 3 s countdown. A mid-match drop pauses for 30 s: rejoin to resume, or the room closes. Passkey accounts play rated Elo per sport: 1000, K = 32 ([details](docs/accounts.md)).
+Invite link or room code only; no public room list. Two seats; up to 10 others watch, and a watch link never takes a seat. The host picks one set, best of three or unlimited (no winner); both press Ready, camera optional, then a 3 s countdown. A mid-match drop pauses for 30 s: rejoin to resume, or the room closes. Every finished match between two people is stored; there are no ratings or leaderboard ([details](docs/accounts.md)).
 
 ## Controls
 Webcam is the default; "Use keyboard instead" plays on keys. Sound starts at your first tap; the speaker button mutes it. In tennis: by default the game walks you to the ball, slower than you can run, so a hard wide shot can still beat you. "Move: lean" under the camera preview lets you shift your shoulders instead. Pick one racket hand when you set up the camera; how you turn it decides the stroke: palm to the screen is a forehand, the back of your hand a backhand. "Train" teaches all this against a ball machine, entirely in your browser; its endless "Hit the spot" keeps a streak. Camera settings (calibration, hands, modes) follow a passkey account to any device; a guest's stay in the browser, and Reset puts them all back.

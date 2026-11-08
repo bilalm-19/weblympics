@@ -28,7 +28,6 @@ import {
 } from "../shared/games/boxing/sim.ts";
 import type { BoxingEvent, BoxingInput, BoxingState, Guard, Hand, Seat, Side, Target } from "../shared/games/boxing/sim.ts";
 import { games } from "../shared/games/registry.ts";
-import { isRated } from "../server/schema.ts";
 
 const punch = (s: BoxingState, seat: Seat, target: Target = "head", hand: Hand = "right"): BoxingInput => ({ t: "punch", seat, hand, target, at: s.tick * TICK_MS });
 const guard = (seat: Seat, g: Guard): BoxingInput => ({ t: "guard", seat, guard: g });
@@ -399,7 +398,7 @@ describe("boxing rounds and results", () => {
     expect((g.snapshot() as ReturnType<typeof snapshot>).result).toBe("decision");
   });
 
-  it("an exact tie on damage is a draw: no winner, and it is still a result (rated between two people)", () => {
+  it("an exact tie on damage is a draw: no winner, and it is still a result", () => {
     const g = boxing.create(1);
     g.step([
       { seat: 0, input: { t: "punch", hand: "left", target: "head", at: 0 } },
@@ -410,10 +409,6 @@ describe("boxing rounds and results", () => {
     expect(r).toEqual({ winner: null, score: [JAB_DAMAGE, JAB_DAMAGE], format: "bout" });
     expect((g.snapshot() as ReturnType<typeof snapshot>).result).toBe("draw");
     const rec = { room: "X", game: "boxing", tokens: ["a", "b"] as [string, string], score: r!.score, winner: null, draw: true, format: "bout", sets: [], practice: false, ratedRequested: true, accounts: [true, true] as [boolean, boolean] };
-    expect(isRated(rec)).toBe(true);
-    expect(isRated({ ...rec, ratedRequested: false })).toBe(false);
-    expect(isRated({ ...rec, accounts: [true, false] })).toBe(false);
-    expect(isRated({ ...rec, practice: true })).toBe(false);
   });
 
   it("unlimited boxes bout after bout, counts wins and KOs, and never finishes", () => {

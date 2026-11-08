@@ -1324,7 +1324,7 @@ a:focus-visible {
 /* The profile button, top right (user, 2026-11-05; task 36's look): a
    round picture of your own character (client/ui/profile-menu.ts) with your
    status dot, your name beside it on desktop. It opens the panel with sign
-   in, the demo accounts and the ways to the profile and the leaderboard. */
+   in, the demo accounts and the way to the profile. */
 .menu .pm-button {
   display: flex;
   align-items: center;

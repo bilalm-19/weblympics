@@ -30,7 +30,7 @@ export const DELETED_NAME = "Deleted player";
 // what a guest cookie may hold: the random UUIDs this server makes
 const GUEST_TOKEN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
-// Two fixed demo accounts, so rated play can be tried with no passkey (one
+// Two fixed demo accounts, so two seats can be tried with no passkey (one
 // browser per account). Locked: no rename, no delete, no passkey, and hidden
 // from the public board. The client only ever asks for "demo 1 or 2".
 export const DEMO_TOKENS = { 1: "demo-1", 2: "demo-2" } as const;
@@ -295,7 +295,7 @@ export function deleteAccount(db: DatabaseSync, player: string): Result {
 }
 
 // Per-player tables from later schema steps that go with the account.
-const ACCOUNT_TABLES = ["ratings", "friend_links"];
+const ACCOUNT_TABLES = ["friend_links"];
 
 /** An account's saved look, or null (the seat's default). Guests never have one. */
 export function lookOf(db: DatabaseSync, player: string): Look | null {

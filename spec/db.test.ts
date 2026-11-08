@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { afterEach, describe, expect, it } from "vitest";
-import { SCHEMA_VERSION, insertMatch, isRated, migrate, schemaVersion } from "../server/schema.ts";
+import { SCHEMA_VERSION, insertMatch, migrate, schemaVersion } from "../server/schema.ts";
 import type { MatchRecord } from "../server/schema.ts";
 
 const dirs: string[] = [];
@@ -57,9 +57,6 @@ const match = (over: Partial<MatchRecord> = {}): MatchRecord => ({
   format: "oneSet",
   sets: [[7, 6]],
   practice: false,
-  // task 7: the host asked for a rated match and both seats are accounts
-  ratedRequested: true,
-  accounts: [true, true],
   ...over,
 });
 
@@ -71,7 +68,7 @@ describe("schema migrations", () => {
     migrate(db);
     expect(schemaVersion(db)).toBe(SCHEMA_VERSION);
     expect(db.prepare("SELECT name FROM players WHERE token = 't-a'").get()).toEqual({ name: "Old Otter" });
-    // the old first-to-5 row survives, marked as such and unrated
+    // the old first-to-5 row survives, marked as such
     expect(db.prepare("SELECT score0, score1, winner, format, sets, practice, rated FROM matches").get()).toEqual({
       score0: 5,
       score1: 3,
@@ -134,8 +131,8 @@ describe("schema v3 (task 4: unlimited)", () => {
     migrate(db);
     expect(schemaVersion(db)).toBe(SCHEMA_VERSION);
     const rows = db.prepare("SELECT room, winner, format, rated, best_rally FROM matches ORDER BY id").all();
-    // every row survives; v6 (task 7) then marks the old guest-vs-guest
-    // "rated" row unrated, since only accounts are rated now
+    // every row survives; v6 (task 7) marked the old guest-vs-guest
+    // "rated" row unrated, and nothing sets the column again (task 37)
     expect(rows).toEqual([
       { room: "ABCD", winner: 0, format: "points5", rated: 0, best_rally: null },
       { room: "V2RM", winner: 0, format: "oneSet", rated: 0, best_rally: null },
@@ -152,25 +149,47 @@ describe("schema v3 (task 4: unlimited)", () => {
   });
 });
 
-describe("who is rated (task 4)", () => {
-  it("unlimited is never rated, even between two people with a points lead", () => {
-    expect(isRated(match({ format: "unlimited", winner: null, score: [20, 3], sets: [] }))).toBe(false);
-    // even if something claimed a winner for it
-    expect(isRated(match({ format: "unlimited", winner: 0 }))).toBe(false);
+describe("schema v10 (task 37: ratings are gone)", () => {
+  /** What a v9 database held: the ratings table with a row in it, and match rows, some of them stored rated. */
+  function makeV9(path: string): void {
+    const db = new DatabaseSync(path);
+    migrate(db);
+    db.exec(`
+      CREATE TABLE ratings (
+        player TEXT NOT NULL, sport TEXT NOT NULL, rating INTEGER NOT NULL,
+        wins INTEGER NOT NULL DEFAULT 0, losses INTEGER NOT NULL DEFAULT 0,
+        updated_at INTEGER NOT NULL, PRIMARY KEY (player, sport)
+      );
+      CREATE INDEX ratings_board ON ratings (sport, rating DESC);
+      INSERT INTO ratings (player, sport, rating, wins, updated_at) VALUES ('t-a', 'tennis', 1016, 1, 5);
+      INSERT INTO matches (room, game, p0, p1, score0, score1, winner, ended_at, format, sets, practice, rated)
+        VALUES ('OLD1', 'tennis', 't-a', 't-b', 1, 0, 0, 3000, 'oneSet', '[[6,3]]', 0, 1);
+      UPDATE schema_version SET version = 9;
+    `);
+    db.close();
+  }
+
+  it("opens a v9 database, drops the ratings table, keeps every match row and records the new version", () => {
+    const path = freshFile();
+    makeV9(path);
+    const db = new DatabaseSync(path);
+    expect(db.prepare("SELECT version FROM schema_version").get()).toEqual({ version: 9 });
+    migrate(db);
+    expect(schemaVersion(db)).toBe(10);
+    expect(db.prepare("SELECT name FROM sqlite_master WHERE name IN ('ratings', 'ratings_board')").all()).toEqual([]);
+    expect(db.prepare("SELECT room, winner, sets FROM matches WHERE room = 'OLD1'").get()).toEqual({ room: "OLD1", winner: 0, sets: "[[6,3]]" });
+    db.close();
   });
 
-  it("one person on both seats (one token, two tabs) is never rated", () => {
-    expect(isRated(match({ tokens: ["t-a", "t-a"] }))).toBe(false);
-  });
-
-  it("ratings read only rated = 1 rows", () => {
+  it("a new match row is never stored rated, whoever played", () => {
     const db = new DatabaseSync(freshFile());
     migrate(db);
     insertMatch(db, match({ room: "REAL" }));
-    insertMatch(db, match({ room: "UNLM", format: "unlimited", winner: null, sets: [] }));
-    insertMatch(db, match({ room: "SELF", tokens: ["t-a", "t-a"] }));
     insertMatch(db, match({ room: "PRAC", practice: true, tokens: ["t-a", null] }));
-    expect(db.prepare("SELECT room FROM matches WHERE rated = 1").all()).toEqual([{ room: "REAL" }]);
+    expect(db.prepare("SELECT room, practice, rated FROM matches ORDER BY id").all()).toEqual([
+      { room: "REAL", practice: 0, rated: 0 },
+      { room: "PRAC", practice: 1, rated: 0 },
+    ]);
     db.close();
   });
 });
@@ -189,24 +208,11 @@ describe("match rows", () => {
     ]);
     db.close();
   });
+});
 
-  it("practice against the bot is stored but never rated; a match between two people is", () => {
-    expect(isRated(match())).toBe(true);
-    expect(isRated(match({ practice: true, tokens: ["t-a", null] }))).toBe(false);
-    // even with a second token, a practice room is not rated
-    expect(isRated(match({ practice: true }))).toBe(false);
-    // someone left before the end and their seat had no token
-    expect(isRated(match({ tokens: ["t-a", null] }))).toBe(false);
-
-    const db = new DatabaseSync(freshFile());
-    migrate(db);
-    insertMatch(db, match({ room: "REAL" }));
-    insertMatch(db, match({ room: "PRAC", practice: true, tokens: ["t-a", null] }));
-    const rows = db.prepare("SELECT room, practice, rated FROM matches ORDER BY id").all();
-    expect(rows).toEqual([
-      { room: "REAL", practice: 0, rated: 1 },
-      { room: "PRAC", practice: 1, rated: 0 },
-    ]);
-    db.close();
+describe("no rated option (task 37)", () => {
+  it("the protocol no longer knows a rated message, so it is dropped whole", async () => {
+    const { parseClientMsg } = await import("../shared/protocol.ts");
+    expect(parseClientMsg(JSON.stringify({ t: "rated", rated: true }))).toBeNull();
   });
 });

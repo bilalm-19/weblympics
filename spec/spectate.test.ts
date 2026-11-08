@@ -142,7 +142,6 @@ const HOSTILE: ClientMsg[] = [
   { t: "step", side: "right", at: 50 },
   { t: "ready", ready: false },
   { t: "format", format: "unlimited" },
-  { t: "rated", rated: true },
   { t: "pause", paused: true },
   { t: "set" },
   { t: "aim", aim: 0.5 },
@@ -162,7 +161,6 @@ function hostile(room: Room, c: Client): void {
     else if (m.t === "step") room.step(c, m);
     else if (m.t === "ready") room.ready(c, m.ready);
     else if (m.t === "format") expect(room.format(c, m.format)).toMatch(/host/);
-    else if (m.t === "rated") expect(room.setRated(c, m.rated)).toMatch(/host/);
     else if (m.t === "pause") room.pause(c, m.paused);
   }
 }
@@ -197,7 +195,7 @@ describe("hostile client: a spectator's input is rejected and changes nothing", 
     ["basketball", "shootout"],
     ["bowling", "game"],
   ] as const) {
-    it(`${game}: swing, move, mode, aim, release, step, ready, format, rated and pause from a spectator`, () => {
+    it(`${game}: swing, move, mode, aim, release, step, ready, format and pause from a spectator`, () => {
       const quiet = playWith(game, format, false, false);
       const flooded = playWith(game, format, false, true);
       expect(flooded.lobby).toEqual(quiet.lobby);

@@ -1,6 +1,6 @@
 # 37 Match stats instead of ratings
 
-Status: decided (user, 2026-11-08); starts after `integrate-rest` is on main; the friends part after task 34.
+Status: first bullet built (2026-11-09, branch worktree-agent-a6eb188b51e082f72: ratings, leaderboard and rated option gone, schema v10); stats, head-to-head and profile stats still open. Decided (user, 2026-11-08); starts after `integrate-rest` is on main; the friends part after task 34.
 Model: Opus 5.5
 Waits on: `integrate-rest` merged (bowling's draws, schema steps); task 34 for opening a friend's stats; task 27 stores the track event per match.
 
@@ -24,7 +24,7 @@ Waits on: `integrate-rest` merged (bowling's draws, schema steps); task 34 for o
   player" in a head-to-head.
 
 ## Done when
-- [ ] Ratings, leaderboard and the rated option gone; schema step with its old-database test.
+- [x] Ratings, leaderboard and the rated option gone; schema step with its old-database test (`spec/db.test.ts` "schema v10").
 - [ ] Stats and head-to-head from match rows, pure and spec'd (`spec/stats-*.test.ts`), unlimited and practice excluded, hurdles apart from sprint.
 - [ ] Profile and friend's stats at both viewports; e2e.
 - [ ] CLAUDE.md (Ratings rules rewritten), README and spec agree.

@@ -403,7 +403,7 @@ test("the profile panel opens and closes by keyboard: focus in, Escape out and b
   // a bigger picture of the player, the name, matches played and every account action
   await expect(panel.getByRole("img", { name: "Your player" })).toHaveAttribute("data-look", DEFAULT_KEY);
   await expect(panel.getByText(/\d+ match(es)? played/)).toBeVisible();
-  for (const label of [/create account with a passkey/i, /sign in with a passkey/i, /profile details/i, /^leaderboard$/i]) {
+  for (const label of [/create account with a passkey/i, /sign in with a passkey/i, /profile details/i]) {
     await expect(panel.getByRole("button", { name: label })).toBeVisible();
   }
   // Tab stays inside the modal panel
@@ -447,9 +447,8 @@ test("the panel is a popover under the button on desktop and a bottom sheet on a
     expect(bb.x + bb.width).toBeLessThanOrEqual(v.width);
   }
   expect(await noHorizontalScroll(page)).toBe(true);
-  // the panel's links: the leaderboard and the full profile dialog open from it
-  await panel.getByRole("button", { name: "Leaderboard" }).click();
-  await expect(page.getByRole("dialog", { name: "Leaderboard" })).toBeVisible();
+  // task 37: no leaderboard any more; the full profile dialog opens from the panel
+  await expect(panel.getByRole("button", { name: "Leaderboard" })).toHaveCount(0);
   await page.keyboard.press("Escape");
   const dialog = await openProfileDialog(page);
   await expect(dialog.getByRole("button", { name: /create account with a passkey/i })).toBeVisible();

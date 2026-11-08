@@ -6,7 +6,7 @@ import type { DatabaseSync } from "node:sqlite";
  * Version 1: players, and matches with a first-to-5 point score.
  * Version 2: matches store real tennis results: score0/score1 become sets won,
  * plus the format, each set's games (JSON), whether it was a practice match,
- * and whether it counts towards ratings.
+ * and whether it counts towards ratings (task 37 stopped using that column).
  * Version 3: unlimited matches (task 4) have no winner, so `winner` may be
  * NULL, and `best_rally` keeps the longest rally (shots). SQLite can't relax a
  * NOT NULL in place, so the table is rebuilt with every row kept.
@@ -27,6 +27,8 @@ import type { DatabaseSync } from "node:sqlite";
  * shirt colour on a T-shirt, the shorts colour on shorts, a hat style becomes
  * that hat over short hair, a hair style stays, and the face is the default.
  * A stored value that isn't a task-18 look becomes NULL (the default).
+ * Version 10 (task 37): the ratings table and its index are dropped; match
+ * rows stay.
  * Version 8 (task 34, friends): an account's name gets a 4-digit tag
  * (`Sam#4821`); several accounts may share a name, but name (ignoring case)
  * and tag together are unique. Every existing account gets a random tag
@@ -38,7 +40,7 @@ import type { DatabaseSync } from "node:sqlite";
  * shape in shared/camera-settings.ts (validated before it is written); NULL
  * means the defaults. Guests keep theirs in the browser.
  */
-export const SCHEMA_VERSION = 9;
+export const SCHEMA_VERSION = 10;
 
 const V1 = `
   CREATE TABLE IF NOT EXISTS players (
@@ -192,6 +194,14 @@ const V9 = `
   ALTER TABLE players ADD COLUMN camera_settings TEXT;
 `;
 
+// task 37: ratings and the leaderboard are gone. The table and its index go;
+// match rows stay, and so does their rated column (never set to 1 again,
+// never read).
+const V10 = `
+  DROP INDEX IF EXISTS ratings_board;
+  DROP TABLE IF EXISTS ratings;
+`;
+
 export function schemaVersion(db: DatabaseSync): number {
   db.exec("CREATE TABLE IF NOT EXISTS schema_version (version INTEGER NOT NULL)");
   const row = db.prepare("SELECT version FROM schema_version").get() as { version: number } | undefined;
@@ -206,7 +216,7 @@ export function schemaVersion(db: DatabaseSync): number {
 
 /** Brings `db` up to SCHEMA_VERSION, one step at a time, each in a transaction. */
 export function migrate(db: DatabaseSync): void {
-  const steps: Record<number, string> = { 1: V1, 2: V2, 3: V3, 4: V4, 5: V5, 6: V6, 7: V7, 8: V8, 9: V9 };
+  const steps: Record<number, string> = { 1: V1, 2: V2, 3: V3, 4: V4, 5: V5, 6: V6, 7: V7, 8: V8, 9: V9, 10: V10 };
   let v = schemaVersion(db);
   if (v > SCHEMA_VERSION) throw new Error(`database schema ${v} is newer than this app (${SCHEMA_VERSION})`);
   while (v < SCHEMA_VERSION) {
@@ -246,26 +256,6 @@ export interface MatchRecord {
   practice: boolean;
   /** Longest rally in shots this match. */
   bestRally?: number;
-  /** Task 7: the host turned "rated" on for the room. */
-  ratedRequested?: boolean;
-  /** Task 7: which seats were signed-in accounts (guests are never rated). */
-  accounts?: [boolean, boolean];
-}
-
-/**
- * Whether a match counts towards ratings (task 7). All of: the host turned
- * "rated" on; both seats are signed-in accounts on different tokens (one
- * person on two tabs can't feed themselves wins); a real room, not practice
- * against the bot (a rating only reflects people beating people); a format
- * with a winner (not unlimited); and a finished match (a match left mid-way
- * is never recorded at all). Task 30: a draw (boxing's exact tie) between two
- * people is rated, stored with no winner; a reader tells it from unlimited by
- * `rated = 1`.
- */
-export function isRated(m: MatchRecord): boolean {
-  if (!m.ratedRequested || m.practice || m.format === "unlimited" || (m.winner === null && !m.draw)) return false;
-  if (!m.accounts?.[0] || !m.accounts?.[1]) return false;
-  return m.tokens[0] !== null && m.tokens[1] !== null && m.tokens[0] !== m.tokens[1];
 }
 
 /** The `sets` column as stored: the bare array, or (task 27, track) an object with the detail and `sets`. */
@@ -279,12 +269,11 @@ export function parseSetsColumn(raw: string): { sets: Array<[number, number]>; d
   return { sets: [], detail: null };
 }
 
-/** Stores a match row; returns whether it was stored as rated. */
-export function insertMatch(db: DatabaseSync, m: MatchRecord, endedAt = Date.now()): boolean {
-  const rated = isRated(m);
+/** Stores a match row. (`rated` keeps its default of 0: task 37 removed ratings.) */
+export function insertMatch(db: DatabaseSync, m: MatchRecord, endedAt = Date.now()): void {
   db.prepare(
-    `INSERT INTO matches (room, game, p0, p1, score0, score1, winner, ended_at, format, sets, practice, rated, best_rally)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO matches (room, game, p0, p1, score0, score1, winner, ended_at, format, sets, practice, best_rally)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   ).run(
     m.room,
     m.game,
@@ -297,8 +286,6 @@ export function insertMatch(db: DatabaseSync, m: MatchRecord, endedAt = Date.now
     m.format,
     JSON.stringify(m.detail ? { ...m.detail, sets: m.sets } : m.sets),
     m.practice ? 1 : 0,
-    rated ? 1 : 0,
     m.bestRally ?? null,
   );
-  return rated;
 }

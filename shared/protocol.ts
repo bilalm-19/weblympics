@@ -48,12 +48,6 @@ export interface LobbyView {
   hold: { seat: 0 | 1; name: string; seconds: number } | null;
   /** Unlimited only: points won by each seat this match, and the longest rally in shots (archery: the best arrow's points). */
   tally: { points: [number, number]; bestRally: number } | null;
-  /** Task 7: the host's "rated" option. Whether it counts is `ratedBlocked === null`. */
-  rated: boolean;
-  /** Why a rated match isn't possible here right now (a guest seat, unlimited...), else null. */
-  ratedBlocked: string | null;
-  /** Each seat's rating in this room's sport (accounts only; null for a guest, the bot or an empty seat). */
-  ratings: [number | null, number | null];
 }
 
 export type ClientMsg =
@@ -79,9 +73,6 @@ export type ClientMsg =
   // (the race restarts). A value not in ROOM_EVENTS, or any extra field, is a
   // bad message
   | { t: "event"; event: RoomEvent }
-  // task 7: the host's "rated" option, before the match; the server decides
-  // whether the match actually counts
-  | { t: "rated"; rated: boolean }
   // lift: hand height at contact in camera follow mode, -1..1 (server clamps)
   // timingAim: aim from how early or late the ball is met instead of dirX
   // tick: the server tick the player's screen showed when they swung; the
@@ -288,8 +279,6 @@ export function parseClientMsg(raw: string): ClientMsg | null {
     case "event":
       if (!onlyKeys(m, ["t", "event"])) return null;
       return (ROOM_EVENTS as readonly unknown[]).includes(m.event) ? { t: "event", event: m.event as RoomEvent } : null;
-    case "rated":
-      return typeof m.rated === "boolean" ? { t: "rated", rated: m.rated } : null;
     case "swing": {
       const { dirX, kind, level, hand, lift, timingAim, tick } = m;
       if (typeof dirX !== "number" || !Number.isFinite(dirX)) return null;

@@ -2,8 +2,7 @@ import { existsSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { matchCountFor as countFor, pruneSessions, seedDemoAccounts } from "./accounts.ts";
-import { ratingOf, recordResult } from "./ratings.ts";
-import { migrate } from "./schema.ts";
+import { insertMatch, migrate } from "./schema.ts";
 import type { MatchRecord } from "./schema.ts";
 
 export type { MatchRecord } from "./schema.ts";
@@ -33,14 +32,9 @@ seedDemoAccounts(db);
 pruneSessions(db);
 setInterval(() => pruneSessions(db), 60 * 60 * 1000).unref();
 
-/** Stores a finished match; a rated one moves both ratings in the same transaction (task 7). */
+/** Stores a finished match. */
 export function recordMatch(m: MatchRecord): void {
-  recordResult(db, m);
-}
-
-/** A player's rating in a sport, for the ready panel. */
-export function currentRating(token: string, sport: string): number {
-  return ratingOf(db, token, sport).rating;
+  insertMatch(db, m);
 }
 
 export function matchCountFor(token: string): number {
