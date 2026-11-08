@@ -7,6 +7,8 @@ import type { Look } from "../../shared/look.ts";
 
 export interface Me {
   name: string;
+  /** Task 34: an account's four-digit tag; null for a guest. */
+  tag: string | null;
   account: boolean;
   demo: boolean;
   matches: number;
@@ -90,6 +92,15 @@ export const signInDemo = (n: 1 | 2): Promise<Me> => post<Me>("/api/demo", { n }
 export const setName = (name: string): Promise<Me> => post<Me>("/api/name", { name });
 export const saveLook = (look: Look): Promise<Me> => post<Me>("/api/look", { look });
 export const removePasskey = (id: string, confirm = false): Promise<Me> => post<Me>("/api/passkey/remove", { id, confirm });
+
+// ---- task 34: friends. A person is only ever "Name#1234" ----
+export type FriendOutcome = { ok: true; outcome: "requested" | "friends" | "already" };
+export const addFriend = (who: string): Promise<FriendOutcome> => post("/api/friends/add", { who });
+export const acceptFriend = (who: string): Promise<FriendOutcome> => post("/api/friends/accept", { who });
+export const declineFriend = (who: string): Promise<FriendOutcome> => post("/api/friends/decline", { who });
+export const removeFriend = (who: string): Promise<FriendOutcome> => post("/api/friends/remove", { who });
+export const makeFriendLink = (): Promise<{ code: string; expires: number }> => post("/api/friends/link");
+export const useFriendLink = (code: string): Promise<FriendOutcome> => post("/api/friends/link/use", { code });
 
 /** Deletes the account after a fresh passkey check. */
 export async function deleteAccount(): Promise<void> {

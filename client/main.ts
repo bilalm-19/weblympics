@@ -14,12 +14,31 @@ import { startTrackPractice } from "./games/track/practice.ts";
 import { startTrack } from "./games/track/view.ts";
 import { Connection } from "./net/socket.ts";
 import { addPasskey, signIn, signInDemo, signOut } from "./net/account.ts";
-import { renderMenu } from "./ui/menu.ts";
+import { SPORTS, renderMenu } from "./ui/menu.ts";
+import { friendsButton, openFriends } from "./ui/friends.ts";
+import { addPartyStrip, openParty, partyButton, showInvite } from "./ui/party.ts";
+import { SocialState } from "./ui/social-state.ts";
+import { useFriendLink } from "./net/account.ts";
 import { openLeaderboard } from "./ui/leaderboard.ts";
 import { openProfile } from "./ui/profile.ts";
 
 const root = document.getElementById("app") as HTMLElement;
 const conn = new Connection();
+// task 34: friends and the party, pushed on the same socket
+const social = new SocialState(conn);
+let disposeStrip: (() => void) | null = null;
+// whether the current room's match is under way (the party strip's "Next match")
+let roomInMatch = false;
+const partyActions = {
+  games: SPORTS.filter((s) => s.playable).map((s) => ({ id: s.id, name: s.name })),
+  onWatch: (room: string) => conn.send({ t: "join", room, watch: true }),
+};
+let currentPractice = false;
+const friendActions = {
+  onWatch: partyActions.onWatch,
+  onParty: () => openParty(root.querySelector(".pt-button"), social, partyActions),
+  inRoom: () => currentRoom !== null && !currentPractice,
+};
 
 let disposeGame: (() => void) | null = null;
 let currentRoom: string | null = null;
@@ -31,6 +50,8 @@ let sport = "tennis";
 function showMenu(): void {
   disposeGame?.();
   disposeGame = null;
+  disposeStrip?.();
+  disposeStrip = null;
   currentRoom = null;
   training = false;
   conn.roomCode = null;
@@ -73,6 +94,11 @@ function showMenu(): void {
     },
     sport,
   );
+  // task 34: Friends (and the party, once in one) beside the profile button
+  const corner = root.querySelector(".menu-corner");
+  const who = { name: conn.name, tag: conn.tag, account: conn.account };
+  const friends = friendsButton(who, social, friendActions);
+  if (corner && friends) corner.prepend(friends, partyButton(social, partyActions));
 }
 
 function showError(e: unknown): void {
@@ -167,7 +193,12 @@ function practiseBowling(): void {
 }
 
 function enterRoom(info: RoomInfo): void {
+  currentPractice = info.practice;
+  // task 34: a party start moves you into its room: an open friends or party sheet goes, so nothing covers the game
+  for (const d of document.querySelectorAll<HTMLDialogElement>("dialog.sheet")) d.close();
   disposeGame?.();
+  disposeStrip?.();
+  roomInMatch = false;
   currentRoom = info.room;
   training = false;
   error = null;
@@ -196,9 +227,13 @@ function enterRoom(info: RoomInfo): void {
       : undefined;
     disposeGame = startTennis(root, conn, info, leave, { onTrain });
   }
+  // task 34: the party, compact, in the HUD's own row (practice has no party)
+  const inviteFriends = conn.account ? () => openFriends(null, { name: conn.name, tag: conn.tag, account: true }, social, friendActions) : null;
+  disposeStrip = info.practice ? null : addPartyStrip(root, social, partyActions, () => roomInMatch, inviteFriends);
 }
 
 conn.on((msg) => {
+  if (msg.t === "lobby") roomInMatch = msg.match;
   if (msg.t === "welcome" && currentRoom === null && !training) showMenu();
   else if (msg.t === "room") {
     if (msg.room !== currentRoom) enterRoom(msg);
@@ -216,6 +251,34 @@ conn.on((msg) => {
     }
   }
 });
+
+// task 34: a friend's invite pops up wherever you are; Join takes you there
+social.onInvite((invite) =>
+  showInvite(invite, () => {
+    if (invite.kind === "party") {
+      conn.send({ t: "party", act: "join", code: invite.code });
+      if (currentRoom === null && !training) openParty(null, social, partyActions);
+    } else conn.send({ t: "join", room: invite.code });
+  }),
+);
+// a party link (#/party/CODE) joins the party; a friend link (#/friend/CODE) makes you friends
+const partyLink = location.hash.match(/^#\/party\/([A-Za-z0-9_-]{8,32})$/);
+if (partyLink) {
+  conn.send({ t: "party", act: "join", code: partyLink[1] });
+  history.replaceState(null, "", location.pathname);
+  queueMicrotask(() => openParty(null, social, partyActions));
+}
+const friendLink = location.hash.match(/^#\/friend\/([A-Za-z0-9_-]{10,64})$/);
+if (friendLink) {
+  history.replaceState(null, "", location.pathname);
+  useFriendLink(friendLink[1]).then(
+    (r) => social.notice(r.outcome === "already" ? "You're already friends." : "You're now friends."),
+    (e: unknown) => {
+      error = e instanceof Error ? e.message : "That friend link didn't work.";
+      if (currentRoom === null && !training) showMenu();
+    },
+  );
+}
 
 const invite = location.hash.match(/^#\/room\/([A-Za-z]{4})$/);
 if (invite) conn.send({ t: "join", room: invite[1].toUpperCase() });

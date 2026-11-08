@@ -6,7 +6,7 @@ import type { RoomFormat } from "../shared/protocol.ts";
 import { currentRating, recordMatch } from "./db.ts";
 import { log } from "./log.ts";
 import { Room, send } from "./room.ts";
-import type { Client } from "./room.ts";
+import type { Client, RoomDeps } from "./room.ts";
 
 export { send } from "./room.ts";
 export type { Client, Seat } from "./room.ts";
@@ -38,6 +38,12 @@ export function asRoomFormat(format: unknown, gameId = "tennis"): RoomFormat {
   return (offered as readonly unknown[]).includes(format) ? (format as RoomFormat) : offered[0];
 }
 
+let matchEnd: RoomDeps["onMatchEnd"];
+/** Task 34: told when any room's match finishes (parties rotate). */
+export function onMatchEnd(fn: RoomDeps["onMatchEnd"]): void {
+  matchEnd = fn;
+}
+
 export function createRoom(gameId: string, practice: boolean, format?: string): Room | null {
   if (!(gameId in games)) return null;
   let id = "";
@@ -52,6 +58,7 @@ export function createRoom(gameId: string, practice: boolean, format?: string): 
     timer: true,
     timing: {},
     onDestroy: (r) => rooms.delete(r.id),
+    onMatchEnd: (r, tokens, winner) => matchEnd?.(r, tokens, winner),
   });
   rooms.set(id, room);
   log("room_create", { room: id, game: gameId, practice, format: room.lobby.format });

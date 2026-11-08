@@ -35,7 +35,10 @@ import {
   touchPasskey,
   webauthnId,
 } from "./accounts.ts";
+import { showTag } from "./accounts.ts";
 import type { Player } from "./accounts.ts";
+import { acceptFriend, createFriendLink, friendIds, declineFriend, removeFriend, requestFriend, useFriendLink } from "./friends.ts";
+import type { FriendResult } from "./friends.ts";
 import type { Look } from "../shared/look.ts";
 import { games } from "../shared/games/registry.ts";
 import { Challenges, RateLimit, allowedOrigin, cookie, parseCookies, rpIdFor } from "./guard.ts";
@@ -52,6 +55,8 @@ const RP_NAME = "Weblympics";
 /** What the page is told about its own player. Never the internal token. */
 export interface Me {
   name: string;
+  /** Task 34: an account's four-digit tag ("0317"), shown as Name#0317 in the profile and friends list; null for a guest. */
+  tag: string | null;
   account: boolean;
   demo: boolean;
   matches: number;
@@ -69,6 +74,10 @@ export interface AuthDeps {
   log(event: string, fields?: Record<string, unknown>): void;
   /** Called after an account is deleted or signs out everywhere: drop its live sockets. */
   onGone(token: string): void;
+  /** Task 34: these players' friends or requests changed; push their lists. */
+  onFriends?(tokens: string[]): void;
+  /** Task 34: a player's name or look changed; their friends and party see it. */
+  onProfile?(token: string): void;
   clock?: () => number;
   /** Per address per minute: passkey ceremonies (each is two requests), and other writes. */
   limits?: { ceremony: number; write: number };
@@ -131,6 +140,7 @@ export function createAuth(deps: AuthDeps) {
 
   const me = (p: Player): Me => ({
     name: p.name,
+    tag: p.account && p.tag !== null ? showTag(p.tag) : null,
     account: p.account,
     demo: p.demo,
     matches: matchCountFor(db, p.token),
@@ -300,7 +310,8 @@ export function createAuth(deps: AuthDeps) {
         const r = rename(db, player.token, body.name);
         if (!r.ok) return json(res, r.status, { error: r.reason }), true;
         log("rename", { who: who(player.token) });
-        return json(res, 200, me({ ...player, name: r.name })), true;
+        deps.onProfile?.(player.token);
+        return json(res, 200, me({ ...player, name: r.name, tag: r.tag })), true;
       }
 
       case "/api/look": {
@@ -308,6 +319,7 @@ export function createAuth(deps: AuthDeps) {
         const r = setLook(db, player.token, body.look);
         if (!r.ok) return json(res, r.status, { error: r.reason }), true;
         log("look", { who: who(player.token) });
+        deps.onProfile?.(player.token);
         return json(res, 200, me(player)), true;
       }
 
@@ -318,6 +330,29 @@ export function createAuth(deps: AuthDeps) {
         if (!r.ok) return json(res, r.status, { error: r.reason, last: r.status === 409 }), true;
         log("passkey_remove", { who: who(player.token), remaining: r.remaining });
         return json(res, 200, me(player)), true;
+      }
+
+      // ---- task 34: friends. Accounts only; a person is only ever Name#1234 ----
+      case "/api/friends/add":
+      case "/api/friends/accept":
+      case "/api/friends/decline":
+      case "/api/friends/remove":
+      case "/api/friends/link/use": {
+        if (!player) return json(res, 401, { error: "Load the page first." }), true;
+        const arg = path === "/api/friends/link/use" ? body.code : body.who;
+        const fn = { "/api/friends/add": requestFriend, "/api/friends/accept": acceptFriend, "/api/friends/link/use": useFriendLink }[path as string];
+        const r: FriendResult = fn ? fn(db, player.token, arg, clock()) : path === "/api/friends/decline" ? declineFriend(db, player.token, arg) : removeFriend(db, player.token, arg);
+        if (!r.ok) return json(res, r.status, { error: r.reason }), true;
+        log(path.replace("/api/", "").replaceAll("/", "_"), { who: who(player.token), other: who(r.other), outcome: r.outcome });
+        deps.onFriends?.([player.token, r.other]);
+        return json(res, 200, { ok: true, outcome: r.outcome }), true;
+      }
+      case "/api/friends/link": {
+        if (!player) return json(res, 401, { error: "Load the page first." }), true;
+        const r = createFriendLink(db, player.token, clock());
+        if (!r.ok) return json(res, r.status, { error: r.reason }), true;
+        log("friends_link", { who: who(player.token) });
+        return json(res, 200, { code: r.code, expires: r.expires }), true;
       }
 
       // ---- delete: a fresh passkey check, then everything identifying goes ----
@@ -355,9 +390,11 @@ export function createAuth(deps: AuthDeps) {
           verified = null;
         }
         if (!verified?.verified) return json(res, 401, { error: "Confirm with one of this account's passkeys." }), true;
+        const friends = friendIds(db, player.token);
         const r = deleteAccount(db, player.token);
         if (!r.ok) return json(res, r.status, { error: r.reason }), true;
         log("account_delete", {});
+        deps.onFriends?.(friends);
         deps.onGone(player.token);
         return json(res, 200, { ok: true }, [clear(SESSION_COOKIE, host), clear(GUEST_COOKIE, host)]), true;
       }

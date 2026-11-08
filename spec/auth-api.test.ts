@@ -284,7 +284,10 @@ describe("display name over the API (task 17)", () => {
     const c = new Browser();
     await c.get("/api/me");
     await register(c, new SoftAuthenticator(base));
-    expect((await c.post("/api/name", { name: "racket queen" })).status).toBe(409);
+    // task 34: a shared name is allowed, with another tag
+    const shared = await c.post("/api/name", { name: "racket queen" });
+    expect(shared.status).toBe(200);
+    expect(shared.body.tag).not.toBe(ok.body.tag);
   });
 });
 
@@ -300,7 +303,7 @@ describe("demo accounts (task 17)", () => {
     expect((await b.post("/api/passkey/register/options")).status).toBe(403);
     expect((await b.post("/api/account/delete/options")).status).toBe(403);
     expect((await b.post("/api/account/delete", { response: { id: "x" } })).status).toBe(403);
-    expect(getPlayer(db, "demo-2")).toEqual({ token: "demo-2", name: "Demo Two", account: true, demo: true });
+    expect(getPlayer(db, "demo-2")).toEqual({ token: "demo-2", name: "Demo Two", account: true, demo: true, tag: 2 });
     // sign out goes back to a guest
     await b.post("/api/logout");
     expect((await b.get("/api/me")).body.demo).toBe(false);

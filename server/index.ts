@@ -8,13 +8,14 @@ import { WebSocketServer } from "ws";
 import type { WebSocket } from "ws";
 import { parseClientMsg } from "../shared/protocol.ts";
 import type { IncomingMessage } from "node:http";
-import { guestFor, lookOf, newGuestToken } from "./accounts.ts";
+import { guestFor, lookOf, newGuestToken, showTag } from "./accounts.ts";
 import type { Player } from "./accounts.ts";
 import { GUEST_COOKIE, createAuth, identify } from "./auth.ts";
 import { db, matchCountFor } from "./db.ts";
 import { allowedOrigin, cookie } from "./guard.ts";
 import { log, who } from "./log.ts";
-import { PING_MS, createRoom, getRoom, leaveRoom, onPong, roomCount, roomStats, send, sendPing } from "./rooms.ts";
+import { PING_MS, createRoom, getRoom, leaveRoom, onMatchEnd, onPong, roomCount, roomStats, send, sendPing } from "./rooms.ts";
+import { Social } from "./social.ts";
 import type { Client } from "./rooms.ts";
 
 const PORT = Number(process.env.PORT ?? 8080);
@@ -96,12 +97,19 @@ async function serveFile(res: ServerResponse, root: string, relPath: string, imm
 
 // every live socket per player, so deleting an account can drop them
 const sockets = new Map<string, Set<WebSocket>>();
+// task 34: friends' status and parties, pushed on each tab's one socket
+const social = new Social({ db, log, createRoom: (game) => createRoom(game, false), timers: true });
+onMatchEnd((room, tokens, winner) => social.matchEnded(room, tokens, winner));
+// a room can close or a match end with no message from a player: re-check who is doing what
+setInterval(() => social.sweep(), 2000).unref();
 const auth = createAuth({
   db,
   log,
   onGone: (token) => {
     for (const ws of sockets.get(token) ?? []) ws.close(4001, "account deleted");
   },
+  onFriends: (tokens) => social.friendsChanged(tokens),
+  onProfile: (token) => social.profileChanged(token),
 });
 
 const http = createServer(async (req, res) => {
@@ -131,6 +139,7 @@ const http = createServer(async (req, res) => {
         connections: wss.clients.size,
         playersOnline: sockets.size,
         ...roomStats(),
+        parties: social.stats(),
         memory: { rssMb: mb(mem.rss), heapUsedMb: mb(mem.heapUsed), limitMb: MEMORY_LIMIT_MB, usedPercent: Math.round((mem.rss / (MEMORY_LIMIT_MB * 1024 * 1024)) * 100) },
       }),
     );
@@ -252,9 +261,12 @@ wss.on("connection", (ws: WebSocket, req: IncomingMessage) => {
       // who this is was settled from the cookies when the socket opened; the
       // client never says who it is (task 17)
       hello = true;
-      send(client, { t: "welcome", name: player.name, account: player.account, demo: player.demo, matches: matchCountFor(player.token), look: client.look ?? null });
+      const tag = player.account && player.tag !== null ? showTag(player.tag) : null;
+      send(client, { t: "welcome", name: player.name, account: player.account, demo: player.demo, matches: matchCountFor(player.token), look: client.look ?? null, tag });
       log("hello", { who: id, account: player.account });
       sendPing(client);
+      // task 34: the friends list and party, once on (re)connect, so nothing missed is lost
+      if (!social.has(client)) social.connect(client, player, msg.status);
       return;
     }
     if (msg.t === "pong") {
@@ -347,7 +359,15 @@ wss.on("connection", (ws: WebSocket, req: IncomingMessage) => {
       case "leave":
         leaveRoom(client);
         break;
+      case "status":
+      case "idle":
+      case "invite":
+      case "party":
+        social.message(client, msg);
+        break;
     }
+    // what friends see of you may have changed (a room joined or left)
+    if (msg.t === "create" || msg.t === "join" || msg.t === "leave") social.refresh(client.token);
   });
 
   ws.on("close", (code, reason) => {
@@ -357,6 +377,7 @@ wss.on("connection", (ws: WebSocket, req: IncomingMessage) => {
     if (mine.size === 0) sockets.delete(player.token);
     // a dropped connection mid-match holds the seat for 30 s (task 4)
     leaveRoom(client, true);
+    social.disconnect(client);
   });
   ws.on("error", (e) => {
     log("error", { where: "ws", who: id, message: e.message });

@@ -48,6 +48,8 @@ export interface RoomDeps {
   timer: boolean;
   timing: Partial<Timing>;
   onDestroy(room: Room): void;
+  /** Task 34: a match finished with a result (a party rotates who plays next). Optional. */
+  onMatchEnd?(room: Room, tokens: [string | null, string | null], winner: 0 | 1 | null): void;
 }
 
 const BROADCAST_EVERY = 2;
@@ -664,6 +666,7 @@ export class Room {
         ...this.seatsForRecord(),
       });
       this.deps.log("match_end", { room: this.id, score: result.score, sets: result.sets, format: result.format, winner: result.winner });
+      this.deps.onMatchEnd?.(this, this.seatTokens(), result.winner);
       // back to the ready check for a rematch; the finished game stays on
       // screen until the next one starts
       this.lobby.endMatch();

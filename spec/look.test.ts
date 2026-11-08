@@ -161,10 +161,17 @@ describe("schema v7 (task 33): stored task-18 looks in the new shape", () => {
   it("opens a v6 database with task-18 looks: each loads as its mapped new look, the rest kept", () => {
     const path = freshFile();
     let db = new DatabaseSync(path);
-    // a v6 database: the real steps up to 6 (step 7 adds no table or column),
-    // task-18 looks written as task 18 wrote them, and the version put back to 6
+    // a v6 database: the real steps up to 6 (step 7 adds no table or column;
+    // step 8, task 34's tags and friends tables, is undone), task-18 looks
+    // written as task 18 wrote them, and the version put back to 6
     migrate(db);
-    db.exec("UPDATE schema_version SET version = 6");
+    db.exec(`
+      DROP TABLE friendships; DROP TABLE friend_requests; DROP TABLE friend_links;
+      DROP INDEX players_name_tag;
+      ALTER TABLE players DROP COLUMN tag;
+      CREATE UNIQUE INDEX players_account_name ON players (lower(name)) WHERE account = 1;
+      UPDATE schema_version SET version = 6;
+    `);
     const insert = db.prepare("INSERT INTO players (token, name, created_at, account, look) VALUES (?, ?, 0, 1, ?)");
     OLD_LOOKS.forEach((old, i) => insert.run(`acct-${i}`, `Player ${i}`, JSON.stringify(old)));
     insert.run("no-look", "No Look", null);

@@ -18,6 +18,8 @@ export interface Player {
   name: string;
   account: boolean;
   demo: boolean;
+  /** Task 34: an account's 4-digit tag (0-9999, shown as #0042); null for a guest. */
+  tag: number | null;
 }
 
 export const SESSION_DAYS = 90;
@@ -31,18 +33,58 @@ const GUEST_TOKEN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{1
 // from the public board. The client only ever asks for "demo 1 or 2".
 export const DEMO_TOKENS = { 1: "demo-1", 2: "demo-2" } as const;
 const DEMO_NAMES = { 1: "Demo One", 2: "Demo Two" } as const;
+// task 34: the demo accounts' fixed tags, Demo One#0001 and Demo Two#0002
+const DEMO_TAGS = { 1: 1, 2: 2 } as const;
 
-type Row = { token: string; name: string; account: number; demo: number };
-const toPlayer = (r: Row): Player => ({ token: r.token, name: r.name, account: r.account === 1, demo: r.demo === 1 });
+type Row = { token: string; name: string; account: number; demo: number; tag: number | null };
+const toPlayer = (r: Row): Player => ({ token: r.token, name: r.name, account: r.account === 1, demo: r.demo === 1, tag: r.account === 1 ? r.tag : null });
+const COLS = "token, name, account, demo, tag";
+
+/** Task 34: how many tags a name has (0000 to 9999). */
+export const TAGS = 10_000;
+export const ALL_TAGS_TAKEN = "Every number for that name is taken. Please pick another name.";
+/** A tag as shown: always four digits. */
+export const showTag = (tag: number): string => String(tag).padStart(4, "0");
+
+/**
+ * A free tag for `name` among accounts (ignoring case), or null if all 10,000
+ * are taken. `prefer` (a rename keeps its tag) is used when free; otherwise a
+ * random one, so tags say nothing about when someone joined. `except`: the
+ * account itself, whose own row doesn't block it.
+ */
+export function freeTag(db: DatabaseSync, name: string, prefer: number | null = null, except = ""): number | null {
+  const taken = new Set(
+    (db.prepare("SELECT tag FROM players WHERE account = 1 AND lower(name) = lower(?) AND token <> ? AND tag IS NOT NULL").all(name, except) as { tag: number }[]).map((r) => r.tag),
+  );
+  if (prefer !== null && !taken.has(prefer)) return prefer;
+  if (taken.size >= TAGS) return null;
+  for (let i = 0; i < 40; i++) {
+    const t = Math.floor(Math.random() * TAGS);
+    if (!taken.has(t)) return t;
+  }
+  // nearly full: walk from a random start
+  const start = Math.floor(Math.random() * TAGS);
+  for (let i = 0; i < TAGS; i++) {
+    const t = (start + i) % TAGS;
+    if (!taken.has(t)) return t;
+  }
+  return null;
+}
+
+/** The account with this name (ignoring case) and tag, if any. */
+export function findByTag(db: DatabaseSync, name: string, tag: number): Player | null {
+  const r = db.prepare(`SELECT ${COLS} FROM players WHERE account = 1 AND lower(name) = lower(?) AND tag = ?`).get(name, tag) as Row | undefined;
+  return r ? toPlayer(r) : null;
+}
 
 export function seedDemoAccounts(db: DatabaseSync): void {
   for (const n of [1, 2] as const) {
-    db.prepare("INSERT OR IGNORE INTO players (token, name, created_at, account, demo) VALUES (?, ?, 0, 1, 1)").run(DEMO_TOKENS[n], DEMO_NAMES[n]);
+    db.prepare("INSERT OR IGNORE INTO players (token, name, created_at, account, demo, tag) VALUES (?, ?, 0, 1, 1, ?)").run(DEMO_TOKENS[n], DEMO_NAMES[n], DEMO_TAGS[n]);
   }
 }
 
 export function getPlayer(db: DatabaseSync, token: string): Player | null {
-  const r = db.prepare("SELECT token, name, account, demo FROM players WHERE token = ?").get(token) as Row | undefined;
+  const r = db.prepare(`SELECT ${COLS} FROM players WHERE token = ?`).get(token) as Row | undefined;
   return r ? toPlayer(r) : null;
 }
 
@@ -63,7 +105,7 @@ export function guestFor(db: DatabaseSync, token: string | undefined, now = Date
   if (found) return found.account ? null : found;
   const name = pseudonym();
   db.prepare("INSERT INTO players (token, name, created_at) VALUES (?, ?, ?)").run(token, name, now);
-  return { token, name, account: false, demo: false };
+  return { token, name, account: false, demo: false, tag: null };
 }
 
 // ---- sessions: 256 random bits in the cookie, only a hash in the db ----
@@ -81,7 +123,7 @@ export function createSession(db: DatabaseSync, player: string, now = Date.now()
 export function sessionPlayer(db: DatabaseSync, cookie: string | undefined, now = Date.now()): Player | null {
   if (!cookie || cookie.length > 100) return null;
   const r = db
-    .prepare("SELECT p.token, p.name, p.account, p.demo FROM sessions s JOIN players p ON p.token = s.player WHERE s.hash = ? AND s.expires_at > ? AND p.account = 1")
+    .prepare("SELECT p.token, p.name, p.account, p.demo, p.tag FROM sessions s JOIN players p ON p.token = s.player WHERE s.hash = ? AND s.expires_at > ? AND p.account = 1")
     .get(hash(cookie), now) as Row | undefined;
   return r ? toPlayer(r) : null;
 }
@@ -144,8 +186,8 @@ const LOCKED = refuse(403, "Demo accounts are locked.");
 
 /**
  * Stores a verified passkey for `player`. A guest becomes an account here,
- * keeping its token, so its match history stays; its pseudonym is kept (made
- * unique among accounts if another account already has it).
+ * keeping its token, so its match history stays; its pseudonym is kept, with
+ * a random free tag (task 34; a new pseudonym only if all its tags are taken).
  */
 export function addPasskey(db: DatabaseSync, player: string, key: Omit<StoredPasskey, "createdAt" | "lastUsedAt">, now = Date.now()): Result {
   const p = getPlayer(db, player);
@@ -156,8 +198,12 @@ export function addPasskey(db: DatabaseSync, player: string, key: Omit<StoredPas
   try {
     if (!p.account) {
       let name = p.name;
-      while (db.prepare("SELECT 1 FROM players WHERE account = 1 AND lower(name) = lower(?)").get(name)) name = pseudonym();
-      db.prepare("UPDATE players SET account = 1, name = ? WHERE token = ?").run(name, player);
+      let tag = freeTag(db, name);
+      while (tag === null) {
+        name = pseudonym();
+        tag = freeTag(db, name);
+      }
+      db.prepare("UPDATE players SET account = 1, name = ?, tag = ? WHERE token = ?").run(name, tag, player);
     }
     db.prepare("INSERT INTO passkeys (id, player, public_key, counter, transports, created_at) VALUES (?, ?, ?, ?, ?, ?)").run(
       key.id,
@@ -191,22 +237,27 @@ export function removePasskey(db: DatabaseSync, player: string, id: string, conf
   return { ok: true, remaining: keys.length - 1 };
 }
 
-/** An account picks its display name: checked here, unique ignoring case. */
-export function rename(db: DatabaseSync, player: string, raw: unknown): Result<{ name: string }> {
+/**
+ * An account picks its display name, checked here. Task 34: several accounts
+ * may share a name; name (ignoring case) and tag together are unique. The
+ * tag is kept if it is free under the new name, else a random free one; if
+ * all 10,000 are taken the user is told to pick another name.
+ */
+export function rename(db: DatabaseSync, player: string, raw: unknown): Result<{ name: string; tag: number }> {
   const p = getPlayer(db, player);
   if (!p?.account) return refuse(403, "Guests keep a server-made name. Add a passkey to choose one.");
   if (p.demo) return LOCKED;
   const check = checkChosenName(raw);
   if (!check.ok) return refuse(400, check.reason);
-  const taken = db.prepare("SELECT 1 FROM players WHERE account = 1 AND lower(name) = lower(?) AND token <> ?").get(check.name, player);
-  if (taken) return refuse(409, "That name is taken.");
+  const tag = freeTag(db, check.name, p.tag, player);
+  if (tag === null) return refuse(409, ALL_TAGS_TAKEN);
   try {
-    db.prepare("UPDATE players SET name = ? WHERE token = ?").run(check.name, player);
+    db.prepare("UPDATE players SET name = ?, tag = ? WHERE token = ?").run(check.name, tag, player);
   } catch {
     // the unique index caught a race
-    return refuse(409, "That name is taken.");
+    return refuse(409, "That name and number were just taken. Try again.");
   }
-  return { ok: true, name: check.name };
+  return { ok: true, name: check.name, tag };
 }
 
 /**
@@ -228,6 +279,9 @@ export function deleteAccount(db: DatabaseSync, player: string): Result {
     for (const t of ACCOUNT_TABLES) {
       if (db.prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?").get(t)) db.prepare(`DELETE FROM ${t} WHERE player = ?`).run(player);
     }
+    // task 34: friendships and requests either way go with the account
+    db.prepare("DELETE FROM friendships WHERE a = ? OR b = ?").run(player, player);
+    db.prepare("DELETE FROM friend_requests WHERE sender = ? OR recipient = ?").run(player, player);
     db.prepare("DELETE FROM players WHERE token = ?").run(player);
     db.exec("COMMIT");
   } catch (e) {
@@ -238,7 +292,7 @@ export function deleteAccount(db: DatabaseSync, player: string): Result {
 }
 
 // Per-player tables from later schema steps that go with the account.
-const ACCOUNT_TABLES = ["ratings"];
+const ACCOUNT_TABLES = ["ratings", "friend_links"];
 
 /** An account's saved look, or null (the seat's default). Guests never have one. */
 export function lookOf(db: DatabaseSync, player: string): Look | null {

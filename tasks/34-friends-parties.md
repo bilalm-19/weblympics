@@ -1,6 +1,6 @@
 # 34 Friends, status, parties and name tags
 
-Status: designed with the user (2026-11-08); proposals 1-3 and 5 accepted, parties amended (4). Not built. Built only if basketball and bowling merge cleanly by Sunday evening; otherwise after the deadline.
+Status: built on branch `friends-34` (agent, 2026-11-08): schema step 7 (to renumber after integrate-rest's step), server, client, specs and e2e green on the agent's own port. Not merged. Designed with the user (2026-11-08); proposals 1-3 and 5 accepted, parties amended (4).
 Model: Opus 5.5
 Waits on: the basketball and bowling merges (they change the protocol and rooms).
 
@@ -60,9 +60,14 @@ Waits on: the basketball and bowling merges (they change the protocol and rooms)
   (`who(token)` only).
 
 ## Done when
-- [ ] Each rule above in a spec that fails without it.
-- [ ] Both viewports; keyboard reachable; e2e for adding a friend, an
-      invite, a party playing and rotating.
-- [ ] CLAUDE.md, README and spec agree (the "unique ignoring case" name
-      rule replaced by the tag rule).
-- [ ] `pnpm check` and `pnpm e2e --workers=1` green.
+- [x] Each rule above in a spec that fails without it
+      (`spec/friends-rules`, `friends-api`, `party-rules`, `party-social`,
+      `stats-logging`).
+- [x] Both viewports; keyboard reachable; e2e for adding a friend, an
+      invite, a party playing and rotating (`e2e/friends-panel`,
+      `e2e/friends-party`).
+- [x] CLAUDE.md, README and spec agree (the "unique ignoring case" name
+      rule replaced by the tag rule; README makes no claim about names).
+- [~] `pnpm check` green; e2e run for the friends files plus `home` and
+      `accounts` only (another agent was running e2e); the whole suite runs
+      at the merge.
