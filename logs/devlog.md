@@ -1773,3 +1773,21 @@ the format of the entries below (see CLAUDE.md, Docs).
 - Who: Claude, from the user's notes; mock still uncommitted.
 - 17:31 follow-up: removed the bowler's ears (user asked if they made it look off; no other preview figure has ears), added a small neck instead. Who: user (spotted), Claude.
 - 17:32 queued as task 36 (`tasks/36-home-redesign.md`), mock committed for the build agent; starts once integrate-rest is on main. Who: user (approved, "happy to queue this up"), Claude.
+
+## 2026-11-08 17:36 · decision · Tasks 34 and 27 start beside the integration
+- What: the user asked why everything waited on one integration agent. Merging stays one agent (bowling, looks and customisation edit the same files, each merge builds on the last), but work that barely overlaps can start now. User: "yea". Started two Opus 5.5 agents from main, each in its own worktree: task 34 friends/parties (branch friends-34, port 8234) and task 27 hurdles (branch hurdles-27, port 8227). Told them: follow CLAUDE.md; APP_URL on their own port; e2e headless, only their own files (others run e2e too), never e2e:gpu; a new schema step numbered after main's and reported for renumbering (34); keep friends UI in its own modules styled like the approved mock since task 36 redoes the menu (34); keep lane.ts changes in separate functions since the looks branch changes it first (27); decide and report whether hurdles shares track's rating (27).
+- Task 25 (calibration fix, settings on the account) held: the user asked whether other sports should calibrate too, so its scope is being settled first.
+- Who: user (go-ahead), Claude (the split and briefs).
+
+## 2026-11-08 17:37 · decision · Calibration for basketball and bowling (task 25 round 3)
+- What: the user asked whether other sports should calibrate. Track and boxing already adapt to the player, archery has nothing speed-based, but basketball and bowling read power from movement speed against fixed guesses. User: "yes" to a quick optional soft/hard step for each, saved with the account's settings. Task 25 started (Opus 5.5, branch swing-25, port 8225); bowling's part waits for bowling on main.
+- Who: user (decided), Claude (proposal, brief).
+
+## 2026-11-08 17:40 · decision · Sound (task 19): the open questions settled
+- What: boxing gets a crowd round the ring, archery and bowling a few onlookers and quiet applause; practice keeps the crowd quieter, training has none; music on by default, quiet, after the first gesture, off with the music button and remembered (browser for guests, account settings for accounts); the crowd starts synthesised and is judged by ear, swappable for CC0 clips. All four as Claude proposed. Task 19 starts once bowling is on main.
+- Who: user (decided), Claude (proposals).
+
+## 2026-11-08 17:47 · decision · Ratings and the leaderboard go; match stats instead (task 37)
+- What: the user proposed removing the leaderboard and rated matches for match stats only; Claude agreed (friends and parties make Elo among a few people meaningless, and it removes the rated option, its rules and the draw question). Decided: per sport played/won/lost/drawn and one record; hurdles gets its own stats apart from the sprint; only finished two-person matches count (unlimited and practice count for nothing, records included); shown in the profile and on a friend's from the friends list with head-to-head; guests see their own. Match rows stay; a new schema step drops ratings. Task 37, after integrate-rest and 34.
+- Sent to the hurdles agent: no separate hurdles rating; then (after the user said hurdles needs its own stats) store the event ("sprint"/"hurdles"), finish times and hurdles cleared/hit in the match row's existing result data, no schema change, with a spec.
+- Who: user (decided), Claude (agreed, proposals, messages).
