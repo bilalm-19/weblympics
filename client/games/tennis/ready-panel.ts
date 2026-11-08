@@ -32,6 +32,8 @@ const FORMAT_NOTES: Record<RoomFormat, string> = {
 const UNLIMITED_ARCHERY = "Random distance and wind every stage, as long as you like; points and best arrow are counted. No winner, not rated.";
 // track's unlimited runs race after race
 const UNLIMITED_TRACK = "Race after race, as long as you like; races won and best times are counted. No winner, not rated.";
+// bowling's unlimited bowls game after game
+const UNLIMITED_BOWLING = "Game after game, as long as you like; games won and the best score are counted. No winner, not rated.";
 // boxing's unlimited boxes bout after bout
 const UNLIMITED_BOXING = "Bout after bout, as long as you like; bouts won and knockouts are counted. No winner, not rated.";
 // basketball's unlimited shoots from a random spot every turn
@@ -67,6 +69,7 @@ export function createReadyPanel(
     ...(formats.includes("race") ? { unlimited: UNLIMITED_TRACK } : {}),
     ...(formats.includes("bout") ? { unlimited: UNLIMITED_BOXING } : {}),
     ...(formats.includes("shootout") ? { unlimited: UNLIMITED_BASKETBALL } : {}),
+    ...(formats.includes("game") ? { unlimited: UNLIMITED_BOWLING } : {}),
   };
   const el = document.createElement("section");
   el.className = "ready-panel";

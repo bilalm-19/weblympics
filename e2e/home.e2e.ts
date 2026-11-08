@@ -256,7 +256,9 @@ test("the mouse cursor on the home screen is the arrow (task 23); the game keeps
     for (const sel of [".menu", ".menu .pill", ".sport"]) expect(await cursorOf(sel)).not.toContain("data:image/svg+xml");
     return;
   }
-  for (const sel of [".menu", ".menu .pill", ".sport", ".menu a", '.sport[aria-disabled="true"]']) {
+  // a coming-soon tile, if any is left (task 29 made bowling, the last one, playable)
+  const soon = (await page.locator('.sport[aria-disabled="true"]').count()) > 0 ? ['.sport[aria-disabled="true"]'] : [];
+  for (const sel of [".menu", ".menu .pill", ".sport", ".menu a", ...soon]) {
     const c = await cursorOf(sel);
     expect(c, sel).toContain("data:image/svg+xml");
     // the hotspot is the arrow's tip

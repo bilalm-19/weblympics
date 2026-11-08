@@ -42,6 +42,9 @@ async function openBasketball(page: Page): Promise<void> {
 
 /** The camera setup opens first for a seated player (task 15); take the keyboard way. */
 async function useKeyboard(page: Page): Promise<void> {
+  // the view (and with it the setup, opened in the same task) appears only
+  // once the server's room message arrives: look for the dialog after that
+  await page.locator(".game.basketball").waitFor({ state: "attached" });
   const panel = page.getByRole("dialog", { name: /camera setup/i });
   if (await panel.isVisible().catch(() => false)) {
     await panel.getByRole("button", { name: /use keyboard instead/i }).click();
@@ -73,8 +76,8 @@ test("the basketball tile is playable, has its own looping preview and opens its
   await expect(tile.locator(".sport-soon")).toHaveCount(0);
   await expect(page.locator(".thumb-frame .loop-hoop-ball")).toHaveCount(1);
   for (const name of ["Play vs bot", "Practice", "Create a room"]) await expect(page.getByRole("button", { name, exact: true })).toBeVisible();
-  // Bowling's placeholder stays
-  await expect(page.locator('.sport[data-sport="bowling"]')).toHaveAttribute("aria-disabled", "true");
+  // bowling (task 29) is playable beside it, not a placeholder
+  await expect(page.locator('.sport[data-sport="bowling"]')).not.toHaveAttribute("aria-disabled", "true");
   expect(await noHorizontalScroll(page)).toBe(true);
 });
 

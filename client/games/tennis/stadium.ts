@@ -450,9 +450,18 @@ function crowd(scene: Object3D): CrowdHandle {
 }
 
 /**
+ * The instanced crowd for any seat layout in tennis's section colours:
+ * bowling's seating behind the approach (task 29). Seeded, so a layout
+ * always looks the same.
+ */
+export function crowdMeshes(scene: Object3D, layout: CrowdLayout, seed = 43): CrowdHandle {
+  return seatCrowd(scene, layout, SECTION_COLOUR, seed);
+}
+
+/**
  * Seats a crowd: one instanced mesh of bodies and one of heads for `layout`'s
- * seats, a share of each section's fans in its colour. Tennis's arena and
- * basketball's bleachers (task 32) both use it.
+ * seats, a share of each section's fans in its colour. Tennis's arena,
+ * basketball's bleachers (task 32) and bowling's seating (task 29) use it.
  */
 export function seatCrowd(scene: Object3D, layout: CrowdLayout, sectionColour: Partial<Record<CrowdSection, number>>, seed = 43): CrowdHandle {
   const rand = rng(seed);
