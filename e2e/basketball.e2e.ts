@@ -291,6 +291,25 @@ test("a room offers Shootout and Unlimited; a spectator sees the match with no c
   await watcher.context().close();
 });
 
+test("in a room, the camera setup is on top: nothing covers \"Use keyboard instead\" (a phone stacked the ready panel over it)", async ({ page }) => {
+  await openBasketball(page);
+  await page.getByRole("button", { name: "Create a room", exact: true }).click();
+  await expect(page).toHaveURL(/#\/room\/[A-Z]{4}$/);
+  const panel = page.getByRole("dialog", { name: /camera setup/i });
+  await expect(panel).toBeVisible();
+  const keys = panel.getByRole("button", { name: /use keyboard instead/i });
+  const b = (await keys.boundingBox())!;
+  // the element under the button's middle must be the button itself
+  const onTop = await page.evaluate(([x, y]) => {
+    const el = document.elementFromPoint(x, y);
+    return !!el && !!el.closest("[data-step=keys], button") && /use keyboard instead/i.test(el.closest("button")?.textContent ?? "");
+  }, [b.x + b.width / 2, b.y + b.height / 2]);
+  expect(onTop, "Use keyboard instead is covered").toBe(true);
+  await keys.click({ trial: true, timeout: 3000 });
+  await useKeyboard(page);
+  await expect(page.locator(".ready-panel")).toBeVisible();
+});
+
 test("the phone layout: the Shoot and aim buttons reachable, the canvas not clipped", async ({ page }) => {
   await openBasketball(page);
   await startPractice(page);

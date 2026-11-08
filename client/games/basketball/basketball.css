@@ -406,3 +406,15 @@
     animation: none;
   }
 }
+
+/* the camera setup is a dialog: it sits above the ready panel and the
+   buttons, which step aside while it is open (as archery's and tennis's do);
+   on a phone the ready panel otherwise covered "Use keyboard instead" */
+.basketball .camera-panel {
+  z-index: 5;
+}
+
+.basketball:has(.camera-panel:not([hidden])) .ready-panel,
+.basketball:has(.camera-panel:not([hidden])) .bb-controls {
+  visibility: hidden;
+}
