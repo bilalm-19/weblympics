@@ -1934,3 +1934,9 @@ the format of the entries below (see CLAUDE.md, Docs).
 - What: main gained bowling (and task 33's schema 7), so main was merged in. Task 25's schema step is now 8. Bowling's camera setup has an optional "Calibrate speed" in its swing step: roll soft twice, then hard twice; the crossing speeds' medians go onto `speed0`/`speed1` through the same `powerRangeFrom` as basketball, with the same fallback and message. Saved as `bowling.speed` in the camera settings (closed, checked on the server).
 - Seen: before merging main, three basketball e2e (vs the bot, and the tie vote on a phone) failed the same way on the branch's code from before any basketball change, so not task 25's; after the merge all 44 bowling, basketball and accounts e2e pass at both viewports.
 - Who: agent; the user's round 3 decision.
+
+## 2026-11-08 20:06 · milestone · Calibration and camera settings (task 25) on main; a friends regression caught
+- What: Claude merged swing-25 on integrate-swing; its schema step became 9 (friends is 8), and the migration specs undo 9 and 8 when rolling back. `pnpm check` 1081/1081. E2e (camera, training, track, archery, accounts, basketball, bowling) 117 passed, 3 failed: `e2e/camera.e2e.ts` "sends no video" at both viewports failed for real, and a hurdles camera test timed out on the model load (passed alone).
+- Bug: task 34 added two socket messages (`idle`, `status`) that the camera privacy e2e's allow-list didn't know, so that test failed on main since the friends merge (the friends agent ran only its own e2e). Fixed by allowing them (presence only, under 200 bytes); the failing test is the test. Both re-runs then 4/4. Main fast-forwarded. Not pushed.
+- Lesson: agents' e2e scope "only your own files" let a cross-cutting test break; the final full e2e before shipping must catch the rest.
+- Who: agent (task 25), Claude (merge, fix).
