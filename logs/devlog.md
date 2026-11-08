@@ -2044,3 +2044,7 @@ the format of the entries below (see CLAUDE.md, Docs).
 ## 2026-11-08 21:27 · decision · Home redesign (task 36) started, late
 - What: the user asked whether the new home screen was in. It wasn't: task 36 was queued to start once integrate-rest was on main (about 18:45), and Claude didn't start it then, a miss. Started now (Opus 5.5, branch home-36, port 8236): port the approved mock into menu.ts with the real SPORTS, buttons, party (SocialState), looks, Friends and sound buttons; keep keyboard navigation and the existing e2e; delete the mock files; check 1920x1080, 1366x657 and 390x844; e2e on the GPU (OK'd tonight), only its files.
 - Who: user (asked), Claude (start, brief).
+
+## 2026-11-08 21:31 · decision · Merges handed to Sonnet agents
+- What: the user asked whether a separate Sonnet session should do the merges, to save tokens (this session's context is long). Claude advised against two sessions merging into main and port 8299 at once, and proposed handing each merge to a Sonnet agent from this session instead (it resolves, builds and tests in its own fresh context; Claude reads its report and alone moves main). User: "ok do your sonnet way". Applies to the three still building: tennis fixes, track feel, home redesign.
+- Who: user (decided), Claude (proposal).
