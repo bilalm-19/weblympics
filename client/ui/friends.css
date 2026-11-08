@@ -1,0 +1,474 @@
+/* Task 34: the Friends button beside the profile button, and the friends
+   panel (client/ui/friends.ts), after the approved mock
+   (client/mock-home.html): a popover under the top bar on desktop, a bottom
+   sheet on a phone. The party panel (party.css) shares the sheet. */
+.menu-corner {
+  gap: 0.5rem;
+}
+
+.fr-button,
+.pt-button {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-height: 52px;
+  padding: 0 1rem 0 0.8rem;
+  border: 2px solid #8fb3d1;
+  border-radius: 999px;
+  background: linear-gradient(180deg, #ffffff, #dcebf7);
+  color: #12385e;
+  font: 600 1rem "Fredoka", ui-rounded, system-ui, sans-serif;
+  box-shadow:
+    inset 0 0 0 2px #fff,
+    0 3px 0 #9fbcd4;
+  cursor: pointer;
+  position: relative;
+}
+
+.pt-button[hidden] {
+  display: none;
+}
+
+.fr-button[aria-expanded="true"],
+.pt-button[aria-expanded="true"] {
+  border-color: #0081c8;
+}
+
+.fr-button:focus-visible,
+.pt-button:focus-visible {
+  outline: 3px solid #0b63c4;
+  outline-offset: 3px;
+}
+
+.fr-icon {
+  display: flex;
+  color: #0b5aa8;
+}
+
+.fr-count {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: #3d5873;
+}
+
+.fr-badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 5px;
+  border-radius: 10px;
+  background: #c8102e;
+  color: #fff;
+  font-size: 0.75rem;
+  font-weight: 700;
+  line-height: 20px;
+  text-align: center;
+}
+
+.sdot {
+  display: inline-block;
+  flex: none;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #2fa84f;
+  box-shadow: 0 0 0 2px #fff;
+}
+
+.sdot--away {
+  background: #f2c230;
+}
+
+.sdot--offline {
+  background: #9aa7b3;
+}
+
+/* ---- the sheet: popover on desktop ---- */
+dialog.sheet {
+  position: fixed;
+  inset: 76px 16px auto auto;
+  margin: 0;
+  width: min(380px, calc(100vw - 32px));
+  max-height: calc(100dvh - 96px);
+  padding: 0;
+  overflow: auto;
+  border: 0;
+  border-radius: 22px;
+  background: #fff;
+  color: #12385e;
+  font-family: "Fredoka", ui-rounded, system-ui, sans-serif;
+  box-shadow: 0 18px 50px #12304a4d;
+}
+
+dialog.sheet::backdrop {
+  background: #12304a33;
+}
+
+.fr-head {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px 8px;
+  background: #fff;
+}
+
+.fr-head h2 {
+  margin: 0;
+  font-size: 1.25rem;
+}
+
+.fr-x {
+  width: 44px;
+  height: 44px;
+  border: 0;
+  border-radius: 50%;
+  background: #eef4fa;
+  color: #12385e;
+  font-size: 1rem;
+  cursor: pointer;
+}
+
+.fr-note {
+  margin: 0 16px 16px;
+  color: #3d5873;
+  line-height: 1.45;
+}
+
+.fr-mystatus {
+  display: flex;
+  gap: 6px;
+  padding: 0 16px 10px;
+}
+
+.fr-mystatus button {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 44px;
+  padding: 6px 4px;
+  border: 2px solid #dbe6f0;
+  border-radius: 14px;
+  background: #fff;
+  color: #12385e;
+  font: 600 0.85rem inherit;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.fr-mystatus button[aria-pressed="true"] {
+  border-color: #0081c8;
+  background: #eaf3ff;
+}
+
+.fr-mystatus .sdot {
+  box-shadow: none;
+}
+
+.fr-me {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 0 16px 10px;
+  font-size: 0.9rem;
+  color: #3d5873;
+}
+
+.fr-me-tag {
+  color: #12385e;
+  overflow-wrap: anywhere;
+}
+
+.fr-link,
+.pt-secondary,
+.pt-small {
+  min-height: 44px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 12px;
+  background: #e6eefc;
+  color: #1f4f9a;
+  font: 600 0.85rem inherit;
+  font-family: inherit;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.fr-add {
+  display: flex;
+  gap: 6px;
+  padding: 0 16px 6px;
+}
+
+.fr-add input {
+  flex: 1;
+  min-width: 0;
+  min-height: 44px;
+  padding: 8px 12px;
+  border: 2px solid #dbe6f0;
+  border-radius: 14px;
+  font: 1rem inherit;
+  font-family: inherit;
+  color: #12385e;
+}
+
+.fr-add button {
+  min-height: 44px;
+  padding: 0 16px;
+  border: 0;
+  border-radius: 14px;
+  background: #0b63c4;
+  color: #fff;
+  font: 600 1rem inherit;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.fr-msg,
+.pt-msg {
+  min-height: 1.2em;
+  margin: 0;
+  padding: 0 16px 6px;
+  font-size: 0.85rem;
+  color: #3d5873;
+}
+
+.fr-list {
+  padding: 0 8px 12px;
+}
+
+.fr-partybar {
+  padding: 4px 8px 6px;
+}
+
+.fr-partybtn,
+.pt-primary {
+  width: 100%;
+  min-height: 48px;
+  border: 0;
+  border-radius: 14px;
+  background: #f1e6ff;
+  color: #4b2a85;
+  font: 700 1rem inherit;
+  font-family: inherit;
+  box-shadow: 0 4px 0 #c3a6ea;
+  cursor: pointer;
+}
+
+.fr-group {
+  margin: 12px 8px 4px;
+  font-size: 0.75rem;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: #3d5873;
+}
+
+.fr-ul,
+.pt-members,
+.pt-invites {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.fr-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 8px;
+  border-radius: 14px;
+}
+
+.fr-row:hover {
+  background: #f3f8fc;
+}
+
+.fr-row--off {
+  opacity: 0.7;
+}
+
+.fr-av {
+  position: relative;
+  flex: none;
+  width: 38px;
+  height: 38px;
+}
+
+.fr-av .look-svg {
+  display: block;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: #dff1ff;
+}
+
+.fr-av .sdot {
+  position: absolute;
+  right: -1px;
+  bottom: -1px;
+}
+
+.fr-who {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  line-height: 1.2;
+}
+
+.fr-name {
+  overflow: hidden;
+  font-weight: 600;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.fr-tag {
+  margin-left: 2px;
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: #3d5873;
+}
+
+.fr-doing {
+  overflow: hidden;
+  font-size: 0.8rem;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: #3d5873;
+}
+
+.fr-acts,
+.fr-req {
+  display: flex;
+  flex: none;
+  gap: 6px;
+}
+
+.fr-act,
+.fr-ok,
+.fr-no,
+.fr-remove {
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 12px;
+  font: 600 0.85rem inherit;
+  font-family: inherit;
+  white-space: nowrap;
+  cursor: pointer;
+  background: #f1e6ff;
+  color: #4b2a85;
+}
+
+.fr-act--watch {
+  background: #e6eefc;
+  color: #1f4f9a;
+}
+
+.fr-act--join {
+  background: #d9f5e3;
+  color: #1d6b39;
+}
+
+.fr-act:disabled {
+  background: #eef1f4;
+  color: #4f5f6e;
+  cursor: default;
+}
+
+.fr-ok {
+  background: #1d7a3a;
+  color: #fff;
+}
+
+.fr-no,
+.fr-remove {
+  background: #eef1f4;
+  color: #12385e;
+}
+
+.fr-remove.is-armed {
+  background: #ffe1e6;
+  color: #8a0f25;
+}
+
+.fr-empty {
+  margin: 8px;
+  color: #3d5873;
+  font-size: 0.9rem;
+}
+
+/* ---- phone: the button is the icon and the count; the panel a bottom sheet ---- */
+@media (max-width: 560px) {
+  .fr-button,
+  .pt-button {
+    min-height: 44px;
+    padding: 0 10px;
+    gap: 0.3rem;
+  }
+
+  .fr-label,
+  .fr-olabel {
+    display: none;
+  }
+
+  /* icon and number only, so it stays clear of the logo */
+  .fr-button {
+    padding: 0 8px;
+    gap: 0.2rem;
+  }
+
+  .fr-count {
+    gap: 0.2rem;
+  }
+
+  .fr-count .sdot {
+    width: 8px;
+    height: 8px;
+  }
+
+  /* "9+" past nine, so the button never grows into the logo */
+  .fr-n {
+    font-size: 0;
+  }
+
+  .fr-n::after {
+    content: attr(data-short);
+    font-size: 0.85rem;
+  }
+
+  /* no room beside the logo: the party is one tap away in the friends
+     panel, and Friends takes the top-left corner (as the mock's phone bar) */
+  .pt-button {
+    display: none;
+  }
+
+  .menu-corner .fr-button {
+    position: absolute;
+    top: 0.25rem;
+    /* the corner hugs the right edge (0.5rem in) and is as wide as the
+       profile button: this puts Friends 0.75rem from the left edge */
+    left: calc(-100vw + 100% + 1.25rem);
+    z-index: 2;
+  }
+
+  dialog.sheet {
+    inset: auto 0 0 0;
+    width: 100%;
+    max-width: none;
+    max-height: 85dvh;
+    border-radius: 22px 22px 0 0;
+  }
+}

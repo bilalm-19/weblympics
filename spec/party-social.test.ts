@@ -14,6 +14,7 @@ import { Room } from "../server/room.ts";
 import type { Client } from "../server/room.ts";
 import { migrate } from "../server/schema.ts";
 import { GUESTS_PARTY, Social } from "../server/social.ts";
+import { games } from "../shared/games/registry.ts";
 import { parseClientMsg } from "../shared/protocol.ts";
 import type { ClientMsg, FriendView, PartyView, ServerMsg } from "../shared/protocol.ts";
 
@@ -37,7 +38,7 @@ function setup() {
   const logged: string[] = [];
   let social: Social;
   const createRoom = (game: string) => {
-    const room = new Room(`R${rooms.length}`.padEnd(4, "X"), game, false, game === "tennis" ? "oneSet" : "unlimited", {
+    const room = new Room(`R${rooms.length}`.padEnd(4, "X"), game, false, games[game].formats[0], {
       record: () => {},
       clock: () => now,
       log: () => {},
@@ -348,6 +349,28 @@ describe("parties", () => {
     expect([b.seat, c.seat].sort()).toEqual([0, 1]);
     expect(a.room).toBe(next);
     expect(a.seat).toBeNull();
+  });
+
+  it("a real match finishing in the party's room rotates it (a track race, winner stays on)", () => {
+    const { s, a, b } = three();
+    s.say(a, { t: "party", act: "game", game: "track" });
+    s.say(a, { t: "party", act: "start" });
+    const room = s.rooms[0];
+    expect(room.gameId).toBe("track");
+    room.ready(a, true);
+    room.ready(b, true);
+    s.advance(3000);
+    // Ben runs, Ana stands still: Ben wins the race
+    let side: "left" | "right" = "left";
+    for (let i = 0; i < 2000 && room.lobby.inMatch; i++) {
+      room.step(b, { t: "step", side, at: i * 120 + 4000 });
+      side = side === "left" ? "right" : "left";
+      s.advance(120);
+    }
+    expect(room.lobby.inMatch).toBe(false);
+    const p = partyOf(a)!;
+    expect(p.next!.map((id) => p.members.find((m) => m.id === id)!.name)).toEqual(["Ben", "Cyd"]);
+    expect(p.last).toBe("Ben won the last match.");
   });
 
   it("start is refused while the party's match is still being played", () => {
