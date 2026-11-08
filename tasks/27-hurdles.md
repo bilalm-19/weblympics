@@ -1,9 +1,15 @@
 # 27 Track: hurdles (second event)
 
-Status: planned (2026-10-29), not built.
+Status: planned (2026-10-29), jump control decided (2026-11-08), not built.
 Model: Opus (sim), Sonnet for the view and pose
 Session: later
 Waits on: 26 (sprint)
+
+## Decided (user, 2026-11-08)
+- **The jump on camera:** elbows mode: both arms up together is a jump;
+  knees mode: jumping on the spot is a jump. Keys and a button too. It
+  goes in task 35's track training and guide.
+- Nothing waits until after the deadline (user, 2026-11-08).
 
 ## Context
 The second event of the `track` game. Same lane, steps and camera as sprint,

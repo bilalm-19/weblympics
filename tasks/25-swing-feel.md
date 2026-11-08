@@ -1,10 +1,23 @@
 # 25 Swing feel: live swing level, calibration profile, settings panel
 
-Status: discussed with the user (2026-10-21), not built. The user asked for no
-implementation yet; this file records the decisions and the original defaults.
+Status: round 2 decided (2026-11-08): fix the double-counted swing in calibration, save settings to the account; to build. Earlier: discussed with the user (2026-10-21).
 Model: Opus (design and profile storage), Sonnet for the panel
 Session: later; needs accounts (17) for profile storage and waits on the camera
 panel changes in task 15 (session B)
+
+## Decided, round 2 (user, 2026-11-08): calibration fix and settings on the account
+- **Fix first: calibration reads one swing as two.** It "very easily" counts
+  a single swing twice. Find the cause (likely the wind-up and the forward
+  swing, or the return, each crossing the speed threshold, as the parked
+  "swing double-count" note describes), fix it with a test that fails
+  without it (a recorded or synthetic single swing must count once), in
+  calibration and in play.
+- **Save every camera setting to the account** (the swing calibration, the
+  racket hand, the movement mode, archery's bow hand, track's camera mode,
+  and any later game's), loaded on sign-in and on any device; guests keep
+  them in the browser as today. Validated and clamped on the server, a new
+  schema step with its old-database test. Reset to default.
+- Nothing waits until after the deadline (user, 2026-11-08).
 
 ## Decided (user, 2026-10-21)
 - **First: show the swing level live.** A bar of peak swing speed with the two

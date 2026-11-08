@@ -1734,3 +1734,12 @@ the format of the entries below (see CLAUDE.md, Docs).
 - **Decided by:** user ("lets do both together", after asking why the merges would take a few hours); Claude (the options and the message).
 - **Why it was slow:** a full headless e2e takes about 40 minutes here (basketball's took 42.8), and the brief ran one after each of three stages.
 - **Change sent to the integration agent:** per stage only `pnpm typecheck`, `build`, `pnpm check` and the e2e of the games that stage touched; one full e2e after the last stage, with `pnpm e2e:gpu --workers=4` (about 1.8x faster and steady in parallel; the user agreed to its windows opening on their screen for that run); every failure re-run alone headless. Trade-off accepted: a break found in the final run is harder to pin to one stage.
+
+## 2026-11-08 16:57 AEDT | decision | Task 35 settled; hurdles' jump; calibration fix and settings on the account (task 25)
+
+- **Decided by:** user (each point); Claude (the proposals they answered and where each went).
+- **Input rule:** a room option, not a fixed rule: "Camera vs camera", "Keyboard vs keyboard" or "Any", picked by the host (the party leader in a party) before play; a mismatching seat's Ready is blocked with the reason.
+- **Guide:** as proposed, and the same outline figure and motions appear in the training steps. **Training steps** per sport as proposed. **Where training starts:** as tennis does now.
+- **Track's jump** (task 27): elbows mode, both arms up together; knees mode, jumping on the spot. Goes into track's training and guide.
+- **Calibration** (task 25): it reads one swing as two too easily: find the cause and fix it with a failing test, in calibration and in play. **Save every camera setting to the account** (calibration, racket hand, movement mode, archery's bow hand, track's camera mode), loaded on any device; guests keep the browser. Task 25 had been parked "not built" since 2026-10-21; it is now to build.
+- **Written:** tasks 35, 27 and 25 updated.
