@@ -5,7 +5,11 @@ import type { Seat, Side, TrackSnapshot } from "../../../shared/games/track/sim.
 import type { LobbyView, RoomFormat, RoomInfo, ServerMsg } from "../../../shared/protocol.ts";
 import type { GameLink } from "../../net/link.ts";
 import { createReadyPanel } from "../tennis/ready-panel.ts";
-import { buildTrack, laneZ, makeRunner } from "./lane.ts";
+import { DEFAULT_LOOKS } from "../../../shared/look.ts";
+import { buildTrack, laneZ } from "./lane.ts";
+import type { TrackScene } from "./lane.ts";
+import { makeRunner } from "./runner.ts";
+import { clockText, clockTime, excitement } from "./scene-model.ts";
 import { createRunCamera } from "./run-camera.ts";
 import "./track.css";
 
@@ -14,7 +18,6 @@ import "./track.css";
 // server counts the steps and says where everyone is. This only draws it.
 
 const FORMATS: readonly RoomFormat[] = ["race", "unlimited"];
-const SEAT_COLOURS = [0x2f7fe0, 0xe0453a] as const;
 const SEAT_CSS = ["#2f7fe0", "#e0453a"] as const;
 const KEY_SIDE: Record<string, Side> = { KeyA: "left", ArrowLeft: "left", KeyD: "right", ArrowRight: "right" };
 
@@ -65,15 +68,19 @@ export function startTrack(root: HTMLElement, conn: GameLink, info: RoomInfo, on
 
   const scene = new Scene();
   let built = 0;
-  const runners = [makeRunner(SEAT_COLOURS[0]), makeRunner(SEAT_COLOURS[1])] as const;
+  let stadium: TrackScene | null = null;
+  // each seat in its look (task 31): the default until the room says otherwise
+  const runners = [makeRunner(DEFAULT_LOOKS[0]), makeRunner(DEFAULT_LOOKS[1])] as const;
   for (const seat of [0, 1] as const) {
     runners[seat].group.position.z = laneZ(seat);
+    // the character faces -z; the track runs down +x
+    runners[seat].group.rotation.y = -Math.PI / 2;
     scene.add(runners[seat].group);
   }
   const camera = new PerspectiveCamera(40, 1, 0.1, 400);
   const renderer = new WebGLRenderer({ canvas, antialias: false, powerPreference: "high-performance" });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-  renderer.setClearColor(0x9fd3f5);
+  renderer.setClearColor(0x86c4f4);
   const resize = () => {
     const { clientWidth: w, clientHeight: h } = view;
     renderer.setSize(w, h, false);
@@ -207,7 +214,8 @@ export function startTrack(root: HTMLElement, conn: GameLink, info: RoomInfo, on
       const prev = snap;
       if (prev && prev.phase === "set" && next.phase === "running") call("Go!");
       if (next.length !== built) {
-        buildTrack(scene, next.length);
+        stadium?.dispose();
+        stadium = buildTrack(scene, next.length);
         built = next.length;
       }
       snap = next;
@@ -224,6 +232,10 @@ export function startTrack(root: HTMLElement, conn: GameLink, info: RoomInfo, on
     } else if (msg.t === "lobby") {
       const { t: _t, ...v } = msg;
       lobby = v;
+      for (const seat of [0, 1] as const) {
+        runners[seat].setLook(v.seats[seat]?.look ?? DEFAULT_LOOKS[seat]);
+        canvas.dataset[`look${seat}`] = String(runners[seat].group.userData.look);
+      }
       readyPanel.update(v);
       updateHud();
     }
@@ -247,6 +259,8 @@ export function startTrack(root: HTMLElement, conn: GameLink, info: RoomInfo, on
   // each runner's drawn distance eases toward the server's, and its stride phase
   const shown = [0, 0];
   const phase = [0, 0];
+  // when the first runner crossed the line, by this page's clock, for the crowd's burst
+  let finishedAt: number | null = null;
   const frame = (now: number) => {
     raf = requestAnimationFrame(frame);
     const dt = Math.min(0.1, (now - last) / 1000);
@@ -263,14 +277,20 @@ export function startTrack(root: HTMLElement, conn: GameLink, info: RoomInfo, on
         r.group.position.x = shown[seat];
         // a stride is about two metres at speed; on the spot it still ticks over with steps
         phase[seat] += dt * (lane.speed * 1.6 + lane.cadence * 1.2);
-        r.run(phase[seat], Math.min(1, lane.speed / MAX_SPEED));
+        r.run(phase[seat], Math.min(1, lane.speed / MAX_SPEED), s.phase === "set");
       }
+      const anyFinish = s.lanes.some((l) => l.finish !== null);
+      if (!anyFinish) finishedAt = null;
+      else if (finishedAt === null) finishedAt = now;
+      const lead = Math.max(s.lanes[0].distance, s.lanes[1].distance) / s.length;
+      const loud = excitement(lead, finishedAt === null ? null : (now - finishedAt) / 1000, s.phase === "running");
       // chase the leader of the viewer's interest: my lane, or the front runner
       const focus = info.seat ?? (shown[0] >= shown[1] ? 0 : 1);
       const x = shown[focus];
       const portrait = camera.aspect < 1;
       camera.position.set(x - (portrait ? 2 : 3), portrait ? 3.2 : 2.6, portrait ? 9 : 8);
       camera.lookAt(x + (portrait ? 1.5 : 3), 0.8, 0);
+      stadium?.update(camera.position.x, loud, now / 1000, clockText(clockTime(s)));
     }
     renderer.render(scene, camera);
     canvas.dataset.frames = String(++frames);
