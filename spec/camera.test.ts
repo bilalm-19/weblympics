@@ -11,6 +11,7 @@ import {
   MoveThrottle,
   OneEuro,
   SwingDetector,
+  heldVisibility,
   aimFromHand,
   aimForGrip,
   DEFAULT_ZONE,
@@ -835,5 +836,42 @@ describe("aim shown by the reticle and arc", () => {
   it("aiming by pointing follows the hand, and without the camera follows keys, mouse or touch", () => {
     expect(shownAim(0.8, "point", 0.3)).toBe(0.8);
     expect(shownAim(null, "timing", 0.3)).toBe(0.3);
+  });
+});
+
+describe("the visibility check holds a tick (user, 2026-11-09: it said 'not yet' as soon as I dropped my arm)", () => {
+  const seen = { shoulders: true, arm: true, hand: true };
+  const none = { shoulders: false, arm: false, hand: false };
+
+  it("a part seen a moment ago still counts, and Looks good (shoulders and wrist) stays available", () => {
+    const last = {};
+    heldVisibility(seen, last, 1000, 5000);
+    // the arm drops: the wrist and hand leave the picture, the shoulders stay
+    const dropped = heldVisibility({ shoulders: true, arm: false, hand: false }, last, 2500, 5000);
+    expect(dropped).toEqual({ shoulders: true, arm: true, hand: true });
+  });
+
+  it("after the hold it expires, so a part that was never seen again goes back to not yet", () => {
+    const last = {};
+    heldVisibility(seen, last, 1000, 5000);
+    expect(heldVisibility(none, last, 6000, 5000)).toEqual({ shoulders: true, arm: true, hand: true });
+    expect(heldVisibility(none, last, 6001, 5000)).toEqual(none);
+  });
+
+  it("a part never seen is never held", () => {
+    expect(heldVisibility({ shoulders: true, arm: false, hand: false }, {}, 1000, 5000)).toEqual({ shoulders: true, arm: false, hand: false });
+  });
+
+  it("each part is held on its own clock", () => {
+    const last = {};
+    heldVisibility({ shoulders: true, arm: false, hand: false }, last, 0, 5000);
+    heldVisibility({ shoulders: false, arm: true, hand: false }, last, 4000, 5000);
+    expect(heldVisibility(none, last, 6000, 5000)).toEqual({ shoulders: false, arm: true, hand: false });
+  });
+
+  it("with no hold at all (the old behaviour) the tick is gone the moment the arm drops", () => {
+    const last = {};
+    heldVisibility(seen, last, 1000, 0);
+    expect(heldVisibility(none, last, 1001, 0)).toEqual(none);
   });
 });

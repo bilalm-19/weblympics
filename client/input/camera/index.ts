@@ -10,6 +10,7 @@ import {
   calibrationFrom,
   bodyFrame,
   bodyVisibility,
+  heldVisibility,
   calibrateSwings,
   neutralFrom,
   strokeThresholds,
@@ -75,6 +76,8 @@ export interface CameraInput {
 const SAFETY_KEY = "camera-safety-ack";
 const TRAIN_OFFER_KEY = "training-offered";
 const SWINGS_PER_LEVEL = 2;
+/** How long the visibility check keeps a tick after a body part was last seen (ms). */
+const SEEN_HOLD_MS = 5000;
 const LEVEL_WORDS = ["light", "medium", "hard"] as const;
 
 
@@ -469,11 +472,11 @@ export function createCameraInput(
   const check = () => {
     show(
       `<h2>Can we see you?</h2>
-       <p>Move until both shoulders and your racket hand are in the preview. There is nothing to calibrate.</p>
+       <p>Stand back until both shoulders and your racket wrist are in the preview. Ticks stay for a few seconds, so you can lower your arm and press Looks good. There is nothing to calibrate.</p>
        <ul class="vis" role="status">
-         <li data-v="shoulders">Shoulders <b></b></li>
-         <li data-v="arm">Racket wrist <b></b></li>
-         <li data-v="hand">Hand (for forehand and backhand) <b></b></li>
+         <li data-v="shoulders">Shoulders <small>needed</small> <b></b></li>
+         <li data-v="arm">Racket wrist <small>needed: the swing is read from it</small> <b></b></li>
+         <li data-v="hand">Palm and back of hand <small>optional: tells forehand from backhand</small> <b></b></li>
        </ul>
        <div class="row">
          <button class="primary" data-step="done" disabled>Looks good</button>
@@ -499,14 +502,19 @@ export function createCameraInput(
       },
     );
     const ok = panel.querySelector("[data-step=done]") as HTMLButtonElement;
+    // A tick stays for SEEN_HOLD_MS after the last frame that saw it: lowering
+    // your arm used to flip it straight back to "not yet" and disable Looks good
+    // (user, 2026-11-09). It is a check that you CAN be seen, not a live gauge.
+    const lastSeen: Partial<Record<keyof Visibility, number>> = {};
     onVisibility = (v) => {
+      const held = heldVisibility(v, lastSeen, performance.now(), SEEN_HOLD_MS);
       for (const key of ["shoulders", "arm", "hand"] as const) {
         const li = panel.querySelector(`[data-v=${key}]`) as HTMLElement | null;
         if (!li) continue;
-        li.dataset.ok = String(v[key]);
-        (li.querySelector("b") as HTMLElement).textContent = v[key] ? "✓ seen" : "not yet";
+        li.dataset.ok = String(held[key]);
+        (li.querySelector("b") as HTMLElement).textContent = v[key] ? "✓ seen" : held[key] ? "✓ seen (a moment ago)" : "not yet";
       }
-      ok.disabled = !(v.shoulders && v.arm);
+      ok.disabled = !(held.shoulders && held.arm);
     };
   };
 

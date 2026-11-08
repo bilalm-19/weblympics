@@ -261,6 +261,22 @@ export interface Visibility {
   hand: boolean;
 }
 
+/**
+ * The visibility check's ticks, held: a body part counts as seen for `holdMs`
+ * after the last frame that saw it, so lowering your arm doesn't undo the tick
+ * and disable Looks good (user, 2026-11-09). Pure, so it can be tested.
+ * `last` is when each part was last seen (ms), updated here.
+ */
+export function heldVisibility(v: Visibility, last: Partial<Record<keyof Visibility, number>>, now: number, holdMs: number): Visibility {
+  const out = { shoulders: false, arm: false, hand: false };
+  for (const key of ["shoulders", "arm", "hand"] as const) {
+    if (v[key]) last[key] = now;
+    const at = last[key];
+    out[key] = at !== undefined && now - at <= holdMs;
+  }
+  return out;
+}
+
 export function bodyVisibility(lm: readonly Point[] | null, hand: Hand): Visibility {
   if (!lm) return { shoulders: false, arm: false, hand: false };
   const right = hand === "right";

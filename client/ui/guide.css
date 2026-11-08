@@ -1,0 +1,148 @@
+/* The how-to-play guide (client/ui/guide.ts): a "?" in the button row, and a
+   panel of moves. A side panel on a desktop, a bottom sheet on a phone. */
+.hud .gd-button {
+  min-width: 44px;
+  font-weight: 700;
+  pointer-events: auto;
+}
+
+.gd-panel {
+  position: absolute;
+  z-index: 30;
+  top: 4.5rem;
+  right: 0.75rem;
+  width: min(22rem, calc(100vw - 1.5rem));
+  max-height: calc(100% - 9rem);
+  overflow-y: auto;
+  box-sizing: border-box;
+  padding: 0.75rem;
+  border-radius: 12px;
+  background: #0f1720f2;
+  color: #fff;
+  font-size: 0.9rem;
+  pointer-events: auto;
+}
+
+.gd-panel[hidden] {
+  display: none;
+}
+
+.gd-head-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.gd-head-row h2 {
+  margin: 0;
+  font-size: 1.1rem;
+}
+
+.gd-panel button {
+  min-height: 40px;
+}
+
+.gd-note {
+  margin: 0.4rem 0 0.6rem;
+  color: #c8d4df;
+  font-size: 0.82rem;
+}
+
+.gd-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.gd-move {
+  display: flex;
+  gap: 0.7rem;
+  align-items: center;
+  padding: 0.5rem;
+  border-radius: 10px;
+  background: #ffffff12;
+}
+
+.gd-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.gd-text em {
+  color: #ffd23f;
+  font-style: normal;
+  font-weight: 600;
+}
+
+/* the figure: an outline in white, the part the camera reads lit in yellow */
+.gd-fig {
+  flex: none;
+  fill: none;
+  stroke: #fff;
+  stroke-width: 3.5;
+  stroke-linecap: round;
+}
+
+.gd-fig[data-lit="arm"] .gd-arm-r line,
+.gd-fig[data-lit="arms"] .gd-arm line,
+.gd-fig[data-lit="legs"] .gd-leg,
+.gd-fig[data-lit="torso"] .gd-torso {
+  stroke: #ffd23f;
+}
+
+.gd-arm {
+  transform-box: view-box;
+}
+
+/* one loop of about 1.6 s per move; under reduced motion the figure stands still */
+@keyframes gd-swing-fore { 0%, 100% { transform: rotate(-70deg); } 50% { transform: rotate(60deg); } }
+@keyframes gd-swing-back { 0%, 100% { transform: rotate(70deg); } 50% { transform: rotate(-60deg); } }
+@keyframes gd-up { 0%, 100% { transform: rotate(0deg); } 50% { transform: rotate(-150deg); } }
+@keyframes gd-jab { 0%, 100% { transform: rotate(40deg); } 50% { transform: rotate(-80deg); } }
+@keyframes gd-lean { 0%, 100% { transform: rotate(-9deg); } 50% { transform: rotate(9deg); } }
+@keyframes gd-hop { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-9px); } }
+@keyframes gd-alt { 0%, 100% { transform: rotate(-50deg); } 50% { transform: rotate(50deg); } }
+
+.gd-fig[data-motion="swing-fore"] .gd-arm-r { animation: gd-swing-fore 1.6s ease-in-out infinite; }
+.gd-fig[data-motion="swing-back"] .gd-arm-r { animation: gd-swing-back 1.6s ease-in-out infinite; }
+.gd-fig[data-motion="roll"] .gd-arm-r { animation: gd-alt 1.6s ease-in-out infinite; }
+.gd-fig[data-motion="draw"] .gd-arm-l { animation: gd-up 1.6s ease-in-out infinite; transform: rotate(-80deg); }
+.gd-fig[data-motion="push"] .gd-arm { animation: gd-up 1.6s ease-in-out infinite; }
+.gd-fig[data-motion="jab"] .gd-arm-r { animation: gd-jab 1.2s ease-in-out infinite; }
+.gd-fig[data-motion="guard"] .gd-arm { transform: rotate(-125deg); }
+.gd-fig[data-motion="lean"] { animation: gd-lean 1.6s ease-in-out infinite; transform-origin: 40px 54px; }
+.gd-fig[data-motion="run"] .gd-arm-l { animation: gd-alt 0.8s ease-in-out infinite; }
+.gd-fig[data-motion="run"] .gd-arm-r { animation: gd-alt 0.8s ease-in-out infinite reverse; }
+.gd-fig[data-motion="jump"] { animation: gd-hop 1.2s ease-in-out infinite; }
+.gd-fig[data-motion="jump"] .gd-arm { transform: rotate(-150deg); }
+
+@media (prefers-reduced-motion: reduce) {
+  .gd-fig,
+  .gd-fig * {
+    animation: none !important;
+  }
+}
+
+/* the camera setup is a dialog: the guide steps aside meanwhile */
+.game:has(.camera-panel:not([hidden])) .gd-panel {
+  display: none;
+}
+
+/* a phone: a bottom sheet, above the on-screen controls */
+@media (max-width: 600px) {
+  .gd-panel {
+    top: auto;
+    right: 0.5rem;
+    left: 0.5rem;
+    /* set by guide.ts from the controls' real height; this is the fallback */
+    bottom: var(--gd-bottom, 5.5rem);
+    width: auto;
+    max-height: 55%;
+  }
+}

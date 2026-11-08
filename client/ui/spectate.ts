@@ -5,6 +5,7 @@
 // ignores a spectator's input anyway). Only renders the server's `presence`.
 import type { RoomInfo, ServerMsg } from "../../shared/protocol.ts";
 import type { GameLink } from "../net/link.ts";
+import { mountGuide } from "./guide.ts";
 import "./spectate.css";
 
 /** The watch link: opening it always spectates, even when a seat is free. */
@@ -74,8 +75,12 @@ export function addSpectating(view: HTMLElement, conn: GameLink, info: RoomInfo)
     if (count) count.textContent = `· ${watchersText(msg.spectators)}`;
   });
 
+  // the how-to-play "?" and its panel (task 35 item 3), in every game's button row
+  const disposeGuide = mountGuide(view, info.game);
+
   return () => {
     unsubscribe();
+    disposeGuide();
     badge?.remove();
     copyWatch.remove();
   };

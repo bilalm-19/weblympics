@@ -2129,6 +2129,34 @@ a:focus-visible {
   color: #4ade80;
 }
 
+.camera-panel .vis li {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: baseline;
+  column-gap: 0.75rem;
+  margin-bottom: 0.4rem;
+}
+
+/* the name and its note on the left, the tick on the right */
+.camera-panel .vis li small {
+  grid-column: 1;
+  grid-row: 2;
+  color: #c8d4df;
+  font-size: 0.78rem;
+}
+
+.camera-panel .vis li b {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  align-self: center;
+}
+
+/* a button that can't be pressed yet looks it (Looks good before you are seen) */
+.camera-panel button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
 .camera-panel .advanced {
   margin-top: 0.75rem;
 }
