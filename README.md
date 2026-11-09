@@ -59,4 +59,4 @@ https://github.com/user-attachments/assets/62c12614-b6a5-4fbd-aae0-314ca9b8b712
 
 ## What is enforced, and what is judged
 
-**Enforced in `spec/`:** server-owned hits, the lag numbers ([ADR 001](docs/adr/001-who-wins-under-lag.md)), no video leaving the browser (the page's Content Security Policy allows only this server and the pose model's hosts), logs without names, and room and friend rules. **Judged by people:** whether a move feels natural, which I playtested with peers. Sources and how I judged it are in [`PROCESS.md`](PROCESS.md).
+**Enforced in `spec/`:** server-owned hits, the lag numbers ([ADR 001](docs/adr/001-who-wins-under-lag.md)), no video leaving the browser (the page's Content Security Policy allows only this server and the pose model's hosts), logs without names, and room and friend rules. **Judged by people:** whether a move feels natural, which I playtested with peers. How I judged it is in [`PROCESS.md`](PROCESS.md).
