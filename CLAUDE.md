@@ -3,7 +3,7 @@
 Wii-Tennis-style game in the browser. Two players (or one vs a bot) hit a shared
 ball by swinging in front of their webcam; spectators watch live. The server
 owns the ball and the score. Clients only send swing events and render what the
-server says. Rooms and matches persist in SQLite on `/data`.
+server says. Accounts, friends and finished matches persist in SQLite on `/data`; live rooms and parties are in memory, so a restart ends a match in progress.
 
 Brief: https://comp.anu.edu.au/courses/comp4020-agentic-coding-studio/assessments/final-project/
 Fixed by the course: `fly.toml`, `Dockerfile` shape, `spec/invariants.test.ts`
