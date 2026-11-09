@@ -32,6 +32,8 @@ CLAUDE.md tells agents to log decisions, keep to the lightweight stack, and wher
 
 To stay true to "easy to pick up", I wrote `docs/game-review-criteria.md`: rules a game must meet, plus five personas (a skipper, a reader, a tight space, patchy wifi, smoothness) ([`54cc21d`](https://github.com/comp4020-agentic-coding-studio/comp4020-final-bilalm004/commit/54cc21d), [`6059f31`](https://github.com/comp4020-agentic-coding-studio/comp4020-final-bilalm004/commit/6059f31)). Two skills use it: `review-game-idea` pushes back on a pitch before any code, and the result becomes an ADR (basketball and bowling, [`4719f23`](https://github.com/comp4020-agentic-coding-studio/comp4020-final-bilalm004/commit/4719f23), [`13697c0`](https://github.com/comp4020-agentic-coding-studio/comp4020-final-bilalm004/commit/13697c0)); `review-game-build` checks the built game against the same criteria.
 
+The review criteria also kept me aligned with the project's idea. When I suggested a crowd that boos a player who loses a point, I got pushback: boos punish exactly the newcomers/casual players the game is for. It suggested "aww" and groans instead, and every sport now uses them ([`c5e891a`](https://github.com/comp4020-agentic-coding-studio/comp4020-final-bilalm004/commit/c5e891a)).
+
 ## Testing
 
 Whatever could be made deterministic was, so the behaviour could be confirmed. The sims run from a seed plus an input stream, so `spec/` (84 files, over a thousand tests) replays exact situations, and `e2e/` (40 files) runs the real app at desktop and phone sizes. The rules I set for the tests mattered more than the tests:
