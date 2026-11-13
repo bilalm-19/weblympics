@@ -39,7 +39,7 @@ This copy lives on [bilalm-19/weblympics](https://github.com/bilalm-19/weblympic
 |---|---|---|---|---|
 | **Offline** | `pnpm local` | you, on this computer | none | none |
 | **Wifi multiplayer** (opt-in) | `pnpm lan` | devices on your wifi | the same wifi | once per device |
-| **Hosted** | deploy it yourself (e.g. Fly, Render) | whoever you give the URL | internet | none |
+| **Hosted** | play at [comp4020-final-bilalm004.fly.dev](https://comp4020-final-bilalm004.fly.dev), or deploy it yourself (e.g. Fly, Render) | anyone with the link | internet | none |
 
 Setting up needs internet once, to download the code and the camera's pose model.
 
