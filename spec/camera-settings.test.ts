@@ -2,10 +2,11 @@
 // device; guests keep theirs in the browser). One closed shape in
 // shared/camera-settings.ts, checked on the server: an unknown field or an
 // out-of-range value refuses the whole thing and nothing is stored.
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { DatabaseSync } from "node:sqlite";
+import type { DatabaseSync } from "node:sqlite";
+import { cleanTemp, openDb } from "./temp.ts";
 import { afterEach, describe, expect, inject, it } from "vitest";
 import { calibrationFrom } from "../client/input/camera/pose.ts";
 import { fromLegacy } from "../client/net/camera-settings.ts";
@@ -18,7 +19,7 @@ import type { CameraSettings } from "../shared/camera-settings.ts";
 
 const dirs: string[] = [];
 afterEach(() => {
-  for (const d of dirs.splice(0)) rmSync(d, { recursive: true, force: true });
+  cleanTemp(dirs);
 });
 
 function freshFile(): string {
@@ -140,7 +141,7 @@ describe("the closed shape (task 25)", () => {
 
 describe("saved on the account (task 25)", () => {
   it("an account saves them and reads them back; a hostile set is refused and the last good one stays", () => {
-    const db = new DatabaseSync(freshFile());
+    const db = openDb(freshFile());
     migrate(db);
     const a = account(db);
     expect(cameraSettingsOf(db, a)).toBeNull();
@@ -152,7 +153,7 @@ describe("saved on the account (task 25)", () => {
   });
 
   it("Reset to default (null) clears them", () => {
-    const db = new DatabaseSync(freshFile());
+    const db = openDb(freshFile());
     migrate(db);
     const a = account(db);
     setCameraSettings(db, a, custom());
@@ -161,7 +162,7 @@ describe("saved on the account (task 25)", () => {
   });
 
   it("a guest can't save any on the server (theirs stay in the browser)", () => {
-    const db = new DatabaseSync(freshFile());
+    const db = openDb(freshFile());
     migrate(db);
     const g = newGuestToken();
     guestFor(db, g);
@@ -171,12 +172,12 @@ describe("saved on the account (task 25)", () => {
 
   it("survive a restart and go with a deleted account", () => {
     const path = freshFile();
-    let db = new DatabaseSync(path);
+    let db = openDb(path);
     migrate(db);
     const a = account(db);
     setCameraSettings(db, a, custom());
     db.close();
-    db = new DatabaseSync(path);
+    db = openDb(path);
     migrate(db);
     expect(cameraSettingsOf(db, a)).toEqual(custom());
     deleteAccount(db, a);
@@ -185,7 +186,7 @@ describe("saved on the account (task 25)", () => {
 
   it("schema v9 opens a v8 database: every row kept, no settings yet, then takes them", () => {
     const path = freshFile();
-    const db = new DatabaseSync(path);
+    const db = openDb(path);
     // v8: built through the real steps, then the v9 column taken off and the version put back
     migrate(db);
     const a = account(db);

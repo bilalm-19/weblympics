@@ -2,10 +2,11 @@
 // on the server; stored on the account, deleted with it, and put in the room
 // state for both seats and spectators. Task 33 widened it (clothes, hair,
 // face, extras) and schema step 7 rewrote the stored task-18 looks.
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { DatabaseSync } from "node:sqlite";
+import type { DatabaseSync } from "node:sqlite";
+import { cleanTemp, openDb } from "./temp.ts";
 import { afterEach, beforeAll, describe, expect, inject, it } from "vitest";
 import WebSocket from "ws";
 import { addPasskey, deleteAccount, guestFor, lookOf, newGuestToken, seedDemoAccounts, setLook } from "../server/accounts.ts";
@@ -19,7 +20,7 @@ import type { ServerMsg } from "../shared/protocol.ts";
 
 const dirs: string[] = [];
 afterEach(() => {
-  for (const d of dirs.splice(0)) rmSync(d, { recursive: true, force: true });
+  cleanTemp(dirs);
 });
 
 function freshFile(): string {
@@ -160,7 +161,7 @@ describe("schema v7 (task 33): stored task-18 looks in the new shape", () => {
 
   it("opens a v6 database with task-18 looks: each loads as its mapped new look, the rest kept", () => {
     const path = freshFile();
-    let db = new DatabaseSync(path);
+    let db = openDb(path);
     // a v6 database: the real steps up to 6 (step 7 adds no table or column;
     // step 8, task 34's tags and friends tables, is undone), task-18 looks
     // written as task 18 wrote them, and the version put back to 6
@@ -182,7 +183,7 @@ describe("schema v7 (task 33): stored task-18 looks in the new shape", () => {
     db.prepare("INSERT INTO players (token, name, created_at, account, look) VALUES ('guest', 'Lucky Otter 12', 0, 0, ?)").run(JSON.stringify(OLD_LOOKS[0]));
     db.close();
 
-    db = new DatabaseSync(path);
+    db = openDb(path);
     migrate(db);
     expect(schemaVersion(db)).toBe(SCHEMA_VERSION);
     OLD_LOOKS.forEach((old, i) => expect(lookOf(db, `acct-${i}`), JSON.stringify(old)).toEqual(fromTask18(old)));
@@ -200,7 +201,7 @@ describe("schema v7 (task 33): stored task-18 looks in the new shape", () => {
     expect(setLook(db, "acct-0", LOOK).ok).toBe(true);
     // opening it again changes nothing
     db.close();
-    db = new DatabaseSync(path);
+    db = openDb(path);
     migrate(db);
     expect(lookOf(db, "acct-0")).toEqual(LOOK);
     expect(lookOf(db, "acct-1")).toEqual(fromTask18(OLD_LOOKS[1]));
@@ -252,7 +253,7 @@ describe("the 3D character wears every option (task 33)", () => {
 
 describe("saving a look (task 18)", () => {
   it("an account saves one; a hostile value is refused and nothing is stored", () => {
-    const db = new DatabaseSync(freshFile());
+    const db = openDb(freshFile());
     migrate(db);
     const a = account(db);
     expect(setLook(db, a, LOOK)).toEqual({ ok: true, look: LOOK });
@@ -267,7 +268,7 @@ describe("saving a look (task 18)", () => {
   });
 
   it("guests can't save one and always have the default", () => {
-    const db = new DatabaseSync(freshFile());
+    const db = openDb(freshFile());
     migrate(db);
     const g = newGuestToken();
     guestFor(db, g);
@@ -277,12 +278,12 @@ describe("saving a look (task 18)", () => {
 
   it("survives reopening the database (a restart), and goes with the account", () => {
     const path = freshFile();
-    let db = new DatabaseSync(path);
+    let db = openDb(path);
     migrate(db);
     const a = account(db);
     setLook(db, a, LOOK);
     db.close();
-    db = new DatabaseSync(path);
+    db = openDb(path);
     migrate(db);
     expect(lookOf(db, a)).toEqual(LOOK);
     deleteAccount(db, a);
@@ -291,7 +292,7 @@ describe("saving a look (task 18)", () => {
 
   it("schema v5 opens a v4 database and keeps its rows", () => {
     const path = freshFile();
-    const db = new DatabaseSync(path);
+    const db = openDb(path);
     // exactly what v4 made: run the real steps up to 4 by hand-setting the version afterwards
     db.exec(`
       CREATE TABLE players (token TEXT PRIMARY KEY, name TEXT NOT NULL, created_at INTEGER NOT NULL,

@@ -4,10 +4,11 @@
 // sent whole on (re)connect; parties: join by code, leader-only actions, the
 // two next sit and the rest spectate, rotation after a match; guests join,
 // lead and share by the link but never invite by Name#1234 or go public.
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { DatabaseSync } from "node:sqlite";
+import type { DatabaseSync } from "node:sqlite";
+import { cleanTemp, openDb } from "./temp.ts";
 import { afterEach, describe, expect, it } from "vitest";
 import { addPasskey, getPlayer, guestFor, newGuestToken, rename, seedDemoAccounts } from "../server/accounts.ts";
 import { acceptFriend, nameTag, requestFriend } from "../server/friends.ts";
@@ -21,7 +22,7 @@ import type { ClientMsg, FriendView, PartyView, ServerMsg } from "../shared/prot
 
 const dirs: string[] = [];
 afterEach(() => {
-  for (const d of dirs.splice(0)) rmSync(d, { recursive: true, force: true });
+  cleanTemp(dirs);
 });
 
 interface Fake extends Client {
@@ -31,7 +32,7 @@ interface Fake extends Client {
 function setup() {
   const d = mkdtempSync(join(tmpdir(), "weblympics-social-"));
   dirs.push(d);
-  const db = new DatabaseSync(join(d, "app.db"));
+  const db = openDb(join(d, "app.db"));
   migrate(db);
   seedDemoAccounts(db);
   let now = 0;

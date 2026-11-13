@@ -1,9 +1,10 @@
 // Task 17: accounts, passkeys, names, sessions and deletion, on a throwaway
 // SQLite file (not the app's database), plus the pure guards they lean on.
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { DatabaseSync } from "node:sqlite";
+import type { DatabaseSync } from "node:sqlite";
+import { cleanTemp, openDb } from "./temp.ts";
 import { afterEach, describe, expect, it } from "vitest";
 import {
   DEMO_TOKENS,
@@ -29,7 +30,7 @@ import type { MatchRecord } from "../server/schema.ts";
 
 const dirs: string[] = [];
 afterEach(() => {
-  for (const d of dirs.splice(0)) rmSync(d, { recursive: true, force: true });
+  cleanTemp(dirs);
 });
 
 function freshFile(): string {
@@ -39,7 +40,7 @@ function freshFile(): string {
 }
 
 function freshDb(): DatabaseSync {
-  const db = new DatabaseSync(freshFile());
+  const db = openDb(freshFile());
   migrate(db);
   seedDemoAccounts(db);
   return db;
@@ -69,7 +70,7 @@ function account(db: DatabaseSync, keyId = `k-${Math.random()}`): string {
 
 /** What schema v3 made, with the old demo guests and a match. */
 function makeV3(path: string): void {
-  const db = new DatabaseSync(path);
+  const db = openDb(path);
   db.exec(`
     CREATE TABLE players (token TEXT PRIMARY KEY, name TEXT NOT NULL, created_at INTEGER NOT NULL);
     CREATE TABLE matches (
@@ -92,7 +93,7 @@ describe("schema v4 (task 17: accounts)", () => {
   it("opens a v3 database: players and matches kept, the demo guests become locked demo accounts", () => {
     const path = freshFile();
     makeV3(path);
-    const db = new DatabaseSync(path);
+    const db = openDb(path);
     migrate(db);
     seedDemoAccounts(db);
     expect(schemaVersion(db)).toBe(SCHEMA_VERSION);

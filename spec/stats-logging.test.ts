@@ -71,9 +71,10 @@ beforeAll(async () => {
   }
 }, 70_000);
 
-afterAll(() => {
-  child?.kill();
-  rmSync(dataDir, { recursive: true, force: true });
+afterAll(async () => {
+  // wait for it to exit: on Windows its open database blocks removing the folder
+  if (child && child.exitCode === null) await new Promise((r) => { child.once("exit", r); child.kill(); });
+  rmSync(dataDir, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
 });
 
 const lines = () =>
