@@ -30,15 +30,15 @@ This copy lives on [bilalm-19/weblympics](https://github.com/bilalm-19/weblympic
 | Mode | Command | Who can play | Needs wifi | Needs internet | Browser warning |
 |---|---|---|---|---|---|
 | **Offline** | `pnpm local` | you, on this computer | no | only to set up | none |
-| **Wifi multiplayer** (opt-in) | `pnpm lan` | devices on your wifi | yes, always | only to set up | once per device |
-| **Hosted** | deploy it yourself (e.g. Fly, Render) | whoever you give the URL | no | always | none |
+| **Wifi multiplayer** (opt-in) | `pnpm lan` | devices on your wifi | yes, the same wifi, always | only to set up | once per device |
+| **Hosted** | deploy it yourself (e.g. Fly, Render) | whoever you give the URL | any connection (wifi or mobile data) | always | none |
 
 **Wifi and internet are different things.** The wifi is your local network: devices on it reach each other through your router. The internet is the wider world beyond the router.
 
 - **Offline** happens on one computer, so it needs neither once set up: the wifi can be off.
 - **Wifi multiplayer** always needs the wifi, since that's how the other devices reach the host. It doesn't need the internet: a router with no internet connection works.
 - **Internet is only for setup.** You download the code and its packages when you install, and the camera's pose model (about 14 MB) the first time you start. Playing never needs it: the game runs on the host computer and the camera's video is processed in each browser.
-- **A hosted site** needs internet the whole time, because players reach it over the internet.
+- **A hosted site** needs internet the whole time, because players reach it over the internet. Any connection works, wifi or mobile data, and players don't need to share one.
 
 ### Install (once)
 
