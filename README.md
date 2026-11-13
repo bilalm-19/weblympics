@@ -4,6 +4,8 @@ An immersive webcam-controlled sports game, played against a bot or a friend ove
 
 Built using Claude Code
 
+**Play it online:** [comp4020-final-bilalm004.fly.dev](https://comp4020-final-bilalm004.fly.dev). This is the version deployed from my course account; it doesn't update from this repository.
+
 ![The home screen: six sports, a room panel and your party](docs/media/home.png)
 
 ## Inspiration
@@ -27,7 +29,7 @@ What made the Wii and Kinect games fun was that they were casual and easy enough
 
 ## Run it yourself
 
-This copy lives on [bilalm-19/weblympics](https://github.com/bilalm-19/weblympics) and runs on Windows or macOS with Node 24 and pnpm. There is no public site for it right now: you run it on your own computer.
+This copy lives on [bilalm-19/weblympics](https://github.com/bilalm-19/weblympics) and runs on Windows or macOS with Node 24 and pnpm. The online version above is the course deployment, so to play this copy, with its offline and wifi modes, you run it on your own computer.
 
 | Mode | Command | Who can play | Connection to play | Browser warning |
 |---|---|---|---|---|
