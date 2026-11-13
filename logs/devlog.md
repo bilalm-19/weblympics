@@ -2190,3 +2190,8 @@ Merged home-36 (home screen redesign) onto main's tennis-fixes. Checked: no conf
 - What: README's "Play offline" became "Run it yourself": the repo now lives on bilalm-19/weblympics, runs on Windows or macOS directly, deploys nothing automatically, and a table compares hosted, `pnpm local` and `pnpm lan` (who can join, internet, warning). The "Fly volume" line now says the server's disk. CLAUDE.md: a "This copy" paragraph (moved repo, Windows not WSL, no Fly deploy, the two local modes); WSL-only lines reworded (`/mnt/c` watch note, Docker, `e2e:gpu` marked WSL only); new Windows rules (scripts must run under cmd, PowerShell env vars, close files before deleting); the push rule now names the Fly job still in `checks.yml`; the README is cached by the server.
 - Why: the user lifted the word limits for both ("add how this edited version works").
 - Who: user (asked), Claude (wrote).
+
+## 2026-11-13 20:05 - playtest - offline mode works with the camera (user tested)
+- What: `pnpm local` on the Windows laptop, wifi off, camera on: the model loaded from the laptop and moves registered, with no certificate warning (plain http://localhost).
+- Outcome: the offline extra is done. The warning remains only in `pnpm lan` (other devices reach the host by IP address).
+- Who: user (tested), Claude (logged).

@@ -51,6 +51,7 @@ Waits on: nothing.
   (`spec/local-mode.test.ts`).
 
 ## Done when
+- [x] `pnpm local` with the camera and the wifi off, on the host laptop (user, 2026-11-13): no warning, moves register.
 - [x] `spec/lan-accounts.test.ts`: code shape and typing, v10 to v11 keeps
   every player, only the hash stored and never logged, sign in elsewhere with
   the code, a new code ends the old, renewal, delete needs your own code, demo
