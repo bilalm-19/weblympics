@@ -2,6 +2,8 @@
 
 An immersive webcam-controlled sports game, played against a bot or a friend over the web. Six events: tennis, bowling, archery, a track sprint, boxing and a basketball shootout.
 
+Built using Claude Code
+
 ![The home screen: six sports, a room panel and your party](docs/media/home.png)
 
 ## Inspiration
@@ -27,18 +29,13 @@ What made the Wii and Kinect games fun was that they were casual and easy enough
 
 This copy lives on [bilalm-19/weblympics](https://github.com/bilalm-19/weblympics) and runs on Windows or macOS with Node 24 and pnpm. There is no public site for it right now: you run it on your own computer.
 
-| Mode | Command | Who can play | Needs wifi | Needs internet | Browser warning |
-|---|---|---|---|---|---|
-| **Offline** | `pnpm local` | you, on this computer | no | only to set up | none |
-| **Wifi multiplayer** (opt-in) | `pnpm lan` | devices on your wifi | yes, the same wifi, always | only to set up | once per device |
-| **Hosted** | deploy it yourself (e.g. Fly, Render) | whoever you give the URL | any connection (wifi or mobile data) | always | none |
+| Mode | Command | Who can play | Connection to play | Browser warning |
+|---|---|---|---|---|
+| **Offline** | `pnpm local` | you, on this computer | none | none |
+| **Wifi multiplayer** (opt-in) | `pnpm lan` | devices on your wifi | the same wifi | once per device |
+| **Hosted** | deploy it yourself (e.g. Fly, Render) | whoever you give the URL | internet | none |
 
-**Wifi and internet are different things.** The wifi is your local network: devices on it reach each other through your router. The internet is the wider world beyond the router.
-
-- **Offline** happens on one computer, so it needs neither once set up: the wifi can be off.
-- **Wifi multiplayer** always needs the wifi, since that's how the other devices reach the host. It doesn't need the internet: a router with no internet connection works.
-- **Internet is only for setup.** You download the code and its packages when you install, and the camera's pose model (about 14 MB) the first time you start. Playing never needs it: the game runs on the host computer and the camera's video is processed in each browser.
-- **A hosted site** needs internet the whole time, because players reach it over the internet. Any connection works, wifi or mobile data, and players don't need to share one.
+Setting up needs internet once, to download the code and the camera's pose model.
 
 ### Install (once)
 
@@ -80,7 +77,7 @@ Details and how it works: [playing offline](docs/local.md).
 3. Everyone else on the same wifi opens the https address it prints, and taps Advanced, then continue, past the one-time warning.
 4. To keep your name, looks and friends, create an account in the profile and save its recovery code.
 
-Keep the router on while you play; it needs no internet. Full setup for Windows and macOS, and what to check if someone can't connect: [wifi multiplayer](docs/lan.md).
+Full setup for Windows and macOS, and what to check if someone can't connect: [wifi multiplayer](docs/lan.md).
 
 ### Hosting it
 
