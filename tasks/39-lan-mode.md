@@ -51,6 +51,7 @@ Waits on: nothing.
   (`spec/local-mode.test.ts`).
 
 ## Done when
+- [x] Chrome on another Windows laptop plays over `pnpm lan` (user, 2026-11-13; an earlier try stuck on "Connecting", cause not found, works on a retry).
 - [x] `pnpm local` with the camera and the wifi off, on the host laptop (user, 2026-11-13): no warning, moves register.
 - [x] `spec/lan-accounts.test.ts`: code shape and typing, v10 to v11 keeps
   every player, only the hash stored and never logged, sign in elsewhere with
@@ -65,7 +66,4 @@ Waits on: nothing.
 - [ ] Hosted from Windows (Private profile, firewall prompt) and from macOS (firewall prompt, `caffeinate`), as `docs/lan.md` says.
 
 ## Not built
-- Chrome on another laptop stays on "Connecting" over `pnpm lan`: its
-  WebSocket never reaches the server (2026-11-13). Cause not confirmed; the
-  server now logs `tls_error` and `ws_refused` to tell.
 - An e2e for the LAN profile flow (`e2e/` runs against the normal app).

@@ -13,14 +13,7 @@ history are saved in `data/app.db` on it.
   connection is not private"), and the address bar says "Not secure" after.
   The connection is encrypted, but nothing proves which computer is at that
   address (see below). People who don't expect it may stop there, so tell
-  them first. For a demo to someone new, use the hosted site.
-- **Chrome on other laptops may stay on "Connecting"** (found 2026-11-13, not
-  solved): the page loads after the warning, but its WebSocket never reaches
-  the server, so nothing else works. Most likely Chrome refuses the socket to
-  a self-signed certificate even after the warning; not yet confirmed. The
-  server logs `tls_error` when a device turns the certificate down and
-  `ws_refused` when it refuses a socket, which will tell. The host's own
-  browser, on `https://localhost:8443`, works.
+  them first. For a demo to someone new, `pnpm local` on one computer shows no warning.
 - **Accounts are recovery codes, not passkeys** (below).
 - **The host's firewall decides who can connect**, and Windows asks once.
   Allow it on Private networks only.

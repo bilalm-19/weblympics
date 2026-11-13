@@ -2199,3 +2199,7 @@ Merged home-36 (home screen redesign) onto main's tennis-fixes. Checked: no conf
 ## 2026-11-13 20:15 - decision - CI deploys nothing (user asked, Claude changed)
 - What: `.github/workflows/checks.yml` lost the course's Fly deploy job; the checks now run on private repos too, and a newer run on the same ref cancels an older one.
 - Who: user (asked), Claude (changed).
+
+## 2026-11-13 20:40 - playtest - wifi multiplayer works from another laptop's Chrome (user tested)
+- What: the "Connecting" seen earlier on the other Windows laptop is gone; the user reports `pnpm lan` working there. The cause of the first failure wasn't found (likely the server restarts during that test). The note about it is removed from README, `docs/lan.md` and task 39; the server keeps its `tls_error` and `ws_refused` log lines for next time.
+- Who: user (tested), Claude (docs).

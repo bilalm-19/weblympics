@@ -33,9 +33,26 @@ This copy lives on [bilalm-19/weblympics](https://github.com/bilalm-19/weblympic
 | **Wifi multiplayer** (opt-in) | `pnpm lan` | devices on your wifi | first run only | once per device |
 | **Hosted** | deploy it yourself (e.g. Fly, Render) | whoever you give the URL | yes | none |
 
-- **Offline:** open http://localhost:8080 and play the bots, camera included. The first run downloads the camera model (about 14 MB). [More](docs/local.md)
-- **Wifi multiplayer:** others open the address it prints and tap past a one-time warning. Accounts use a recovery code instead of a passkey. Chrome on other laptops can get stuck on "Connecting" (not solved yet). [More](docs/lan.md)
-- **Hosted:** only if you put it on a hosting service yourself. Nothing deploys from this repo.
+### Set up offline play
+
+1. Install Node 24 and pnpm, then run `pnpm install` in this folder.
+2. Run `pnpm local` and open http://localhost:8080.
+3. The first run needs internet to download the camera model (about 14 MB). After that it works with the wifi off.
+
+Details and how it works: [playing offline](docs/local.md).
+
+### Set up wifi multiplayer
+
+1. On the computer that hosts: install as above, then run `pnpm lan`.
+2. Allow Node through the firewall when asked: on Windows choose Private networks (and set your wifi to Private), on a Mac choose Allow.
+3. Everyone else on the same wifi opens the https address it prints, and taps Advanced, then continue, past the one-time warning.
+4. To keep your name, looks and friends, create an account in the profile and save its recovery code.
+
+Full setup for Windows and macOS, and what to check if someone can't connect: [wifi multiplayer](docs/lan.md).
+
+### Hosting it
+
+Deploy the `Dockerfile`'s image to a hosting service with a volume at `/data`. Nothing deploys from this repo.
 
 ## Playing with friends
 
