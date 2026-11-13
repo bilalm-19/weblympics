@@ -6,6 +6,8 @@ Built using Claude Code
 
 **Play it online:** [comp4020-final-bilalm004.fly.dev](https://comp4020-final-bilalm004.fly.dev). This is the version deployed from my course account; it doesn't update from this repository.
 
+To launch it from this repository on your own computer, see [Run it yourself](#run-it-yourself).
+
 ![The home screen: six sports, a room panel and your party](docs/media/home.png)
 
 ## Inspiration
@@ -26,6 +28,8 @@ What made the Wii and Kinect games fun was that they were casual and easy enough
 - **Ratings and a leaderboard.** They go against the casual play the game is made for. Your profile shows only a count of matches played.
 - **Precise racket control.** A racket that copies your arm was unplayable with webcam noise and lag, so tennis has a plain forehand or backhand.
 - **Chat.** Others do it better. Friends can call each other on something established, and this site is where they play.
+
+<a id="run-it-yourself"></a>
 
 ## Run it yourself
 
