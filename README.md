@@ -27,13 +27,18 @@ What made the Wii and Kinect games fun was that they were casual and easy enough
 
 This copy lives on [bilalm-19/weblympics](https://github.com/bilalm-19/weblympics) and runs on Windows or macOS with Node 24 and pnpm. There is no public site for it right now: you run it on your own computer.
 
-| Mode | Command | Who can play | Needs internet | Browser warning |
-|---|---|---|---|---|
-| **Offline** | `pnpm local` | you, on this computer | only to set up | none |
-| **Wifi multiplayer** (opt-in) | `pnpm lan` | devices on your wifi | only to set up | once per device |
-| **Hosted** | deploy it yourself (e.g. Fly, Render) | whoever you give the URL | always | none |
+| Mode | Command | Who can play | Needs wifi | Needs internet | Browser warning |
+|---|---|---|---|---|---|
+| **Offline** | `pnpm local` | you, on this computer | no | only to set up | none |
+| **Wifi multiplayer** (opt-in) | `pnpm lan` | devices on your wifi | yes, always | only to set up | once per device |
+| **Hosted** | deploy it yourself (e.g. Fly, Render) | whoever you give the URL | no | always | none |
 
-**Why internet only to set up:** it's needed to download things, once: the code and its packages when you install, and the camera's pose model (about 14 MB) the first time you start. Playing never needs it. The game runs on your computer, the camera's video is processed in your browser, and on wifi the devices talk to the host over the wifi itself, so a router with no internet works. A hosted site needs internet the whole time, because players reach it over the internet.
+**Wifi and internet are different things.** The wifi is your local network: devices on it reach each other through your router. The internet is the wider world beyond the router.
+
+- **Offline** happens on one computer, so it needs neither once set up: the wifi can be off.
+- **Wifi multiplayer** always needs the wifi, since that's how the other devices reach the host. It doesn't need the internet: a router with no internet connection works.
+- **Internet is only for setup.** You download the code and its packages when you install, and the camera's pose model (about 14 MB) the first time you start. Playing never needs it: the game runs on the host computer and the camera's video is processed in each browser.
+- **A hosted site** needs internet the whole time, because players reach it over the internet.
 
 ### Install (once)
 
@@ -75,7 +80,7 @@ Details and how it works: [playing offline](docs/local.md).
 3. Everyone else on the same wifi opens the https address it prints, and taps Advanced, then continue, past the one-time warning.
 4. To keep your name, looks and friends, create an account in the profile and save its recovery code.
 
-Full setup for Windows and macOS, and what to check if someone can't connect: [wifi multiplayer](docs/lan.md).
+Keep the router on while you play; it needs no internet. Full setup for Windows and macOS, and what to check if someone can't connect: [wifi multiplayer](docs/lan.md).
 
 ### Hosting it
 
