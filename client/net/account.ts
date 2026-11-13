@@ -21,10 +21,21 @@ export interface Me {
   longestRally: number;
   /** Task 25: an account's camera settings (null: the defaults); always null for a guest. */
   cameraSettings: CameraSettings | null;
+  /** Task 39: the server is in LAN mode (local accounts and recovery codes, no passkeys). */
+  lan: boolean;
+  /** Task 39: this account has a recovery code. */
+  recovery: boolean;
 }
+
+// Task 39: whether the server said it is in LAN mode. /api/me is fetched
+// before the socket opens, so this is known before any menu is drawn.
+let lan = false;
+/** The server runs in LAN mode: offer local accounts and recovery codes, not passkeys. */
+export const lanMode = (): boolean => lan;
 
 /** Every answer that says who this is also says which camera settings apply (task 25). */
 function seen(me: Me): Me {
+  lan = me.lan === true;
   cameraSettingsFor(me);
   return me;
 }
@@ -117,6 +128,27 @@ export const declineFriend = (who: string): Promise<FriendOutcome> => post("/api
 export const removeFriend = (who: string): Promise<FriendOutcome> => post("/api/friends/remove", { who });
 export const makeFriendLink = (): Promise<{ code: string; expires: number }> => post("/api/friends/link");
 export const useFriendLink = (code: string): Promise<FriendOutcome> => post("/api/friends/link/use", { code });
+
+// ---- task 39, LAN mode: local accounts and recovery codes ----
+
+/** A guest becomes a local account. Returns the recovery code, shown once. */
+export async function createLocalAccount(): Promise<{ me: Me; code: string }> {
+  const r = await post<{ me: Me; code: string }>("/api/local/create");
+  // the camera settings they had in this browser come along, as for a passkey
+  await keepGuestSettings(r.me);
+  // as addPasskey: seen() would put back the defaults keepGuestSettings just replaced
+  lan = r.me.lan === true;
+  return r;
+}
+/** Signs in on this browser with a recovery code. */
+export const recoverAccount = async (code: string): Promise<Me> => seen(await post<Me>("/api/local/recover", { code }));
+/** A new recovery code; the old one stops working. */
+export const newRecoveryCode = (): Promise<{ me: Me; code: string }> => post("/api/local/new-code");
+/** Deletes a local account, confirmed with its recovery code. */
+export async function deleteLocalAccount(code: string): Promise<void> {
+  await post("/api/local/delete", { code });
+  cameraSettingsFor(null);
+}
 
 /** Deletes the account after a fresh passkey check. */
 export async function deleteAccount(): Promise<void> {

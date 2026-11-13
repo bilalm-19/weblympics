@@ -20,7 +20,7 @@ export const MAX_PENDING = 50;
 const MAX_LINKS = 5;
 
 export const GUESTS_CANT =
-  "Guests can't add friends: a guest has no lasting identity. Create an account with a passkey (profile, top right) first.";
+  "Guests can't add friends: a guest has no lasting identity. Create an account (profile, top right) first.";
 const NO_SUCH = "No account has that name and number. Check both: it looks like Sam#4821.";
 
 export type FriendResult = { ok: true; outcome: "requested" | "friends" | "already"; other: string } | Refusal;

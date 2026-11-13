@@ -1,16 +1,14 @@
+import { LOCAL_POSE_META, poseSources } from "../../../shared/pose-files.ts";
 import type { CameraFrame } from "./pose.ts";
 
 // Webcam plus MediaPipe pose. The video stays in this browser: frames go to
 // the pose model running locally, and only the landmarks come out. The model
 // and its runtime are downloaded the first time a player picks the camera.
 
-const MEDIAPIPE_VERSION = "1.0.1";
-const WASM_URL = `https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@${MEDIAPIPE_VERSION}/wasm`;
-const MODEL_URL =
-  "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task";
-// archery reads the fingers of the drawing hand (opening it shoots); the same
-// host as the pose model, so the page's connect-src doesn't change
-const HAND_MODEL_URL = "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task";
+// In local mode (`pnpm local`, `pnpm lan`) this server serves them instead,
+// and says so with a <meta> in the page (shared/pose-files.ts, docs/local.md).
+const localPath = document.querySelector<HTMLMetaElement>(`meta[name="${LOCAL_POSE_META}"]`)?.content;
+const SOURCES = poseSources(localPath ? { origin: location.origin, path: localPath } : null);
 const LOAD_TIMEOUT_MS = 30_000;
 // a phone runs detection and the 3D renderer together; leave it room
 const DETECT_INTERVAL_MS = matchMedia("(pointer: coarse)").matches ? 66 : 33;
@@ -92,9 +90,9 @@ export async function startPose(
     landmarker = await withTimeout(
       (async () => {
         const { FilesetResolver, PoseLandmarker } = await import("@mediapipe/tasks-vision");
-        const files = await FilesetResolver.forVisionTasks(WASM_URL);
+        const files = await FilesetResolver.forVisionTasks(SOURCES.wasm);
         const options = (delegate: "GPU" | "CPU") => ({
-          baseOptions: { modelAssetPath: MODEL_URL, delegate },
+          baseOptions: { modelAssetPath: SOURCES.pose, delegate },
           runningMode: "VIDEO" as const,
           numPoses: 1,
         });
@@ -104,7 +102,7 @@ export async function startPose(
         if (opts.hands) {
           const { HandLandmarker } = await import("@mediapipe/tasks-vision");
           const handOptions = (delegate: "GPU" | "CPU") => ({
-            baseOptions: { modelAssetPath: HAND_MODEL_URL, delegate },
+            baseOptions: { modelAssetPath: SOURCES.hand, delegate },
             runningMode: "VIDEO" as const,
             numHands: 2,
           });
@@ -120,6 +118,9 @@ export async function startPose(
     );
   } catch (err) {
     stream.getTracks().forEach((t) => t.stop());
+    // the reason stays on this device (the console), so a failing phone or
+    // browser can be diagnosed with remote devtools
+    console.warn("Weblympics: the pose model didn't load:", err);
     throw err instanceof CameraError
       ? new CameraError(`${err.message} Keep playing with keys and buttons.`)
       : new CameraError("The pose model didn't load. Keep playing with keys and buttons.");

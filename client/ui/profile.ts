@@ -5,7 +5,22 @@ import "./profile.css";
 import { BOTTOM_COLOURS, DEFAULT_LOOKS, HAIR_COLOURS, LOOK_LABELS, LOOK_OPTIONS, SKINS, TOP_COLOURS, optionLabel, sameLook } from "../../shared/look.ts";
 import type { Look } from "../../shared/look.ts";
 import { NAME_MAX, NAME_MIN, nameShapeProblem, normaliseName } from "../../shared/names.ts";
-import { ApiError, addPasskey, deleteAccount, fetchMe, passkeysSupported, removePasskey, saveLook, setName, signIn, signOut } from "../net/account.ts";
+import {
+  ApiError,
+  addPasskey,
+  createLocalAccount,
+  deleteAccount,
+  deleteLocalAccount,
+  fetchMe,
+  newRecoveryCode,
+  passkeysSupported,
+  recoverAccount,
+  removePasskey,
+  saveLook,
+  setName,
+  signIn,
+  signOut,
+} from "../net/account.ts";
 import type { Me } from "../net/account.ts";
 import { lookSvg } from "./look-preview.ts";
 import { resetCameraSettings } from "../net/camera-settings.ts";
@@ -113,6 +128,8 @@ export function openProfile(hooks: ProfileHooks): void {
   // the look being tried on, before Save, and the editor's open tab
   let draftLook: Look | null = null;
   let lookTab = TABS[0].id;
+  // task 39, LAN mode: a recovery code just made, shown until "I've saved it"
+  let shownCode: string | null = null;
 
   const changed = (next: Me | null) => {
     me = next;
@@ -153,6 +170,31 @@ export function openProfile(hooks: ProfileHooks): void {
 
     if (!me) {
       body.innerHTML = `<p>Loading…</p>`;
+    } else if (!me.account && me.lan) {
+      // task 39: on a LAN there are no passkeys; one click makes an account
+      body.innerHTML = `
+        <p class="profile-name">Playing as <strong></strong> (guest)</p>
+        <p class="profile-note">Create an account to choose your name, dress your player and add friends. It's saved on the computer running the game, and this browser stays signed in.</p>
+        <div class="profile-actions">
+          <button type="button" class="profile-btn profile-btn--primary" id="pf-local-create" data-act="local-create">Create account</button>
+        </div>
+        <form class="profile-recover" novalidate>
+          <label for="pf-recover">Have an account already? Sign in with its recovery code</label>
+          <div class="profile-row">
+            <input id="pf-recover" name="code" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="32" placeholder="Recovery code" />
+            <button type="submit" class="profile-btn" id="pf-recover-go">Sign in</button>
+          </div>
+        </form>
+      `;
+      const input = body.querySelector<HTMLInputElement>("#pf-recover")!;
+      body.querySelector(".profile-recover")!.addEventListener("submit", (event) => {
+        event.preventDefault();
+        const code = input.value;
+        void act(async () => {
+          changed(await recoverAccount(code));
+          status = "Signed in.";
+        });
+      });
     } else if (!me.account) {
       body.innerHTML = `
         <p class="profile-name">Playing as <strong></strong> (guest)</p>
@@ -187,16 +229,41 @@ export function openProfile(hooks: ProfileHooks): void {
           <p class="profile-hint">Friends add you as <strong class="profile-tag"></strong>. Others may share your name; the number tells you apart, and is kept when you rename if it's free.</p>
         </form>
         ${customise(draftLook ?? me.look ?? DEFAULT_LOOKS[0], lookTab)}
-        <h3>Passkeys</h3>
-        <ul class="profile-keys"></ul>
-        <div class="profile-actions">
-          <button type="button" class="profile-btn" id="pf-add" data-act="add">Add a passkey</button>
-          <button type="button" class="profile-btn" id="pf-signout" data-act="signout">Sign out</button>
-        </div>
+        ${
+          me.lan
+            ? `<h3>Recovery code</h3>
+               <p class="profile-note">${
+                 me.recovery
+                   ? "Your recovery code signs you in on another browser or device. Lost it, or someone else saw it? Make a new one and the old one stops working."
+                   : "This account has no recovery code yet. Make one so you can sign in on another browser or device."
+               }</p>
+               <div class="profile-actions">
+                 <button type="button" class="profile-btn" id="pf-new-code" data-act="new-code">Make a new recovery code</button>
+                 <button type="button" class="profile-btn" id="pf-signout" data-act="signout">Sign out</button>
+               </div>`
+            : `<h3>Passkeys</h3>
+               <ul class="profile-keys"></ul>
+               <div class="profile-actions">
+                 <button type="button" class="profile-btn" id="pf-add" data-act="add">Add a passkey</button>
+                 <button type="button" class="profile-btn" id="pf-signout" data-act="signout">Sign out</button>
+               </div>`
+        }
         <section class="profile-danger" aria-labelledby="pf-danger-title">
           <h3 id="pf-danger-title">Delete account</h3>
           ${
-            confirmDelete
+            confirmDelete && me.lan
+              ? `<p class="profile-note">This removes your name, look and friends for good. Past matches stay for your opponents, shown as "Deleted player". Type your recovery code to confirm.</p>
+                 <form class="profile-delete-local" novalidate>
+                   <label class="sr-only" for="pf-delete-code">Recovery code</label>
+                   <div class="profile-row">
+                     <input id="pf-delete-code" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="32" placeholder="Recovery code" />
+                   </div>
+                   <div class="profile-actions">
+                     <button type="submit" class="profile-btn profile-btn--danger" id="pf-delete-local">Delete account</button>
+                     <button type="button" class="profile-btn" id="pf-delete-cancel" data-act="delete-cancel">Keep my account</button>
+                   </div>
+                 </form>`
+              : confirmDelete
               ? `<p class="profile-note">This removes your name, passkeys and rating for good. Past matches stay for your opponents, shown as "Deleted player". Confirm with one of your passkeys.</p>
                  <div class="profile-actions">
                    <button type="button" class="profile-btn profile-btn--danger" id="pf-delete-confirm" data-act="delete-confirm">Confirm with passkey and delete</button>
@@ -225,8 +292,36 @@ export function openProfile(hooks: ProfileHooks): void {
           status = "Name saved.";
         });
       });
-      const list = body.querySelector<HTMLElement>(".profile-keys")!;
-      me.passkeys.forEach((k, i) => {
+      const deleteLocal = body.querySelector<HTMLFormElement>(".profile-delete-local");
+      deleteLocal?.addEventListener("submit", (event) => {
+        event.preventDefault();
+        const code = deleteLocal.querySelector<HTMLInputElement>("#pf-delete-code")!.value;
+        void act(async () => {
+          await deleteLocalAccount(code);
+          confirmDelete = false;
+          shownCode = null;
+          changed(await fetchMe());
+          status = "Account deleted. You're a new guest now.";
+        });
+      });
+      // task 39: a code just made sits at the top until it's been saved
+      if (shownCode) {
+        const box = document.createElement("section");
+        box.className = "profile-code-box";
+        box.setAttribute("aria-labelledby", "pf-code-title");
+        box.innerHTML = `
+          <h3 id="pf-code-title">Your recovery code</h3>
+          <p class="profile-code"><code></code></p>
+          <p class="profile-note">Save it now: take a photo or write it down. It's the only way to sign in on another browser or device, and it won't be shown again.</p>
+          <div class="profile-actions">
+            <button type="button" class="profile-btn" id="pf-code-copy" data-act="code-copy">Copy code</button>
+            <button type="button" class="profile-btn profile-btn--primary" id="pf-code-done" data-act="code-done">I've saved it</button>
+          </div>`;
+        box.querySelector("code")!.textContent = shownCode;
+        body.prepend(box);
+      }
+      const list = body.querySelector<HTMLElement>(".profile-keys");
+      if (list) me.passkeys.forEach((k, i) => {
         const li = document.createElement("li");
         const label = `Passkey ${i + 1}`;
         const used = k.lastUsedAt ? `, last used ${fmtDate(k.lastUsedAt)}` : "";
@@ -268,7 +363,7 @@ export function openProfile(hooks: ProfileHooks): void {
         <p class="profile-note">${
           me.account
             ? "Your swing calibration, racket and bow hand, movement and run modes and basketball power are saved to this account and follow you to any device."
-            : "Your swing calibration, racket and bow hand, movement and run modes and basketball power are kept in this browser. Add a passkey to keep them on any device."
+            : `Your swing calibration, racket and bow hand, movement and run modes and basketball power are kept in this browser. ${me.lan ? "Create an account" : "Add a passkey"} to keep them on any device.`
         }</p>
         <div class="profile-actions"><button type="button" class="profile-btn" id="pf-camera-reset">Reset camera settings to default</button></div>`;
       cam.querySelector("#pf-camera-reset")!.addEventListener("click", () => {
@@ -356,6 +451,34 @@ export function openProfile(hooks: ProfileHooks): void {
               status = "Account created. You can now choose your name.";
             });
             break;
+          case "local-create":
+            void act(async () => {
+              const r = await createLocalAccount();
+              shownCode = r.code;
+              changed(r.me);
+              status = "Account created. You can now choose your name and look.";
+            });
+            break;
+          case "new-code":
+            void act(async () => {
+              const r = await newRecoveryCode();
+              shownCode = r.code;
+              me = r.me;
+              status = "New recovery code made. The old one no longer works.";
+            });
+            break;
+          case "code-copy":
+            if (shownCode)
+              void navigator.clipboard?.writeText(shownCode).then(
+                () => ((status = "Code copied."), render()),
+                () => ((status = "Couldn't copy: write the code down instead."), render()),
+              );
+            break;
+          case "code-done":
+            shownCode = null;
+            status = "";
+            render();
+            break;
           case "add":
             void act(async () => {
               me = await addPasskey();
@@ -370,6 +493,7 @@ export function openProfile(hooks: ProfileHooks): void {
             break;
           case "signout":
             void act(async () => {
+              shownCode = null;
               await signOut();
               changed(await fetchMe());
               status = "Signed out. You're playing as a guest.";

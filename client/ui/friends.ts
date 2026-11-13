@@ -36,7 +36,7 @@ export const gameName = (id: string): string => GAME_NAMES[id] ?? id.charAt(0).t
 
 const STATUS_WORDS: Record<ShownStatus, string> = { online: "Online", away: "Away", offline: "Offline" };
 
-export const GUEST_NOTE = "Guests can't add friends: a guest has no lasting identity. Create an account with a passkey (profile, top right) to add friends.";
+export const GUEST_NOTE = "Guests can't add friends: a guest has no lasting identity. Create an account (profile, top right) to add friends.";
 export const GUEST_PARTY_NOTE = "You can still start a party, or join one, by its link.";
 
 /** What a friend is doing, in words. */

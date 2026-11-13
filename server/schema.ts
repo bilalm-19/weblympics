@@ -39,8 +39,11 @@ import type { DatabaseSync } from "node:sqlite";
  * Version 9 (task 25): an account's camera settings, as JSON of the closed
  * shape in shared/camera-settings.ts (validated before it is written); NULL
  * means the defaults. Guests keep theirs in the browser.
+ * Version 11 (task 39, LAN mode): one recovery code per local account, the
+ * way back in on another browser when there is no passkey. Only a SHA-256 of
+ * the code is stored (the code is long and random, so a fast hash is enough).
  */
-export const SCHEMA_VERSION = 10;
+export const SCHEMA_VERSION = 11;
 
 const V1 = `
   CREATE TABLE IF NOT EXISTS players (
@@ -202,6 +205,14 @@ const V10 = `
   DROP TABLE IF EXISTS ratings;
 `;
 
+const V11 = `
+  CREATE TABLE IF NOT EXISTS recovery_codes (
+    player TEXT PRIMARY KEY REFERENCES players(token),
+    hash TEXT NOT NULL UNIQUE,
+    created_at INTEGER NOT NULL
+  );
+`;
+
 export function schemaVersion(db: DatabaseSync): number {
   db.exec("CREATE TABLE IF NOT EXISTS schema_version (version INTEGER NOT NULL)");
   const row = db.prepare("SELECT version FROM schema_version").get() as { version: number } | undefined;
@@ -216,7 +227,7 @@ export function schemaVersion(db: DatabaseSync): number {
 
 /** Brings `db` up to SCHEMA_VERSION, one step at a time, each in a transaction. */
 export function migrate(db: DatabaseSync): void {
-  const steps: Record<number, string> = { 1: V1, 2: V2, 3: V3, 4: V4, 5: V5, 6: V6, 7: V7, 8: V8, 9: V9, 10: V10 };
+  const steps: Record<number, string> = { 1: V1, 2: V2, 3: V3, 4: V4, 5: V5, 6: V6, 7: V7, 8: V8, 9: V9, 10: V10, 11: V11 };
   let v = schemaVersion(db);
   if (v > SCHEMA_VERSION) throw new Error(`database schema ${v} is newer than this app (${SCHEMA_VERSION})`);
   while (v < SCHEMA_VERSION) {

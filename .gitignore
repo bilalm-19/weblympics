@@ -15,6 +15,10 @@ Desktop.ini
 .envrc
 mise.local.toml
 *.pem
+# LAN mode's certificate for this computer (pnpm lan makes it)
+certs/
+# the camera's model files for local mode (pnpm local / pnpm lan download them)
+models/
 
 # Claude Code's project directory is machine-local: settings in here can hold
 # your course API key, and this repo goes public when you ship. Your tracked

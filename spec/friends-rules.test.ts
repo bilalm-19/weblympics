@@ -3,10 +3,11 @@
 // is Name#1234, name and tag together unique; all 10,000 taken is said
 // plainly; a rename keeps its tag if free; guests can't friend; requests,
 // accept, decline, remove, links (single use, expiring, only a hash stored).
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { DatabaseSync } from "node:sqlite";
+import type { DatabaseSync } from "node:sqlite";
+import { cleanTemp, openDb } from "./temp.ts";
 import { afterEach, describe, expect, it } from "vitest";
 import {
   ALL_TAGS_TAKEN,
@@ -42,7 +43,7 @@ import { SCHEMA_VERSION, migrate, schemaVersion } from "../server/schema.ts";
 
 const dirs: string[] = [];
 afterEach(() => {
-  for (const d of dirs.splice(0)) rmSync(d, { recursive: true, force: true });
+  cleanTemp(dirs);
 });
 
 function freshFile(): string {
@@ -52,7 +53,7 @@ function freshFile(): string {
 }
 
 function freshDb(): DatabaseSync {
-  const db = new DatabaseSync(freshFile());
+  const db = openDb(freshFile());
   migrate(db);
   seedDemoAccounts(db);
   return db;
@@ -73,7 +74,7 @@ const tagOf = (db: DatabaseSync, t: string) => nameTag(getPlayer(db, t)!);
 describe("schema v8 (task 34): name tags and friends tables", () => {
   it("opens a v7 database: every account gets a tag, the demo accounts #0001 and #0002, guests none; rows kept", () => {
     const path = freshFile();
-    const old = new DatabaseSync(path);
+    const old = openDb(path);
     migrate(old);
     // roll the fresh database back to what v7 made (task 33's looks step stays; task 25's v9 column goes)
     old.exec(`
@@ -92,10 +93,11 @@ describe("schema v8 (task 34): name tags and friends tables", () => {
     expect(schemaVersion(old)).toBe(7);
     old.close();
 
-    const db = new DatabaseSync(path);
+    const db = openDb(path);
     migrate(db);
     expect(schemaVersion(db)).toBe(SCHEMA_VERSION);
-    expect(SCHEMA_VERSION).toBe(10);
+    // v11 (task 39) added recovery codes after this step
+    expect(SCHEMA_VERSION).toBe(11);
     expect(getDemo(db, 1).tag).toBe(1);
     expect(getDemo(db, 2).tag).toBe(2);
     for (const t of ["acct-a", "acct-b"]) {

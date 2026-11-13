@@ -51,6 +51,7 @@ One flat list. Start at the top; a task only waits on the ones named.
 | 36 | [Home screen redesign](36-home-redesign.md): the approved mock (three even columns, big preview, party panel, centred logo, friends panel with online/away/offline) | integrate-rest merged | Opus |
 | 37 | [Match stats instead of ratings](37-match-stats.md): remove Elo, the leaderboard and the rated option; played/won/lost/drawn and a record per sport (hurdles its own), head-to-head with friends | integrate-rest, 34 | Opus |
 | 38 | ["Just me" practice](38-just-me-practice.md): basketball, bowling and track practice alone, unlimited, with a vs Bot switch | - | Opus |
+| 39 | [LAN mode](39-lan-mode.md): `pnpm lan` for the same wifi, https by IP, local accounts with recovery codes (built; needs a playtest on real devices) | - | Opus |
 
 Tasks 10 (README) and 11 (ship) are set aside by the user for now. Task 7 now
 waits on 17 and is per-sport with a host-set rated option. How the new tasks

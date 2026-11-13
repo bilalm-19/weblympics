@@ -7,7 +7,7 @@
 // a passkey, signed in by a session cookie). The row's `token` is its internal
 // id: matches point at it, and it is never sent to any client. A guest's
 // cookie never opens an account, so claiming a guest ends that cookie's use.
-import { createHash, randomBytes, randomUUID } from "node:crypto";
+import { createHash, randomBytes, randomInt, randomUUID } from "node:crypto";
 import type { DatabaseSync } from "node:sqlite";
 import { parseCameraSettings } from "../shared/camera-settings.ts";
 import type { CameraSettings } from "../shared/camera-settings.ts";
@@ -198,15 +198,7 @@ export function addPasskey(db: DatabaseSync, player: string, key: Omit<StoredPas
   if (findPasskey(db, key.id)) return refuse(409, "That passkey is already registered.");
   db.exec("BEGIN");
   try {
-    if (!p.account) {
-      let name = p.name;
-      let tag = freeTag(db, name);
-      while (tag === null) {
-        name = pseudonym();
-        tag = freeTag(db, name);
-      }
-      db.prepare("UPDATE players SET account = 1, name = ?, tag = ? WHERE token = ?").run(name, tag, player);
-    }
+    if (!p.account) promote(db, p);
     db.prepare("INSERT INTO passkeys (id, player, public_key, counter, transports, created_at) VALUES (?, ?, ?, ?, ?, ?)").run(
       key.id,
       player,
@@ -221,6 +213,21 @@ export function addPasskey(db: DatabaseSync, player: string, key: Omit<StoredPas
     throw e;
   }
   return { ok: true };
+}
+
+/**
+ * A guest becomes an account, keeping its token (so its match history stays)
+ * and its pseudonym, with a random free tag (a new pseudonym only if all its
+ * tags are taken). Runs inside the caller's transaction.
+ */
+function promote(db: DatabaseSync, p: Player): void {
+  let name = p.name;
+  let tag = freeTag(db, name);
+  while (tag === null) {
+    name = pseudonym();
+    tag = freeTag(db, name);
+  }
+  db.prepare("UPDATE players SET account = 1, name = ?, tag = ? WHERE token = ?").run(name, tag, p.token);
 }
 
 export function touchPasskey(db: DatabaseSync, id: string, counter: number, now = Date.now()): void {
@@ -247,7 +254,7 @@ export function removePasskey(db: DatabaseSync, player: string, id: string, conf
  */
 export function rename(db: DatabaseSync, player: string, raw: unknown): Result<{ name: string; tag: number }> {
   const p = getPlayer(db, player);
-  if (!p?.account) return refuse(403, "Guests keep a server-made name. Add a passkey to choose one.");
+  if (!p?.account) return refuse(403, "Guests keep a server-made name. Create an account (profile, top right) to choose one.");
   if (p.demo) return LOCKED;
   const check = checkChosenName(raw);
   if (!check.ok) return refuse(400, check.reason);
@@ -295,7 +302,7 @@ export function deleteAccount(db: DatabaseSync, player: string): Result {
 }
 
 // Per-player tables from later schema steps that go with the account.
-const ACCOUNT_TABLES = ["friend_links"];
+const ACCOUNT_TABLES = ["friend_links", "recovery_codes"];
 
 /** An account's saved look, or null (the seat's default). Guests never have one. */
 export function lookOf(db: DatabaseSync, player: string): Look | null {
@@ -311,7 +318,7 @@ export function lookOf(db: DatabaseSync, player: string): Look | null {
 /** Saves an account's look (task 18): every field from its fixed list, or nothing is written. */
 export function setLook(db: DatabaseSync, player: string, raw: unknown): Result<{ look: Look }> {
   const p = getPlayer(db, player);
-  if (!p?.account) return refuse(403, "Guests get the default look. Add a passkey to save one.");
+  if (!p?.account) return refuse(403, "Guests get the default look. Create an account (profile, top right) to save one.");
   const look = parseLook(raw);
   if (!look) return refuse(400, "That look isn't one of the choices.");
   db.prepare("UPDATE players SET look = ? WHERE token = ?").run(JSON.stringify(look), player);
@@ -352,3 +359,92 @@ export function matchCountFor(db: DatabaseSync, token: string): number {
 
 /** Shown in place of a player who deleted their account. */
 export const isTombstone = (token: string | null): boolean => token?.startsWith("deleted:") ?? false;
+
+// ---- task 39: LAN mode's local accounts and their recovery codes ----
+//
+// On a LAN the page is reached by IP address, where passkeys can't work (a
+// passkey's rp id must be a domain name). LAN mode instead lets a guest become
+// an account with one click, signed in by the usual session cookie, and gives
+// it a recovery code: the only way back in from another browser. Only a hash
+// of the code is stored, as for sessions.
+
+/** Letters and digits that can't be misread: no 0/O, 1/I/L. */
+const CODE_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
+/** 16 characters of 31: about 79 bits, far past guessing at any rate limit. */
+const CODE_LENGTH = 16;
+
+/** A fresh recovery code as shown: four groups of four, "K7QM-4XTR-9PDW-H2NC". */
+export function newRecoveryCode(): string {
+  let raw = "";
+  for (let i = 0; i < CODE_LENGTH; i++) raw += CODE_ALPHABET[randomInt(CODE_ALPHABET.length)];
+  return raw.match(/.{4}/g)!.join("-");
+}
+
+/** What a typed code means: case, spaces and dashes don't matter. Null if it can't be a code. */
+export function normaliseRecoveryCode(raw: unknown): string | null {
+  if (typeof raw !== "string" || raw.length > 64) return null;
+  const code = raw.toUpperCase().replace(/[\s-]/g, "");
+  if (code.length !== CODE_LENGTH) return null;
+  for (const ch of code) if (!CODE_ALPHABET.includes(ch)) return null;
+  return code;
+}
+
+/** Stores `code` as `player`'s only recovery code, replacing any older one. Runs inside the caller's transaction or alone. */
+function storeRecoveryCode(db: DatabaseSync, player: string, code: string, now: number): void {
+  const normal = normaliseRecoveryCode(code)!;
+  db.prepare("DELETE FROM recovery_codes WHERE player = ?").run(player);
+  db.prepare("INSERT INTO recovery_codes (player, hash, created_at) VALUES (?, ?, ?)").run(player, hash(normal), now);
+}
+
+/** Whether `player` has a recovery code. */
+export function hasRecoveryCode(db: DatabaseSync, player: string): boolean {
+  return Boolean(db.prepare("SELECT 1 FROM recovery_codes WHERE player = ?").get(player));
+}
+
+/**
+ * LAN mode: a guest becomes a local account (no passkey) and gets its first
+ * recovery code, which is returned once and never stored as is.
+ */
+export function claimLocal(db: DatabaseSync, player: string, now = Date.now()): Result<{ code: string }> {
+  const p = getPlayer(db, player);
+  if (!p) return refuse(404, "No such player.");
+  if (p.demo) return LOCKED;
+  if (p.account) return refuse(409, "You already have an account.");
+  const code = newRecoveryCode();
+  db.exec("BEGIN");
+  try {
+    promote(db, p);
+    storeRecoveryCode(db, player, code, now);
+    db.exec("COMMIT");
+  } catch (e) {
+    db.exec("ROLLBACK");
+    throw e;
+  }
+  return { ok: true, code };
+}
+
+/** A new recovery code for an account; the old one stops working. */
+export function replaceRecoveryCode(db: DatabaseSync, player: string, now = Date.now()): Result<{ code: string }> {
+  const p = getPlayer(db, player);
+  if (!p?.account) return refuse(403, "Sign in first.");
+  if (p.demo) return LOCKED;
+  const code = newRecoveryCode();
+  storeRecoveryCode(db, player, code, now);
+  return { ok: true, code };
+}
+
+/** The account a recovery code opens, if any. */
+export function recoveryPlayer(db: DatabaseSync, raw: unknown): Player | null {
+  const code = normaliseRecoveryCode(raw);
+  if (!code) return null;
+  const r = db
+    .prepare(`SELECT p.token, p.name, p.account, p.demo, p.tag FROM recovery_codes c JOIN players p ON p.token = c.player WHERE c.hash = ? AND p.account = 1 AND p.demo = 0`)
+    .get(hash(code)) as Row | undefined;
+  return r ? toPlayer(r) : null;
+}
+
+/** LAN mode keeps regular players signed in: a live session's expiry moves forward on each visit. */
+export function renewSession(db: DatabaseSync, cookie: string, now = Date.now()): void {
+  if (cookie.length > 100) return;
+  db.prepare("UPDATE sessions SET expires_at = ? WHERE hash = ? AND expires_at > ?").run(now + SESSION_MS, hash(cookie), now);
+}

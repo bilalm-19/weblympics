@@ -18,19 +18,24 @@ import {
   SESSION_DAYS,
   addPasskey,
   cameraSettingsOf,
+  claimLocal,
   createSession,
   deleteAccount,
   endSession,
   findPasskey,
   getDemo,
   getPlayer,
+  hasRecoveryCode,
   lookOf,
   guestFor,
   matchCountFor,
   newGuestToken,
   passkeysOf,
+  recoveryPlayer,
   removePasskey,
   rename,
+  renewSession,
+  replaceRecoveryCode,
   sessionPlayer,
   setCameraSettings,
   setLook,
@@ -70,6 +75,10 @@ export interface Me {
   longestRally: number;
   /** Task 25: the account's camera settings; null for the defaults (always, for a guest: theirs stay in the browser). */
   cameraSettings: CameraSettings | null;
+  /** Task 39: the server runs in LAN mode: local accounts and recovery codes instead of passkeys. */
+  lan: boolean;
+  /** Task 39: this account has a recovery code (LAN mode). */
+  recovery: boolean;
 }
 
 export interface AuthDeps {
@@ -85,6 +94,12 @@ export interface AuthDeps {
   /** Per address per minute: passkey ceremonies (each is two requests), and other writes. */
   limits?: { ceremony: number; write: number };
   onFly?: boolean;
+  /**
+   * Task 39, LAN mode (`pnpm lan`): reached by IP address, where passkeys
+   * can't work, so a guest may become a local account with one click and get
+   * a recovery code. Off unless LAN_ACCOUNTS=1; off on Fly, whatever is set.
+   */
+  lan?: boolean;
 }
 
 /** Who a request (HTTP or the WebSocket upgrade) is: the session's account, else the cookie's guest. */
@@ -138,6 +153,7 @@ export function createAuth(deps: AuthDeps) {
   // per address: passkey ceremonies, and everything else that writes
   const limits = deps.limits ?? { ceremony: 40, write: 60 };
   const onFly = deps.onFly ?? Boolean(process.env.FLY_APP_NAME);
+  const lan = !onFly && (deps.lan ?? process.env.LAN_ACCOUNTS === "1");
   const ceremonyLimit = new RateLimit(limits.ceremony, 60_000, clock);
   const writeLimit = new RateLimit(limits.write, 60_000, clock);
 
@@ -151,6 +167,8 @@ export function createAuth(deps: AuthDeps) {
     look: lookOf(db, p.token),
     longestRally: longestRally(db, p.token),
     cameraSettings: cameraSettingsOf(db, p.token),
+    lan,
+    recovery: p.account && hasRecoveryCode(db, p.token),
   });
 
   const sessionCookie = (token: string, host: string | undefined): string => {
@@ -167,6 +185,12 @@ export function createAuth(deps: AuthDeps) {
 
     if (path === "/api/me" && req.method === "GET") {
       const session = sessionPlayer(db, jar.get(SESSION_COOKIE), clock());
+      if (session && lan) {
+        // task 39: a local account has no passkey to sign back in with, so a
+        // regular player is never signed out by the session running out
+        renewSession(db, jar.get(SESSION_COOKIE)!, clock());
+        return json(res, 200, me(session), [cookie(SESSION_COOKIE, jar.get(SESSION_COOKIE)!, SESSION_DAYS * DAY_S, host)]), true;
+      }
       if (session) return json(res, 200, me(session)), true;
       let guest = guestFor(db, jar.get(GUEST_COOKIE), clock());
       const set: string[] = [];
@@ -198,7 +222,9 @@ export function createAuth(deps: AuthDeps) {
     const body = await readJson(req);
     if (!body) return json(res, 400, { error: "Bad request." }), true;
     const ip = clientIp(req, onFly);
-    const ceremony = path.startsWith("/api/passkey/") || path.startsWith("/api/account/delete");
+    const ceremony = path.startsWith("/api/passkey/") || path.startsWith("/api/account/delete") || path.startsWith("/api/local/");
+    // task 39: the local-account routes exist only in LAN mode
+    if (path.startsWith("/api/local/") && !lan) return json(res, 404, { error: "Not found." }), true;
     if (!(ceremony ? ceremonyLimit : writeLimit).allow(ip)) return json(res, 429, { error: "Too many tries. Wait a minute." }), true;
     const rpID = rpIdFor(origin);
     const player = sessionPlayer(db, jar.get(SESSION_COOKIE), clock()) ?? guestFor(db, jar.get(GUEST_COOKIE), clock());
@@ -360,6 +386,43 @@ export function createAuth(deps: AuthDeps) {
         if (!r.ok) return json(res, r.status, { error: r.reason }), true;
         log("friends_link", { who: who(player.token) });
         return json(res, 200, { code: r.code, expires: r.expires }), true;
+      }
+
+      // ---- task 39, LAN mode: local accounts and recovery codes ----
+      case "/api/local/create": {
+        if (!player) return json(res, 401, { error: "Load the page first." }), true;
+        const r = claimLocal(db, player.token, clock());
+        if (!r.ok) return json(res, r.status, { error: r.reason }), true;
+        log("account_claim", { who: who(player.token), local: true });
+        // the code is in this one answer only: the database keeps its hash
+        return json(res, 200, { me: me(getPlayer(db, player.token)!), code: r.code }, [sessionCookie(player.token, host), clear(GUEST_COOKIE, host)]), true;
+      }
+      case "/api/local/recover": {
+        const found = recoveryPlayer(db, body.code);
+        if (!found) return json(res, 401, { error: "That recovery code isn't one we know here. Check it and try again." }), true;
+        if (jar.has(SESSION_COOKIE)) endSession(db, jar.get(SESSION_COOKIE)!);
+        log("sign_in", { who: who(found.token), recovery: true });
+        return json(res, 200, me(found), [sessionCookie(found.token, host)]), true;
+      }
+      case "/api/local/new-code": {
+        if (!player?.account) return json(res, 403, { error: "Sign in first." }), true;
+        const r = replaceRecoveryCode(db, player.token, clock());
+        if (!r.ok) return json(res, r.status, { error: r.reason }), true;
+        log("recovery_code_new", { who: who(player.token) });
+        return json(res, 200, { me: me(player), code: r.code }), true;
+      }
+      case "/api/local/delete": {
+        if (!player?.account) return json(res, 403, { error: "Sign in first." }), true;
+        if (player.demo) return json(res, 403, { error: "Demo accounts are locked." }), true;
+        // the recovery code stands in for the passkey check
+        if (recoveryPlayer(db, body.code)?.token !== player.token) return json(res, 401, { error: "Confirm with this account's recovery code." }), true;
+        const friends = friendIds(db, player.token);
+        const r = deleteAccount(db, player.token);
+        if (!r.ok) return json(res, r.status, { error: r.reason }), true;
+        log("account_delete", { local: true });
+        deps.onFriends?.(friends);
+        deps.onGone(player.token);
+        return json(res, 200, { ok: true }, [clear(SESSION_COOKIE, host), clear(GUEST_COOKIE, host)]), true;
       }
 
       // ---- delete: a fresh passkey check, then everything identifying goes ----

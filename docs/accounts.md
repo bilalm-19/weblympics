@@ -59,6 +59,33 @@ id that links to nothing and is shown as "Deleted player".
 passkeys. They are locked (no rename, delete or passkey), and reached from the closed **Dev tools** control in the
 home screen's profile panel (the round button, top right). Anyone can use them, so treat them as public.
 
+## LAN mode: local accounts
+
+Only when the game runs with `pnpm lan` ([lan.md](lan.md)); the Fly app has
+none of this (`/api/local/*` answers 404, and `LAN_ACCOUNTS` is ignored on
+Fly). Enforced by `spec/lan-accounts.test.ts`.
+
+- On a LAN the page is reached by IP address, where passkeys can't work (a
+  passkey's rp id must be a domain name). **Create account** instead makes the
+  guest an account in one click, keeping its history, pseudonym and a new
+  `#1234` tag, as a passkey claim does. It is signed in by the usual session
+  cookie, renewed on each visit so a regular player is never signed out by
+  the session running out.
+- Each local account has one **recovery code**: 16 characters from
+  `A-Z` and `2-9` without `I`, `L` and `O` (about 79 bits), shown as four
+  groups of four. It is returned once, by the request that makes it; the
+  database keeps only its SHA-256 (`recovery_codes`, schema v11; a fast
+  hash is enough for a long random code). Case, spaces and dashes don't
+  matter when it's typed. It is never logged.
+- The code signs in on any browser (`/api/local/recover`, under the passkey
+  rate limit). **Make a new recovery code** replaces it, and the old one stops
+  working at once.
+- Deleting a local account asks for its code in place of the passkey check;
+  the code goes with the account.
+- Anyone with the code is you. If someone else has seen it, make a new one.
+  Lost the code and this browser's cookies? The account can't be reached
+  again (the host can still remove its name by hand, below).
+
 ## Admin: rename or remove a name by hand
 
 The database is SQLite in WAL mode on the Fly volume (`/data/app.db`). Open it

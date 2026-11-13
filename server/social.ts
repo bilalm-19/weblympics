@@ -43,7 +43,7 @@ const SOCIAL_PER_SECOND = 20;
 type Doing = FriendView["doing"];
 const OFFLINE = JSON.stringify(["offline", null]);
 /** A guest may join, lead and share a party by its link (user, 2026-11-08); inviting by Name#1234 needs a lasting name. */
-export const GUESTS_INVITE = "Guests can't invite by name: a guest has no lasting identity. Copy the party link and send it instead, or create an account with a passkey (profile, top right).";
+export const GUESTS_INVITE = "Guests can't invite by name: a guest has no lasting identity. Copy the party link and send it instead, or create an account (profile, top right).";
 /** Public parties are listed to the leader's friends; a guest has none. */
 export const GUESTS_PUBLIC = "Only an account can make a party public to friends: a guest has no friends list. Share the party link instead.";
 

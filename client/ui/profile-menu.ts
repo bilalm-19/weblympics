@@ -10,6 +10,7 @@
 import { DEFAULT_LOOKS } from "../../shared/look.ts";
 import type { Look } from "../../shared/look.ts";
 import type { ShownStatus } from "../../shared/protocol.ts";
+import { lanMode } from "../net/account.ts";
 import { lookSvg } from "./look-preview.ts";
 import { problem } from "./profile.ts";
 
@@ -90,13 +91,17 @@ function openPanel(button: HTMLButtonElement, who: ProfileMenuWho, look: Look, a
         ${
           who.account
             ? `<button type="button" class="pm-btn" data-act="signout">${who.demo ? "Play as guest" : "Sign out"}</button>`
+            : lanMode()
+            ? // task 39: on a LAN, the profile dialog makes the account (and shows its recovery code once)
+              `<p class="pm-note">Playing as a guest. An account keeps your name, look and friends on this game's computer.</p>
+               <button type="button" class="pm-btn pm-btn--primary" data-act="profile">Create account or sign in</button>`
             : `<p class="pm-note">Playing as a guest: your matches stay in this browser. A passkey keeps them on any device.</p>
                <button type="button" class="pm-btn pm-btn--primary" data-act="create">Create account with a passkey</button>
                <button type="button" class="pm-btn" data-act="signin">Sign in with a passkey</button>`
         }
       </div>
       <div class="pm-actions" role="group" aria-label="More">
-        <button type="button" class="pm-btn" data-act="profile">${who.account ? "Edit profile and look" : "Profile details"}</button>
+        ${who.account || !lanMode() ? `<button type="button" class="pm-btn" data-act="profile">${who.account ? "Edit profile and look" : "Profile details"}</button>` : ""}
       </div>
       <details class="pm-devtools">
         <summary>Dev tools</summary>

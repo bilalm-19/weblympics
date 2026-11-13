@@ -110,6 +110,10 @@ Moved out of `CLAUDE.md` on 2026-11-09. It was a paragraph per file and kept gro
   open sockets, pushing friends lists and parties, party rooms; over
   injected deps for `spec/party-social.test.ts`); the tag helpers
   (`freeTag`, `findByTag`, `showTag`) are in `accounts.ts`.
+  Task 39 (LAN mode, `docs/lan.md`): `index.ts` serves https when
+  `TLS_CERT` and `TLS_KEY` are set; the local accounts, recovery codes and
+  session renewal are in `accounts.ts`, their `/api/local/*` routes in
+  `auth.ts` (only with `LAN_ACCOUNTS=1`, never on Fly).
   Rooms get their sim from the registry, so networking is game-agnostic.
 - `client/` `audio/` (task 19, sound for every screen): `engine.ts` (the
   one AudioContext, made in the first gesture; mute, effects, music and
@@ -238,5 +242,16 @@ Moved out of `CLAUDE.md` on 2026-11-09. It was a paragraph per file and kept gro
   `input/camera/run-pose.ts` (`RiseMeter`: each side from its recent low; steps, and `JumpTracker`:
   `spec/track-jump-pose.test.ts`); it reuses tennis's ready panel, which
   shows an event picker when given events.
+- `scripts/local.ts` `pnpm local`: offline on this computer only
+  (`docs/local.md`). `scripts/pose-models.ts` downloads the camera's models
+  into `models/` once; `shared/pose-files.ts` says where the client loads the
+  runtime and models from (this server's `/pose/` in local mode).
+- `scripts/lan.ts` `pnpm lan` (task 39): makes the LAN certificate in
+  `certs/` (self-signed, anonymous: `scripts/lan-cert.ts`) and starts the
+  server in LAN mode on :8443.
+  `server/lan-urls.ts` picks the address it prints (the default route, not a VM
+  or WSL adapter).
 - `spec/*.test.ts` vitest against the running app, plus the sim unit tests.
+  `spec/temp.ts` (`openDb`, `cleanTemp`) closes test databases before removing
+  their folders, which Windows needs.
 - `e2e/*.e2e.ts` Playwright at both viewports, fake webcam.

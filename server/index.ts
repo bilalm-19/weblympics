@@ -1,7 +1,9 @@
 import { readFileSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { createServer } from "node:http";
-import type { ServerResponse } from "node:http";
+import type { RequestListener, ServerResponse } from "node:http";
+import { createServer as createHttpsServer } from "node:https";
+import { ipv4Addresses, primaryAddress, splitAddresses } from "./lan-urls.ts";
 import { extname, join, normalize, resolve, sep } from "node:path";
 import { marked } from "marked";
 import { WebSocketServer } from "ws";
@@ -16,9 +18,23 @@ import { allowedOrigin, cookie } from "./guard.ts";
 import { log, who } from "./log.ts";
 import { PING_MS, createRoom, getRoom, leaveRoom, onMatchEnd, onPong, roomCount, roomStats, send, sendPing } from "./rooms.ts";
 import { Social } from "./social.ts";
+import { LOCAL_POSE_META, LOCAL_POSE_PATH } from "../shared/pose-files.ts";
 import type { Client } from "./rooms.ts";
 
 const PORT = Number(process.env.PORT ?? 8080);
+// `pnpm local` listens on this computer only (127.0.0.1); everything else on
+// every address, as Fly and `pnpm lan` need
+const HOST = process.env.HOST ?? "0.0.0.0";
+// local mode (`pnpm local`, `pnpm lan`; docs/local.md): this server serves the
+// pose runtime and models itself, so the camera works with no internet
+const POSE_LOCAL = process.env.POSE_FILES === "local";
+const POSE_WASM_DIR = resolve("node_modules/@mediapipe/tasks-vision/wasm");
+const POSE_MODELS_DIR = resolve(process.env.POSE_MODELS_DIR ?? "models");
+// Task 39: LAN mode (`pnpm lan`) serves https itself, since a webcam only
+// works on a secure page and other devices reach this one by IP address. On
+// Fly neither is set: Fly's proxy ends TLS in front of the app.
+const TLS =
+  process.env.TLS_CERT && process.env.TLS_KEY ? { cert: readFileSync(process.env.TLS_CERT), key: readFileSync(process.env.TLS_KEY) } : null;
 const CLIENT_DIR = resolve("dist/client");
 const DOCS_DIR = resolve("docs");
 const HEARTBEAT_MS = 25_000;
@@ -36,8 +52,10 @@ process.on("unhandledRejection", (e) => log("error", { where: "unhandledRejectio
 
 // The game page may only talk to this server and fetch the pose model and its
 // runtime. That keeps the promise that video never leaves the browser, and
-// blocks the usage pings MediaPipe sends to Google on its own.
-const CONNECT_SRC = ["'self'", "https://cdn.jsdelivr.net", "https://storage.googleapis.com"];
+// blocks the usage pings MediaPipe sends to Google on its own. In local mode
+// this server serves those too, so the page may talk to nothing else.
+const CONNECT_SRC = POSE_LOCAL ? ["'self'"] : ["'self'", "https://cdn.jsdelivr.net", "https://storage.googleapis.com"];
+const POSE_META = `<meta name="${LOCAL_POSE_META}" content="${LOCAL_POSE_PATH}">`;
 const CSP = `connect-src ${CONNECT_SRC.join(" ")}`;
 
 const MIME: Record<string, string> = {
@@ -52,6 +70,7 @@ const MIME: Record<string, string> = {
   ".webp": "image/webp",
   ".gif": "image/gif",
   ".ico": "image/x-icon",
+  ".wasm": "application/wasm",
 };
 
 const readmeHtml = `<!doctype html>
@@ -82,7 +101,8 @@ async function serveFile(res: ServerResponse, root: string, relPath: string, imm
   const full = normalize(join(root, relPath));
   if (full !== root && !full.startsWith(root + sep)) return false;
   try {
-    const body = await readFile(full);
+    let body: Buffer | string = await readFile(full);
+    if (POSE_LOCAL && extname(full) === ".html") body = body.toString("utf8").replace("<head>", `<head>${POSE_META}`);
     res.writeHead(200, {
       "content-type": MIME[extname(full)] ?? "application/octet-stream",
       "cache-control": immutable ? "public, max-age=31536000, immutable" : "no-cache",
@@ -112,7 +132,7 @@ const auth = createAuth({
   onProfile: (token) => social.profileChanged(token),
 });
 
-const http = createServer(async (req, res) => {
+const handler: RequestListener = async (req, res) => {
   const url = new URL(req.url ?? "/", "http://localhost");
   let path: string;
   try {
@@ -170,6 +190,18 @@ const http = createServer(async (req, res) => {
     return;
   }
 
+  if (POSE_LOCAL && path.startsWith(`${LOCAL_POSE_PATH}/`)) {
+    // the runtime is versioned with the package and the models never change
+    const [dir, rest] = path.startsWith(`${LOCAL_POSE_PATH}/wasm/`)
+      ? [POSE_WASM_DIR, path.slice(`${LOCAL_POSE_PATH}/wasm/`.length)]
+      : path.startsWith(`${LOCAL_POSE_PATH}/models/`)
+        ? [POSE_MODELS_DIR, path.slice(`${LOCAL_POSE_PATH}/models/`.length)]
+        : [null, ""];
+    if (dir && rest && (await serveFile(res, dir, rest, true))) return;
+    res.writeHead(404).end("not found");
+    return;
+  }
+
   const immutable = path.startsWith("/assets/");
   if (path !== "/" && (await serveFile(res, CLIENT_DIR, path, immutable))) return;
   if (extname(path) === "" && (await serveFile(res, CLIENT_DIR, "index.html"))) return;
@@ -178,7 +210,13 @@ const http = createServer(async (req, res) => {
     return;
   }
   res.writeHead(404).end("not found");
-});
+};
+
+const http = TLS ? createHttpsServer(TLS, handler) : createServer(handler);
+
+// task 39: a device that won't accept LAN mode's certificate fails here,
+// before any request, so say so (the error code only, never who or where)
+if (TLS) http.on("tlsClientError", (e: NodeJS.ErrnoException) => log("tls_error", { code: e.code ?? "unknown" }));
 
 const wss = new WebSocketServer({ noServer: true, maxPayload: 4096 });
 
@@ -198,6 +236,7 @@ http.on("upgrade", (req, socket, head) => {
   // a browser always sends its page's Origin: another site's page may not
   // open a socket that would carry this site's cookies
   if (req.headers.origin !== undefined && !allowedOrigin(req.headers.origin, req.headers.host)) {
+    log("ws_refused", { reason: "origin" });
     socket.write("HTTP/1.1 403 Forbidden\r\n\r\n");
     socket.destroy();
     return;
@@ -392,4 +431,22 @@ setInterval(() => {
   }
 }, HEARTBEAT_MS).unref();
 
-http.listen(PORT, "0.0.0.0", () => log("listening", { port: PORT }));
+http.listen(PORT, HOST, () => {
+  log("listening", { port: PORT, https: TLS !== null });
+  if (!TLS) {
+    if (HOST === "127.0.0.1") console.log(`
+Weblympics is running on this computer only: http://localhost:${PORT}
+`);
+    return;
+  }
+  // task 39: the address other devices on this network open (server/lan-urls.ts)
+  void primaryAddress().then((primary) => {
+    const { share, others } = splitAddresses(ipv4Addresses(), primary);
+    console.log(`\nWeblympics is on your network. Open on this computer: https://localhost:${PORT}`);
+    for (const a of share) console.log(`  On another device on the same wifi: https://${a}:${PORT}`);
+    if (others.length > 0) {
+      console.log(`  (Other adapters on this computer, such as VMs or WSL, only if that one fails: ${others.join(", ")})`);
+    }
+    console.log("");
+  });
+});

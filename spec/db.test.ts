@@ -175,7 +175,7 @@ describe("schema v10 (task 37: ratings are gone)", () => {
     const db = new DatabaseSync(path);
     expect(db.prepare("SELECT version FROM schema_version").get()).toEqual({ version: 9 });
     migrate(db);
-    expect(schemaVersion(db)).toBe(10);
+    expect(schemaVersion(db)).toBe(SCHEMA_VERSION);
     expect(db.prepare("SELECT name FROM sqlite_master WHERE name IN ('ratings', 'ratings_board')").all()).toEqual([]);
     expect(db.prepare("SELECT room, winner, sets FROM matches WHERE room = 'OLD1'").get()).toEqual({ room: "OLD1", winner: 0, sets: "[[6,3]]" });
     db.close();
