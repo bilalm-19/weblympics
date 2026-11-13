@@ -32,6 +32,9 @@ async function start(env: Record<string, string>, port: number): Promise<Server>
   // none of the modes' settings leak in from the shell that runs the spec
   const base: NodeJS.ProcessEnv = { ...process.env, PORT: String(port), DATA_DIR: tmp("local-data") };
   for (const k of ["POSE_FILES", "POSE_MODELS_DIR", "HOST", "TLS_CERT", "TLS_KEY", "LAN_ACCOUNTS"]) delete base[k];
+  // its own tiny client, so this needs no `pnpm build` (CI builds only inside
+  // the Docker image, and the first push failed here on "client is not built")
+  base.CLIENT_DIR = client;
   s.child = spawn(process.execPath, ["server/index.ts"], { env: { ...base, ...env }, stdio: ["ignore", "pipe", "pipe"] });
   s.child.stdout!.on("data", (d) => (s.out += d.toString()));
   s.child.stderr!.on("data", (d) => (s.out += d.toString()));
@@ -44,11 +47,14 @@ async function start(env: Record<string, string>, port: number): Promise<Server>
   return s;
 }
 
+let client = "";
 let local: Server;
 let normal: Server;
 const fakeModel = "a fake pose model, served as it is";
 
 beforeAll(async () => {
+  client = tmp("client");
+  writeFileSync(join(client, "index.html"), "<!doctype html><html><head><title>Weblympics</title></head><body></body></html>");
   const models = tmp("models");
   writeFileSync(join(models, POSE_MODELS.pose.file), fakeModel);
   const port = 20000 + Math.floor(Math.random() * 20000);

@@ -35,7 +35,8 @@ const POSE_MODELS_DIR = resolve(process.env.POSE_MODELS_DIR ?? "models");
 // Fly neither is set: Fly's proxy ends TLS in front of the app.
 const TLS =
   process.env.TLS_CERT && process.env.TLS_KEY ? { cert: readFileSync(process.env.TLS_CERT), key: readFileSync(process.env.TLS_KEY) } : null;
-const CLIENT_DIR = resolve("dist/client");
+// the built client; a spec may point a private server at a folder of its own
+const CLIENT_DIR = resolve(process.env.CLIENT_DIR ?? "dist/client");
 const DOCS_DIR = resolve("docs");
 const HEARTBEAT_MS = 25_000;
 // fly.toml gives the machine 256 MB

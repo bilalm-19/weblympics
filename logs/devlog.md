@@ -2203,3 +2203,8 @@ Merged home-36 (home screen redesign) onto main's tennis-fixes. Checked: no conf
 ## 2026-11-13 20:40 - playtest - wifi multiplayer works from another laptop's Chrome (user tested)
 - What: the "Connecting" seen earlier on the other Windows laptop is gone; the user reports `pnpm lan` working there. The cause of the first failure wasn't found (likely the server restarts during that test). The note about it is removed from README, `docs/lan.md` and task 39; the server keeps its `tls_error` and `ws_refused` log lines for next time.
 - Who: user (tested), Claude (docs).
+
+## 2026-11-13 22:30 - bug - CI's first run failed `spec/local-mode.test.ts` (Claude fixed)
+- What: the spec's private servers served `dist/client`, which exists on the laptop from earlier builds but not on the CI runner (CI builds the client only inside the Docker image), so both answered "client is not built" and 2 tests failed (1260 of 1262).
+- Outcome: the server takes `CLIENT_DIR` (default `dist/client`), and the spec gives its servers a one-page client of its own. Checked by hiding `dist/client` locally: 8 of 8; full `pnpm check` 1262 of 1262.
+- Who: Claude (fixed), found by CI on the user's push.
