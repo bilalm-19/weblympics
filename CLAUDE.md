@@ -3,11 +3,19 @@
 Wii-Tennis-style game in the browser. Two players (or one vs a bot) hit a shared
 ball by swinging in front of their webcam; spectators watch live. The server
 owns the ball and the score. Clients only send swing events and render what the
-server says. Accounts, friends and finished matches persist in SQLite on `/data`; live rooms and parties are in memory, so a restart ends a match in progress.
+server says. Accounts, friends and finished matches persist in SQLite on `/data` (`./data` when run locally); live rooms and parties are in memory, so a restart ends a match in progress.
 
 Brief: https://comp.anu.edu.au/courses/comp4020-agentic-coding-studio/assessments/final-project/
 Fixed by the course: `fly.toml`, `Dockerfile` shape, `spec/invariants.test.ts`
 (`/` returns 200, `/readme/` publishes `README.md`). Never delete those checks.
+
+This copy (user, 2026-11-13): the repo moved from the course org to
+`bilalm-19/weblympics` with its history; the course remote is gone. The user
+develops and hosts on **Windows directly** (Node 24, pnpm 11), not WSL, and
+nothing deploys to Fly from here (`fly.toml` stays, unused). Besides the
+hosted app there are two ways to run it yourself: `pnpm local` (offline, one
+computer, `docs/local.md`) and `pnpm lan` (opt-in wifi multiplayer,
+`docs/lan.md`). README "Run it yourself" compares the three.
 
 ## Stack
 
@@ -28,11 +36,26 @@ lazily and only when a player enters a game. Video never leaves the browser.
 
 - `pnpm build && pnpm start` runs the app on :8080 (`DATA_DIR` overrides
   `./data`). `pnpm check` (typecheck + spec) and `pnpm e2e` need it running.
+- `pnpm local` runs it offline on this computer only (127.0.0.1:8080,
+  `docs/local.md`): it serves the pose runtime and models itself and the
+  page's `connect-src` is `'self'`. `pnpm lan` (opt-in, task 39,
+  `docs/lan.md`) is wifi multiplayer: https on :8443 with a self-signed
+  certificate, recovery codes in place of passkeys, local pose files too.
+  `spec/privacy.test.ts` expects the normal app, so run `pnpm check`
+  against `pnpm start`.
 - `pnpm dev:server` + `pnpm dev:client` for hot reload (vite proxies to :8080).
-  On this `/mnt/c` drive `node --watch` misses edits: restart `dev:server`
-  before `pnpm check`, or the spec runs against the old server.
-- Docker isn't available in this WSL; CI builds the image, so keep the
-  Dockerfile's runtime stage free of dev dependencies.
+  If an edit doesn't show (it didn't under WSL's `/mnt/c`), restart
+  `dev:server` before `pnpm check`, or the spec runs against the old server.
+- The server caches `README.md` at start: restart it after a README edit,
+  or `spec/invariants.test.ts` fails on the new headings.
+- Docker is installed on this Windows machine but CI builds the image, so
+  keep the Dockerfile's runtime stage free of dev dependencies.
+- Windows (2026-11-13): pnpm runs package.json scripts under cmd, so a script
+  must run under both cmd and sh: no `>/dev/null`, `|| true` or `VAR=x cmd`
+  (`spec/prepare-script.test.ts`). In PowerShell set env vars first
+  (`$env:PORT = "82NN"; pnpm start`). Windows won't delete an open file, so a
+  test closes its databases and child servers before removing their folders
+  (`spec/temp.ts`).
 
 ## Docs
 
@@ -116,7 +139,8 @@ scroll, controls reachable, canvas not clipped. Check both for any UI change.
   (SwiftShader), and in parallel several 1080p ones starve the frame rate,
   so the trail and camera tests fail on code that passes alone (measured: 3
   of 48 failed with 4 workers). Re-run a lone failure by itself before
-  calling it a bug. `pnpm e2e:gpu` uses the laptop's GPU (1.8x faster, 48 of
+  calling it a bug. `pnpm e2e:gpu` (WSL only: its `VAR=x` prefix and
+  `/usr/lib/wsl` path don't work on Windows) uses the laptop's GPU (1.8x faster, 48 of
   48 green with 4 workers) but needs visible browser windows under WSLg
   (off-screen and minimised windows still show; headless falls back to
   SwiftShader), which take over the user's screen: only with the user's OK,
@@ -126,11 +150,12 @@ scroll, controls reachable, canvas not clipped. Check both for any UI change.
   pipe into `grep` (the pipe's status is grep's, so red can look green).
 - When another session is editing the tree, stage files by name and check
   the commit against a clean build of HEAD (a `git worktree` on another
-  port), since the shared working tree also builds in their unfinished work. Ask before every push (pushing to main deploys once the repo is public).
+  port), since the shared working tree also builds in their unfinished work. Ask before every push. Until `.github/workflows/checks.yml` loses its Fly deploy job, pushing main to a public repo tries to deploy.
 - Agents: each task is discussed with the user, then
   built by agents, one git worktree and one branch each, never `main`. An
   agent runs its app on its assigned port with its own data folder
-  (`pnpm build && PORT=82NN DATA_DIR=./data-82NN pnpm start`) and always
+  (`pnpm build && PORT=82NN DATA_DIR=./data-82NN pnpm start` in sh; in
+  PowerShell set `$env:PORT` and `$env:DATA_DIR` first) and always
   sets `APP_URL=http://localhost:82NN` for `pnpm check` and `pnpm e2e`:
   without it the tests hit :8080, the user's dev server on `main`, and pass
   or fail on code the agent never ran. Ports: 8080/5173 the user's dev

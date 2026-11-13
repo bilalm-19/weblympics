@@ -32,6 +32,20 @@ Invite a friend by their short **Name#1234** tag, or share a **room code** they 
 ![A party of two with a slot to invite a friend](docs/media/party.png)
 ![The party controls: pick the game, who plays next, and who can find the party](docs/media/party-controls.png)
 
+## Run it yourself
+
+This repository continues the course project on its own GitHub ([bilalm-19/weblympics](https://github.com/bilalm-19/weblympics)). It runs directly on Windows or macOS with Node 24 and pnpm, with no WSL or Docker needed, and nothing deploys automatically from it. There are three ways to play:
+
+| | Who can join | Internet | Certificate warning |
+|---|---|---|---|
+| **Hosted** (`pnpm build && pnpm start` behind a hosting service's https) | anyone with the link | yes | none |
+| **Offline**, `pnpm local` | this computer only | first run only | none |
+| **Wifi multiplayer**, `pnpm lan` (opt-in) | devices on the same wifi | first run only | once per device |
+
+**Offline** is the simple extra. `pnpm local` runs the whole game at http://localhost:8080, to play the bots or try the camera. The first run downloads the camera's two model files (about 14 MB) into `models/`; after that it works with the wifi off. The browser treats `localhost` as secure, so the camera needs no certificate, and the game itself serves the pose runtime and models, so the page talks to nothing but your computer ([`docs/local.md`](docs/local.md)).
+
+**Wifi multiplayer** takes some setup. One computer runs `pnpm lan` and the others open the https address it prints. The other devices reach it by IP address, so it serves https itself with a self-signed certificate it makes, named only "Weblympics LAN". Every device sees a "not private" warning once, and Chrome on other laptops can still get stuck on "Connecting" (not yet solved). Passkeys need a domain name, so accounts here use a one-click local account with a recovery code. Windows and macOS setup, the firewall, and what the warning does and doesn't mean are in [`docs/lan.md`](docs/lan.md).
+
 ## Controls
 
 The webcam is the default, and "Use keyboard instead" is always available.
@@ -55,7 +69,7 @@ https://github.com/user-attachments/assets/62c12614-b6a5-4fbd-aae0-314ca9b8b712
 
 - **Multi-user.** Each browser is its own person, told apart by a cookie the server sets (guest or passkey account). A room has two seats and up to 10 watchers.
 - **Real-time.** Updates are pushed over a WebSocket, so a swing, a score or a friend coming online shows on every screen live, with no reload.
-- **Persistent.** Accounts, friends, settings and finished matches are in SQLite on the Fly volume, so they survive a restart or redeploy. Live rooms and parties are in memory, so a restart ends a match in progress.
+- **Persistent.** Accounts, friends, settings and finished matches are in SQLite on the server's disk (a hosting volume, or `data/` on your computer when you run it yourself), so they survive a restart or redeploy. Live rooms and parties are in memory, so a restart ends a match in progress.
 
 ## What is enforced, and what is judged
 
