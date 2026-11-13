@@ -27,23 +27,50 @@ What made the Wii and Kinect games fun was that they were casual and easy enough
 
 This copy lives on [bilalm-19/weblympics](https://github.com/bilalm-19/weblympics) and runs on Windows or macOS with Node 24 and pnpm. There is no public site for it right now: you run it on your own computer.
 
-| Mode | Command | Who can play | Internet | Browser warning |
+| Mode | Command | Who can play | Needs internet | Browser warning |
 |---|---|---|---|---|
-| **Offline** | `pnpm local` | you, on this computer | first run only | none |
-| **Wifi multiplayer** (opt-in) | `pnpm lan` | devices on your wifi | first run only | once per device |
-| **Hosted** | deploy it yourself (e.g. Fly, Render) | whoever you give the URL | yes | none |
+| **Offline** | `pnpm local` | you, on this computer | only to set up | none |
+| **Wifi multiplayer** (opt-in) | `pnpm lan` | devices on your wifi | only to set up | once per device |
+| **Hosted** | deploy it yourself (e.g. Fly, Render) | whoever you give the URL | always | none |
+
+**Why internet only to set up:** it's needed to download things, once: the code and its packages when you install, and the camera's pose model (about 14 MB) the first time you start. Playing never needs it. The game runs on your computer, the camera's video is processed in your browser, and on wifi the devices talk to the host over the wifi itself, so a router with no internet works. A hosted site needs internet the whole time, because players reach it over the internet.
+
+### Install (once)
+
+You need git, Node 24 and pnpm 11. On Windows, install [Git](https://git-scm.com/downloads/win) and [Node 24](https://nodejs.org/en/download) (choose v24) with their installers. On a Mac, with Homebrew:
+
+```bash
+brew install git node@24
+```
+
+Then, in a terminal (PowerShell on Windows, Terminal on a Mac):
+
+```bash
+npm install -g pnpm@11.9.0
+git clone https://github.com/bilalm-19/weblympics.git
+cd weblympics
+pnpm install
+```
+
+If you use [mise](https://mise.jdx.dev), `mise install` in the folder installs the pinned Node and pnpm instead.
 
 ### Set up offline play
 
-1. Install Node 24 and pnpm, then run `pnpm install` in this folder.
-2. Run `pnpm local` and open http://localhost:8080.
-3. The first run needs internet to download the camera model (about 14 MB). After that it works with the wifi off.
+1. In the `weblympics` folder, run:
+   ```bash
+   pnpm local
+   ```
+2. Open http://localhost:8080.
+3. The first start downloads the camera's pose model (about 14 MB) into `models/`, so be online that once. After that it works with the wifi off.
 
 Details and how it works: [playing offline](docs/local.md).
 
 ### Set up wifi multiplayer
 
-1. On the computer that hosts: install as above, then run `pnpm lan`.
+1. On the computer that hosts, in the `weblympics` folder, run:
+   ```bash
+   pnpm lan
+   ```
 2. Allow Node through the firewall when asked: on Windows choose Private networks (and set your wifi to Private), on a Mac choose Allow.
 3. Everyone else on the same wifi opens the https address it prints, and taps Advanced, then continue, past the one-time warning.
 4. To keep your name, looks and friends, create an account in the profile and save its recovery code.
