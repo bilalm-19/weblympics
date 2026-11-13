@@ -4,20 +4,16 @@ on:
   push:
     branches: [main]
   pull_request:
-  # /ship dispatches a run after flipping the repo public, since the flip
-  # itself triggers no push event.
   workflow_dispatch:
 
-# One deploy at a time, and never cancel one mid-flight.
+# No deploy from this repo (user, 2026-11-13: moved off the course's Fly app),
+# so only the checks run; a newer run on the same ref replaces an older one.
 concurrency:
-  group: deploy
-  cancel-in-progress: false
+  group: checks-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   check:
-    # Runs once the repo is public; until then `pnpm check` is the same
-    # sensors, locally.
-    if: ${{ !github.event.repository.private }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:
@@ -31,8 +27,8 @@ jobs:
           cache: true
       - run: pnpm install --frozen-lockfile
       - name: Build and start the app
-        # the same image Fly deploys, with a throwaway /data in place of the
-        # volume; the spec runs against it
+        # the Dockerfile's image, with a throwaway /data; the spec runs
+        # against it
         run: |
           docker build -t app .
           docker run -d --init --name app -p 8080:8080 -e PORT=8080 --tmpfs /data app
@@ -66,36 +62,3 @@ jobs:
             --config=.github/trufflehog.yml
             --include-detectors=CustomRegex --results=unverified
             --no-verification
-
-  deploy:
-    needs: check
-    # The template repo itself has no Fly app; only student repos deploy.
-    if: ${{ !github.event.repository.private && !github.event.repository.is_template && github.ref == 'refs/heads/main' }}
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    permissions:
-      contents: read
-    # Registers the GitHub Deployment with the live URL. The app is named
-    # after this repo, so the URL needs no lookup.
-    environment:
-      name: fly
-      url: https://${{ github.event.repository.name }}.fly.dev
-    env:
-      FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
-      APP_URL: https://${{ github.event.repository.name }}.fly.dev
-    steps:
-      - uses: actions/checkout@v7
-      - uses: superfly/flyctl-actions/setup-flyctl@ed8efb33836e8b2096c7fd3ba1c8afe303ebbff1 # 1.6
-      - name: Deploy
-        # --remote-only builds the Dockerfile on Fly's builders; --ha=false
-        # keeps the app at one machine and one volume.
-        run: flyctl deploy --remote-only --ha=false -a ${{ github.event.repository.name }}
-      - name: Verify the deployed site is online
-        run: |
-          for i in 1 2 3 4 5; do
-            code=$(curl -s -o /dev/null -w "%{http_code}" "$APP_URL" || true)
-            if [ "$code" = "200" ]; then echo "online: $APP_URL"; exit 0; fi
-            echo "attempt $i: HTTP $code, retrying in 10s..."
-            sleep 10
-          done
-          echo "site did not return 200"; exit 1

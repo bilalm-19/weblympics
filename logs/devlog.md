@@ -2195,3 +2195,7 @@ Merged home-36 (home screen redesign) onto main's tennis-fixes. Checked: no conf
 - What: `pnpm local` on the Windows laptop, wifi off, camera on: the model loaded from the laptop and moves registered, with no certificate warning (plain http://localhost).
 - Outcome: the offline extra is done. The warning remains only in `pnpm lan` (other devices reach the host by IP address).
 - Who: user (tested), Claude (logged).
+
+## 2026-11-13 20:15 - decision - CI deploys nothing (user asked, Claude changed)
+- What: `.github/workflows/checks.yml` lost the course's Fly deploy job; the checks now run on private repos too, and a newer run on the same ref cancels an older one.
+- Who: user (asked), Claude (changed).

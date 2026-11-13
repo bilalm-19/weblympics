@@ -150,7 +150,7 @@ scroll, controls reachable, canvas not clipped. Check both for any UI change.
   pipe into `grep` (the pipe's status is grep's, so red can look green).
 - When another session is editing the tree, stage files by name and check
   the commit against a clean build of HEAD (a `git worktree` on another
-  port), since the shared working tree also builds in their unfinished work. Ask before every push. Until `.github/workflows/checks.yml` loses its Fly deploy job, pushing main to a public repo tries to deploy.
+  port), since the shared working tree also builds in their unfinished work. Ask before every push. Pushing runs `.github/workflows/checks.yml` (the spec against the Docker image, secret scans); it deploys nothing.
 - Agents: each task is discussed with the user, then
   built by agents, one git worktree and one branch each, never `main`. An
   agent runs its app on its assigned port with its own data folder
